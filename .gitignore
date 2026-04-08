@@ -25,6 +25,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Temp / seed data (not part of the build)
+temp/
+
 # Debug
 npm-debug.log*
 pnpm-debug.log*

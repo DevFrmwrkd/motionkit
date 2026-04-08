@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getOrCreate = mutation({
@@ -39,6 +39,24 @@ export const getByEmail = query({
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
+  },
+});
+
+/**
+ * Internal-only: returns the raw (still-encrypted) API key fields.
+ * The render action decrypts these using convex/lib/encryption.ts.
+ */
+export const getApiKeys = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+    return {
+      modalApiKey: user.modalApiKey ?? null,
+      awsAccessKeyId: user.awsAccessKeyId ?? null,
+      awsSecretAccessKey: user.awsSecretAccessKey ?? null,
+      awsRegion: user.awsRegion ?? null,
+    };
   },
 });
 
