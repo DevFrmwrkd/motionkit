@@ -1,0 +1,30 @@
+{
+  "name": "motionkit",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter app dev\" \"npx convex dev\"",
+    "dev:app": "pnpm --filter app dev",
+    "dev:convex": "npx convex dev",
+    "build": "pnpm --filter app build",
+    "deploy": "npx convex deploy && pnpm build",
+    "preset:build": "tsx scripts/build-preset.ts",
+    "preset:upload": "tsx scripts/upload-preset.ts",
+    "lint": "pnpm --filter app lint"
+  },
+  "dependencies": {
+    "convex": "^1.21.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

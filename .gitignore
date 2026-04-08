@@ -1,0 +1,32 @@
+node_modules/
+.next/
+.turbo/
+dist/
+out/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Convex
+convex/_generated/
+
+# Renders & media
+*.mp4
+*.webm
+*.mov
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+._*
