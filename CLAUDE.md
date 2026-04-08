@@ -11,7 +11,7 @@ MotionKit is a Remotion-powered motion graphics marketplace and workstation. Use
 - **Video**: Remotion + @remotion/player for preview, @remotion/cli for rendering
 - **Storage**: Cloudflare R2 (zero egress, CDN-cached preset bundles)
 - **Rendering**: Modal API (BYOK) or Remotion Lambda (alt)
-- **UI**: Shadcn/UI (to be initialized), lucide-react icons, react-colorful, framer-motion
+- **UI**: Shadcn/UI (initialized, 14 components), lucide-react icons, react-colorful, framer-motion
 
 ## Project Structure
 
@@ -79,11 +79,36 @@ npx convex dev --once # Push Convex functions once
 
 ## Build Phases
 
-Current status: **Setup complete, Phase 1 not started.**
+Current status: **UI scaffolded, Phase 1 wiring needed.**
 
-### Phase 1 — Core Render Loop (NEXT)
-Build one hardcoded preset, Remotion Player preview, render via Modal, download .mp4.
-- Deliverable: Type text → see preview → click render → watch progress → download video
+### Phase 1 — Core Render Loop (NEXT — what to build)
+All UI components and hooks are scaffolded. The next agent needs to **wire them together**:
+
+1. **Wire the workstation page** (`app/src/app/workstation/page.tsx`):
+   - Import the text-title preset from `presets/text-title/index.tsx`
+   - Pass its `.component` to `PresetPlayer`, `.schema` to `SchemaForm`
+   - Use `usePresetProps(schema)` hook to manage form state
+   - Connect render button to `api.renderJobs.create` mutation
+   - Subscribe to render queue via `useRenderQueue(userId)`
+
+2. **Implement render dispatch** (`convex/actions/renderWithModal.ts`):
+   - Convex action that picks up queued jobs and calls Modal API
+   - For initial testing: mock render (simulate progress, return dummy URL)
+
+3. **Test the flow**: type text → preview updates → click render → queue updates → download
+
+Components ready to use:
+- `PresetPlayer` — Remotion Player wrapper (just pass component + props + meta)
+- `SchemaForm` — auto-generates form from schema (text, color, number, toggle, select)
+- `RenderQueue` — shows job list with progress bars + download links
+- `PresetLibrary` — preset browser with search + category filters
+- `InputControls` — wraps SchemaForm + render button
+- `PreviewPanel` — wraps PresetPlayer + RenderQueue
+
+Hooks ready:
+- `usePresetProps(schema)` — manages form values with defaults + reset
+- `useRenderQueue(userId)` — Convex reactive subscription to render jobs
+- `usePresetLibrary(category?)` — fetches preset list from Convex
 
 ### Phase 2 — Preset Contract + Dynamic Loader
 Runtime preset loading from R2, schema-driven form generator. 4 diverse presets.
@@ -100,8 +125,34 @@ Self-hosted render tier on Hetzner VPS, pay-per-render.
 ## Pending Setup
 
 - **Cloudflare R2**: Wrangler needs re-auth (`wrangler login`), then create `motionkit-assets` bucket
-- **Shadcn/UI**: Not yet initialized — run `pnpm dlx shadcn@latest init` in `/app`
 - **Auth**: Not yet configured (Convex built-in auth or Clerk)
+
+## What's Already Built
+
+### UI Components (Shadcn/UI initialized + 14 components)
+`button`, `input`, `label`, `slider`, `select`, `switch`, `tabs`, `card`, `badge`, `dialog`, `separator`, `scroll-area`, `progress`, `tooltip`
+
+### Custom Components
+- `app/src/components/preset/PresetPlayer.tsx` — Remotion Player wrapper
+- `app/src/components/preset/SchemaForm.tsx` — Schema-driven form (text/color/number/toggle/select/image)
+- `app/src/components/workstation/PresetLibrary.tsx` — Left panel preset browser
+- `app/src/components/workstation/PreviewPanel.tsx` — Center panel (player + queue)
+- `app/src/components/workstation/InputControls.tsx` — Right panel (form + render button)
+- `app/src/components/workstation/RenderQueue.tsx` — Render job status list
+
+### Hooks
+- `app/src/hooks/usePresetProps.ts` — Form state from schema defaults
+- `app/src/hooks/useRenderQueue.ts` — Convex reactive render job subscription
+- `app/src/hooks/usePresetLibrary.ts` — Preset list query
+
+### Presets
+- `presets/_template/` — Blank starter preset
+- `presets/text-title/` — Animated text title (ready for Phase 1)
+
+### Pages (routes)
+- `/` — Landing page with nav to workstation
+- `/workstation` — Three-panel layout (scaffolded, needs wiring)
+- `/settings` — BYOK key management page (scaffolded)
 
 ## Style
 
