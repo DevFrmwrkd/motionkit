@@ -28,6 +28,9 @@ const categories = [
   { value: "cta", label: "CTA" },
   { value: "transition", label: "Transition" },
   { value: "outro", label: "Outro" },
+  { value: "chart", label: "Chart" },
+  { value: "map", label: "Map" },
+  { value: "social", label: "Social" },
 ] as const;
 
 /**

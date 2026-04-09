@@ -1,19 +1,37 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
+
+// ─── Shared Validators ───────────────────────────────────────
+
+export const categoryValidator = v.union(
+  v.literal("intro"),
+  v.literal("title"),
+  v.literal("lower-third"),
+  v.literal("cta"),
+  v.literal("transition"),
+  v.literal("outro"),
+  v.literal("full"),
+  v.literal("chart"),
+  v.literal("map"),
+  v.literal("social")
+);
+
+export const statusValidator = v.union(
+  v.literal("draft"),
+  v.literal("published"),
+  v.literal("archived")
+);
+
+// ─── Schema ──────────────────────────────────────────────────
 
 export default defineSchema({
+  ...authTables,
+
   presets: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
-    category: v.union(
-      v.literal("intro"),
-      v.literal("title"),
-      v.literal("lower-third"),
-      v.literal("cta"),
-      v.literal("transition"),
-      v.literal("outro"),
-      v.literal("full")
-    ),
+    category: categoryValidator,
     tags: v.array(v.string()),
     author: v.optional(v.string()),
     authorId: v.optional(v.id("users")),
@@ -27,6 +45,8 @@ export default defineSchema({
     durationInFrames: v.number(),
 
     inputSchema: v.string(),
+    sourceCode: v.optional(v.string()),
+    generationId: v.optional(v.id("aiGenerations")),
 
     thumbnailUrl: v.optional(v.string()),
     previewVideoUrl: v.optional(v.string()),
@@ -37,43 +57,76 @@ export default defineSchema({
     isPremium: v.optional(v.boolean()),
     price: v.optional(v.number()),
 
-    status: v.union(
-      v.literal("draft"),
-      v.literal("published"),
-      v.literal("archived")
-    ),
+    // Voting
+    upvotes: v.optional(v.number()),
+    downvotes: v.optional(v.number()),
+    voteScore: v.optional(v.number()),
+    viewCount: v.optional(v.number()),
+
+    // Versioning
+    parentPresetId: v.optional(v.id("presets")),
+    rootPresetId: v.optional(v.id("presets")),
+    versionLabel: v.optional(v.string()),
+    cloneCount: v.optional(v.number()),
+
+    status: statusValidator,
   })
     .index("by_category", ["category"])
     .index("by_status", ["status"])
     .index("by_author", ["authorId"])
+    .index("by_parent", ["parentPresetId"])
+    .index("by_root", ["rootPresetId"])
+    .index("by_public_status", ["isPublic", "status"])
     .searchIndex("search_presets", {
       searchField: "name",
       filterFields: ["category", "status", "isPublic"],
     }),
 
   users: defineTable({
-    name: v.string(),
-    email: v.string(),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    role: v.union(
-      v.literal("user"),
-      v.literal("creator"),
-      v.literal("admin")
+    role: v.optional(
+      v.union(v.literal("user"), v.literal("creator"), v.literal("admin"))
     ),
 
+    // API keys (encrypted)
     modalApiKey: v.optional(v.string()),
     awsAccessKeyId: v.optional(v.string()),
     awsSecretAccessKey: v.optional(v.string()),
     awsRegion: v.optional(v.string()),
 
-    externalId: v.optional(v.string()),
+    // AI provider keys (user's own keys)
+    geminiApiKey: v.optional(v.string()),
+    anthropicApiKey: v.optional(v.string()),
+
+    // Auth
+    tokenIdentifier: v.optional(v.string()),
+
+    // Profile
+    bio: v.optional(v.string()),
+    website: v.optional(v.string()),
+    socialLinks: v.optional(
+      v.object({
+        twitter: v.optional(v.string()),
+        github: v.optional(v.string()),
+        youtube: v.optional(v.string()),
+      })
+    ),
+    isPublicProfile: v.optional(v.boolean()),
+
+    // Billing
     plan: v.optional(
       v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise"))
     ),
     renderCredits: v.optional(v.number()),
+
+    // AI quota
+    dailyGenerations: v.optional(v.number()),
+    lastGenerationDate: v.optional(v.string()),
   })
     .index("by_email", ["email"])
-    .index("by_externalId", ["externalId"]),
+    .index("by_tokenIdentifier", ["tokenIdentifier"]),
 
   collections: defineTable({
     name: v.string(),
@@ -135,4 +188,42 @@ export default defineSchema({
       })
     ),
   }).index("by_user", ["userId"]),
+
+  // ─── AI Generation ──────────────────────────────────────────
+
+  aiGenerations: defineTable({
+    userId: v.id("users"),
+    prompt: v.string(),
+    category: v.optional(categoryValidator),
+    referenceImageId: v.optional(v.id("_storage")),
+    provider: v.union(v.literal("gemini"), v.literal("claude")),
+
+    status: v.union(
+      v.literal("generating"),
+      v.literal("complete"),
+      v.literal("failed")
+    ),
+
+    generatedCode: v.optional(v.string()),
+    generatedSchema: v.optional(v.string()),
+    generatedMeta: v.optional(v.string()),
+    error: v.optional(v.string()),
+
+    parentGenerationId: v.optional(v.id("aiGenerations")),
+    iterationNumber: v.optional(v.number()),
+    tokensUsed: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"]),
+
+  // ─── Voting ─────────────────────────────────────────────────
+
+  votes: defineTable({
+    userId: v.id("users"),
+    presetId: v.id("presets"),
+    value: v.number(), // +1 or -1
+    createdAt: v.number(),
+  })
+    .index("by_user_preset", ["userId", "presetId"])
+    .index("by_preset", ["presetId"]),
 });

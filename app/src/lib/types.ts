@@ -35,7 +35,10 @@ export interface PresetMeta {
     | "cta"
     | "transition"
     | "outro"
-    | "full";
+    | "full"
+    | "chart"
+    | "map"
+    | "social";
   tags?: string[];
   author?: string;
   fps: number;

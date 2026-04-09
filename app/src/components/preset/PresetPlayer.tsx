@@ -35,6 +35,7 @@ export function PresetPlayer({
         controls
         autoPlay
         loop
+        acknowledgeRemotionLicense
       />
     </div>
   );

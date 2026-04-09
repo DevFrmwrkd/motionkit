@@ -58,15 +58,14 @@ export const meta: PresetMeta = {
   durationInFrames: 150,
 };
 
-export const Component: React.FC<Record<string, unknown>> = ({
-  channelName = schema.channelName.default,
-  tagline = schema.tagline.default,
-  showSocials = schema.showSocials.default,
-  socialHandle = schema.socialHandle.default,
-  accentColor = schema.accentColor.default,
-  bgColor = schema.bgColor.default,
-  cardColor = schema.cardColor.default,
-}) => {
+export const Component: React.FC<Record<string, unknown>> = (props) => {
+  const channelName = (props.channelName ?? schema.channelName.default) as string;
+  const tagline = (props.tagline ?? schema.tagline.default) as string;
+  const showSocials = (props.showSocials ?? schema.showSocials.default) as boolean;
+  const socialHandle = (props.socialHandle ?? schema.socialHandle.default) as string;
+  const accentColor = (props.accentColor ?? schema.accentColor.default) as string;
+  const bgColor = (props.bgColor ?? schema.bgColor.default) as string;
+  const cardColor = (props.cardColor ?? schema.cardColor.default) as string;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
@@ -102,7 +101,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: bgColor as string,
+        backgroundColor: bgColor,
         justifyContent: "center",
         alignItems: "center",
         opacity: fadeOut,
@@ -119,7 +118,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
             width: p.size,
             height: p.size,
             borderRadius: "50%",
-            backgroundColor: accentColor as string,
+            backgroundColor: accentColor,
             opacity: p.opacity,
           }}
         />
@@ -128,14 +127,14 @@ export const Component: React.FC<Record<string, unknown>> = ({
       {/* Card */}
       <div
         style={{
-          backgroundColor: cardColor as string,
+          backgroundColor: cardColor,
           borderRadius: 24,
           padding: "60px 80px",
           textAlign: "center",
           transform: `scale(${cardScale})`,
           opacity: cardOpacity,
-          border: `1px solid ${accentColor as string}22`,
-          boxShadow: `0 0 80px ${accentColor as string}11`,
+          border: `1px solid ${accentColor}22`,
+          boxShadow: `0 0 80px ${accentColor}11`,
           minWidth: 600,
         }}
       >
@@ -152,7 +151,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
             letterSpacing: 3,
           }}
         >
-          {channelName as string}
+          {channelName}
         </h1>
 
         {/* Tagline */}
@@ -165,7 +164,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
             marginTop: 12,
           }}
         >
-          {tagline as string}
+          {tagline}
         </p>
 
         {/* Divider */}
@@ -173,7 +172,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
           style={{
             width: dividerWidth,
             height: 3,
-            backgroundColor: accentColor as string,
+            backgroundColor: accentColor,
             margin: "24px auto",
             borderRadius: 2,
           }}
@@ -183,14 +182,14 @@ export const Component: React.FC<Record<string, unknown>> = ({
         {showSocials && (
           <p
             style={{
-              color: accentColor as string,
+              color: accentColor,
               fontSize: 20,
               fontFamily: "sans-serif",
               opacity: socialOpacity,
               letterSpacing: 2,
             }}
           >
-            {socialHandle as string}
+            {socialHandle}
           </p>
         )}
       </div>

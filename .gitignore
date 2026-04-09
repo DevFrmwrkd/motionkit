@@ -33,3 +33,5 @@ npm-debug.log*
 pnpm-debug.log*
 .DS_Store
 ._*
+.vercel
+app/.open-next/

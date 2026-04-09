@@ -1,18 +1,41 @@
-import { z } from "zod";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import type { PresetSchema, PresetMeta, PresetExport } from "@/lib/types";
 
-export const helloWorldSchema = z.object({
-  titleText: z.string().describe("Text to display").default("Hello World"),
-  titleColor: z.string().describe("Color of the text").default("#ffffff"),
-  backgroundColor: z.string().describe("Background color").default("#000000"),
-});
+export const schema: PresetSchema = {
+  titleText: {
+    type: "text",
+    label: "Text to display",
+    default: "MotionKit",
+    group: "Typography",
+  },
+  titleColor: {
+    type: "color",
+    label: "Text Color",
+    default: "#ffffff",
+    group: "Typography",
+  },
+  backgroundColor: {
+    type: "color",
+    label: "Background",
+    default: "#09090b",
+    group: "Background",
+  },
+};
 
-export type HelloWorldProps = z.infer<typeof helloWorldSchema>;
+export const meta: PresetMeta = {
+  name: "Hello World",
+  description: "A simple animated title preset",
+  category: "title",
+  fps: 30,
+  width: 1920,
+  height: 1080,
+  durationInFrames: 150,
+};
 
-export const HelloWorld: React.FC<HelloWorldProps> = ({
-  titleText,
-  titleColor,
-  backgroundColor,
+export const Component: React.FC<Record<string, unknown>> = ({
+  titleText = schema.titleText.default,
+  titleColor = schema.titleColor.default,
+  backgroundColor = schema.backgroundColor.default,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -32,10 +55,10 @@ export const HelloWorld: React.FC<HelloWorldProps> = ({
   });
 
   return (
-    <AbsoluteFill style={{ backgroundColor, justifyContent: "center", alignItems: "center" }}>
+    <AbsoluteFill style={{ backgroundColor: backgroundColor as string, justifyContent: "center", alignItems: "center" }}>
       <h1
         style={{
-          color: titleColor,
+          color: titleColor as string,
           opacity,
           transform: `scale(${scale})`,
           fontSize: "100px",
@@ -43,8 +66,16 @@ export const HelloWorld: React.FC<HelloWorldProps> = ({
           fontFamily: "sans-serif",
         }}
       >
-        {titleText}
+        {titleText as string}
       </h1>
     </AbsoluteFill>
   );
 };
+
+const preset: PresetExport = {
+  schema,
+  meta,
+  component: Component,
+};
+
+export default preset;
