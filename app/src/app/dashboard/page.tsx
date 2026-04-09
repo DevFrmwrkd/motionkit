@@ -49,19 +49,26 @@ export default function DashboardPage() {
 
 function DashboardContent({ userId, userName }: { userId: Id<"users">; userName: string }) {
   const myPresets = useQuery(api.presets.listByUser, { userId });
+  const savedPresets = useQuery(api.savedPresets.listByUser, { userId });
   const collections = useQuery(api.collections.listByUser, { userId });
   const renderJobs = useQuery(api.renderJobs.listByUser, { userId });
   const generations = useQuery(api.aiGeneration.listByUser, { userId });
+  const allPresets = useQuery(api.presets.list, { viewerId: userId });
 
   const totalDownloads = useMemo(
     () => (myPresets ?? []).reduce((sum, p) => sum + (p.downloads ?? 0), 0),
     [myPresets]
   );
+  const presetNameById = useMemo(
+    () => new Map((allPresets ?? []).map((preset) => [preset._id, preset.name])),
+    [allPresets]
+  );
 
   const stats = [
     { label: "My Presets", value: myPresets?.length ?? 0, icon: Film },
+    { label: "Saved Variants", value: savedPresets?.length ?? 0, icon: Folder },
     { label: "Total Downloads", value: totalDownloads, icon: Download },
-    { label: "Collections", value: collections?.length ?? 0, icon: Folder },
+    { label: "Collections", value: collections?.length ?? 0, icon: LayoutGrid },
     { label: "AI Generations", value: generations?.length ?? 0, icon: Sparkles },
   ];
 
@@ -148,7 +155,7 @@ function DashboardContent({ userId, userName }: { userId: Id<"users">; userName:
                   </Link>
                 </div>
               ) : (
-                myPresets.slice(0, 5).map((preset) => (
+                myPresets.map((preset) => (
                   <Link
                     key={preset._id}
                     href={`/workstation?presetId=${preset._id}`}
@@ -177,6 +184,53 @@ function DashboardContent({ userId, userName }: { userId: Id<"users">; userName:
             </CardContent>
           </Card>
 
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base font-semibold">Saved Variants</CardTitle>
+              <Link href="/workstation">
+                <Button variant="ghost" size="sm" className="text-xs text-zinc-400">
+                  Open Workstation
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {savedPresets === undefined ? (
+                <div className="py-4 text-center text-zinc-500 text-sm">Loading...</div>
+              ) : savedPresets.length === 0 ? (
+                <div className="py-8 text-center space-y-2">
+                  <p className="text-sm text-zinc-500">No saved variants yet</p>
+                  <p className="text-xs text-zinc-600">
+                    Save customized presets from the workstation to reuse them later.
+                  </p>
+                </div>
+              ) : (
+                savedPresets.slice(0, 5).map((item) => (
+                  <Link
+                    key={item._id}
+                    href={`/workstation?savedPresetId=${item._id}`}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Folder className="w-4 h-4 text-violet-400" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-zinc-200 truncate">{item.name}</p>
+                        <p className="text-xs text-zinc-500 truncate">
+                          {presetNameById.get(item.presetId) ?? "Original preset"}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-zinc-400 border-zinc-700">
+                      Variant
+                    </Badge>
+                  </Link>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mt-6">
+
           {/* Recent Renders */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -204,7 +258,7 @@ function DashboardContent({ userId, userName }: { userId: Id<"users">; userName:
                       <Clock className="w-4 h-4 text-zinc-500" />
                       <div>
                         <p className="text-sm font-medium text-zinc-200 truncate max-w-[200px]">
-                          {job.bundleUrl}
+                          {presetNameById.get(job.presetId) ?? job.bundleUrl}
                         </p>
                         <p className="text-xs text-zinc-500">
                           {job.startedAt

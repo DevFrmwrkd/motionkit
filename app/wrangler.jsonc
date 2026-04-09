@@ -1,5 +1,23 @@
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "motionkit",
+  "main": ".open-next/worker.js",
   "compatibility_date": "2025-04-01",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "motionkit"
+    }
+  ],
+  "vars": {
+    "NEXT_PUBLIC_CONVEX_URL": "https://adventurous-buffalo-435.convex.cloud"
+  }
 }

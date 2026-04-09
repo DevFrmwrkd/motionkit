@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -47,6 +47,7 @@ function getInitials(name?: string | null): string {
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAuthenticated, isLoading, isDemoMode } = useCurrentUser();
   const { signOut } = useAuthActions();
 
@@ -122,11 +123,11 @@ export function SiteHeader() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem render={<Link href="/dashboard" />}>
+                  <DropdownMenuItem onClick={() => router.push("/dashboard")}>
                     <LayoutDashboard className="size-4" />
                     Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuItem render={<Link href="/settings" />}>
+                  <DropdownMenuItem onClick={() => router.push("/settings")}>
                     <Settings className="size-4" />
                     Settings
                   </DropdownMenuItem>

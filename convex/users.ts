@@ -1,5 +1,29 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAuthorizedUser } from "./lib/authz";
+
+function stripPrivateUserFields<T extends Record<string, unknown>>(user: T | null) {
+  if (!user) return null;
+
+  const {
+    modalApiKey,
+    awsAccessKeyId,
+    awsSecretAccessKey,
+    awsRegion,
+    geminiApiKey,
+    anthropicApiKey,
+    ...safeUser
+  } = user;
+
+  void modalApiKey;
+  void awsAccessKeyId;
+  void awsSecretAccessKey;
+  void awsRegion;
+  void geminiApiKey;
+  void anthropicApiKey;
+
+  return safeUser;
+}
 
 /**
  * Get the currently authenticated user.
@@ -128,17 +152,19 @@ export const createOrUpdateFromAuth = mutation({
 export const get = query({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return stripPrivateUserFields(await ctx.db.get(args.id));
   },
 });
 
 export const getByEmail = query({
   args: { email: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
+
+    return stripPrivateUserFields(user);
   },
 });
 
@@ -152,7 +178,16 @@ export const getApiKeys = internalQuery({
       awsAccessKeyId: user.awsAccessKeyId ?? null,
       awsSecretAccessKey: user.awsSecretAccessKey ?? null,
       awsRegion: user.awsRegion ?? null,
+      geminiApiKey: user.geminiApiKey ?? null,
+      anthropicApiKey: user.anthropicApiKey ?? null,
     };
+  },
+});
+
+export const getPrivateById = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });
 
@@ -168,6 +203,7 @@ export const updateApiKeys = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, ...keys } = args;
+    await requireAuthorizedUser(ctx, userId);
     const updates: Record<string, string | undefined> = {};
     for (const [key, value] of Object.entries(keys)) {
       if (value !== undefined) {
@@ -195,6 +231,7 @@ export const updateProfile = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, ...fields } = args;
+    await requireAuthorizedUser(ctx, userId);
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) {

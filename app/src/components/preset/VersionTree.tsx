@@ -45,7 +45,6 @@ export function VersionTree({ presetId }: VersionTreeProps) {
             isActive={v._id === presetId}
             isRoot={false}
             cloneCount={v.cloneCount ?? 0}
-            author={v.author}
           />
         </div>
       ))}
@@ -59,14 +58,12 @@ function VersionNode({
   isActive,
   isRoot,
   cloneCount,
-  author,
 }: {
   name: string;
   id: string;
   isActive: boolean;
   isRoot: boolean;
   cloneCount: number;
-  author?: string;
 }) {
   return (
     <Link

@@ -1,6 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { categoryValidator } from "./lib/validators";
+import { requireAuthorizedUser } from "./lib/authz";
 
 export const create = mutation({
   args: {
@@ -12,8 +13,18 @@ export const create = mutation({
     parentGenerationId: v.optional(v.id("aiGenerations")),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
+    const parentGeneration = args.parentGenerationId
+      ? await ctx.db.get(args.parentGenerationId)
+      : null;
+
+    if (parentGeneration && parentGeneration.userId !== args.userId) {
+      throw new Error("You can only iterate on your own generations");
+    }
+
     const iterationNumber = args.parentGenerationId
-      ? ((await ctx.db.get(args.parentGenerationId))?.iterationNumber ?? 0) + 1
+      ? (parentGeneration?.iterationNumber ?? 0) + 1
       : 1;
 
     return await ctx.db.insert("aiGenerations", {
@@ -27,6 +38,17 @@ export const create = mutation({
 export const get = query({
   args: { id: v.id("aiGenerations") },
   handler: async (ctx, args) => {
+    const generation = await ctx.db.get(args.id);
+    if (!generation) return null;
+
+    await requireAuthorizedUser(ctx, generation.userId);
+    return generation;
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { id: v.id("aiGenerations") },
+  handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
 });
@@ -34,6 +56,8 @@ export const get = query({
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     return await ctx.db
       .query("aiGenerations")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -42,7 +66,7 @@ export const listByUser = query({
   },
 });
 
-export const markComplete = mutation({
+export const markComplete = internalMutation({
   args: {
     generationId: v.id("aiGenerations"),
     generatedCode: v.string(),
@@ -59,7 +83,7 @@ export const markComplete = mutation({
   },
 });
 
-export const markFailed = mutation({
+export const markFailed = internalMutation({
   args: {
     generationId: v.id("aiGenerations"),
     error: v.string(),

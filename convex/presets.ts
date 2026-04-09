@@ -1,26 +1,46 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { categoryValidator, statusValidator } from "./lib/validators";
+import {
+  canAccessPreset,
+  filterVisiblePresets,
+  requireAuthorizedUser,
+} from "./lib/authz";
+
+function sortNewestFirst<T extends { _creationTime?: number }>(items: T[]) {
+  return items.sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
+}
 
 export const list = query({
   args: {
     category: v.optional(categoryValidator),
     status: v.optional(statusValidator),
+    viewerId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    if (args.category) {
-      return await ctx.db
-        .query("presets")
-        .withIndex("by_category", (q) => q.eq("category", args.category!))
-        .collect();
+    const presets = await ctx.db.query("presets").collect();
+    if (args.viewerId) {
+      await requireAuthorizedUser(ctx, args.viewerId);
     }
-    if (args.status) {
-      return await ctx.db
-        .query("presets")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .collect();
-    }
-    return await ctx.db.query("presets").collect();
+
+    const visiblePresets = filterVisiblePresets(presets, args.viewerId);
+    const filtered = visiblePresets.filter((preset) => {
+      if (args.category && preset.category !== args.category) {
+        return false;
+      }
+
+      if (args.status && preset.status !== args.status) {
+        return false;
+      }
+
+      if (!args.viewerId) {
+        return preset.isPublic && preset.status === "published";
+      }
+
+      return true;
+    });
+
+    return sortNewestFirst(filtered);
   },
 });
 
@@ -80,9 +100,19 @@ export const listMarketplace = query({
 });
 
 export const get = query({
-  args: { id: v.id("presets") },
+  args: {
+    id: v.id("presets"),
+    viewerId: v.optional(v.id("users")),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    if (args.viewerId) {
+      await requireAuthorizedUser(ctx, args.viewerId);
+    }
+
+    const preset = await ctx.db.get(args.id);
+    if (!preset) return null;
+
+    return canAccessPreset(preset, args.viewerId) ? preset : null;
   },
 });
 
@@ -107,6 +137,10 @@ export const create = mutation({
     status: statusValidator,
   },
   handler: async (ctx, args) => {
+    if (args.authorId) {
+      await requireAuthorizedUser(ctx, args.authorId);
+    }
+
     return await ctx.db.insert("presets", {
       ...args,
       downloads: 0,
@@ -131,6 +165,7 @@ export const getByBundleUrl = query({
 export const update = mutation({
   args: {
     id: v.id("presets"),
+    userId: v.id("users"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     category: v.optional(categoryValidator),
@@ -152,7 +187,14 @@ export const update = mutation({
     versionLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, ...fields } = args;
+    const { id, userId, ...fields } = args;
+    const preset = await ctx.db.get(id);
+    if (!preset) {
+      throw new Error("Preset not found");
+    }
+    if (!preset.authorId || preset.authorId !== userId) {
+      throw new Error("You can only edit presets you own");
+    }
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) {
@@ -164,8 +206,17 @@ export const update = mutation({
 });
 
 export const archive = mutation({
-  args: { id: v.id("presets") },
+  args: {
+    id: v.id("presets"),
+    userId: v.id("users"),
+  },
   handler: async (ctx, args) => {
+    const preset = await ctx.db.get(args.id);
+    if (!preset) throw new Error("Preset not found");
+    if (!preset.authorId || preset.authorId !== args.userId) {
+      throw new Error("You can only archive presets you own");
+    }
+    await requireAuthorizedUser(ctx, args.userId);
     await ctx.db.patch(args.id, { status: "archived" });
   },
 });
@@ -198,7 +249,7 @@ export const search = query({
     return await ctx.db
       .query("presets")
       .withSearchIndex("search_presets", (q) =>
-        q.search("name", args.query).eq("status", "published")
+        q.search("name", args.query).eq("status", "published").eq("isPublic", true)
       )
       .collect();
   },
@@ -213,8 +264,13 @@ export const clonePreset = mutation({
     versionLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     const source = await ctx.db.get(args.sourcePresetId);
     if (!source) throw new Error("Source preset not found");
+    if (!canAccessPreset(source, args.userId)) {
+      throw new Error("You can only clone public presets or presets you own");
+    }
 
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
@@ -261,14 +317,23 @@ export const clonePreset = mutation({
 });
 
 export const getVersionTree = query({
-  args: { presetId: v.id("presets") },
+  args: {
+    presetId: v.id("presets"),
+    viewerId: v.optional(v.id("users")),
+  },
   handler: async (ctx, args) => {
+    if (args.viewerId) {
+      await requireAuthorizedUser(ctx, args.viewerId);
+    }
+
     const preset = await ctx.db.get(args.presetId);
     if (!preset) return null;
+    if (!canAccessPreset(preset, args.viewerId)) return null;
 
     const rootId = preset.rootPresetId ?? args.presetId;
     const root = rootId === args.presetId ? preset : await ctx.db.get(rootId);
     if (!root) return null;
+    if (!canAccessPreset(root, args.viewerId)) return null;
 
     // Get all presets in this tree
     const allVersions = await ctx.db
@@ -277,16 +342,20 @@ export const getVersionTree = query({
       .collect();
 
     // Include the root itself
-    return { root, versions: allVersions };
+    return { root, versions: filterVisiblePresets(allVersions, args.viewerId) };
   },
 });
 
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    await requireAuthorizedUser(ctx, args.userId);
+
+    const presets = await ctx.db
       .query("presets")
       .withIndex("by_author", (q) => q.eq("authorId", args.userId))
       .collect();
+
+    return sortNewestFirst(presets);
   },
 });

@@ -57,7 +57,7 @@ export const Component: React.FC<Record<string, unknown>> = ({
   waveSpeed = schema.waveSpeed.default,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { durationInFrames } = useVideoConfig();
 
   const progress = frame / durationInFrames;
   const angle = interpolate(frame, [0, durationInFrames], [0, 360 * (waveSpeed as number)]);

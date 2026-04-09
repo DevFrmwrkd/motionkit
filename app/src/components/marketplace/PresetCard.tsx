@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,10 +70,13 @@ export function PresetCard({
         {/* Thumbnail area */}
         <div className="aspect-video relative overflow-hidden border-b border-zinc-800">
           {preset.thumbnailUrl ? (
-            <img
+            <Image
               src={preset.thumbnailUrl}
               alt={preset.name}
-              className="w-full h-full object-cover"
+              fill
+              sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              className="object-cover"
+              unoptimized
             />
           ) : (
             <div

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -87,10 +88,13 @@ export function ReferenceImageUpload({
     return (
       <div className="relative group">
         {preview ? (
-          <img
+          <Image
             src={preview}
             alt="Reference"
+            width={768}
+            height={192}
             className="w-full h-24 object-cover rounded-lg border border-zinc-700"
+            unoptimized
           />
         ) : (
           <div className="w-full h-24 rounded-lg border border-zinc-700 bg-zinc-800/50 flex items-center justify-center">

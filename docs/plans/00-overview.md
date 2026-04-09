@@ -1,5 +1,6 @@
 # Plan 00 -- Architecture Overview & Phase Roadmap
 
+> Historical planning document. Use `README.md` and `docs/CONTENT-MAP.md` for the current implemented state.
 > MotionKit: Remotion Motion Graphics Marketplace & Workstation
 
 ---

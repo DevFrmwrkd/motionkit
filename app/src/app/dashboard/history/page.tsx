@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
@@ -39,6 +39,11 @@ export default function HistoryPage() {
 
 function HistoryContent({ userId }: { userId: Id<"users"> }) {
   const jobs = useQuery(api.renderJobs.listByUser, { userId });
+  const presets = useQuery(api.presets.list, { viewerId: userId });
+  const presetNameById = useMemo(
+    () => new Map((presets ?? []).map((preset) => [preset._id, preset.name])),
+    [presets]
+  );
 
   const statusStyles: Record<string, string> = {
     queued: "text-yellow-400 border-yellow-500/30",
@@ -75,7 +80,7 @@ function HistoryContent({ userId }: { userId: Id<"users"> }) {
                 {jobs.map((job) => (
                   <TableRow key={job._id} className="border-zinc-800">
                     <TableCell className="font-medium text-zinc-200 max-w-[200px] truncate">
-                      {job.bundleUrl.replace("local://presets/", "").replace("ai://generated/", "AI: ")}
+                      {presetNameById.get(job.presetId) ?? job.bundleUrl}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={statusStyles[job.status] ?? ""}>

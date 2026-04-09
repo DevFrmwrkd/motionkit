@@ -1,8 +1,15 @@
 node_modules/
+app/node_modules/
 .next/
+app/.next/
 .turbo/
 dist/
 out/
+app/out/
+app/.open-next/
+app/.vercel/
+app/.wrangler/
+*.tsbuildinfo
 
 # Environment
 .env
@@ -20,6 +27,7 @@ convex/_generated/
 # OS
 .DS_Store
 Thumbs.db
+._*
 
 # IDE
 .vscode/
@@ -31,7 +39,4 @@ temp/
 # Debug
 npm-debug.log*
 pnpm-debug.log*
-.DS_Store
-._*
-.vercel
-app/.open-next/
+.vercel/

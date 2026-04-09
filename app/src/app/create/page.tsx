@@ -29,7 +29,6 @@ import { toast } from "sonner";
 import {
   Sparkles,
   Loader2,
-  Play,
   Save,
   Globe,
   RefreshCw,
@@ -89,14 +88,14 @@ export default function CreatePage() {
     return null;
   }
 
-  return <CreateWorkstation userId={user._id as Id<"users">} />;
+  return <CreateWorkstation userId={user._id as Id<"users">} userName={user.name ?? "Creator"} />;
 }
 
 // ---------------------------------------------------------------------------
 // Main Workstation Component
 // ---------------------------------------------------------------------------
 
-function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
+function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName: string }) {
   // --- AI Generation State ---
   const [prompt, setPrompt] = useState("");
   const [category, setCategory] = useState<Category>("title");
@@ -125,20 +124,6 @@ function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
     api.actions.generatePreset.dispatchGeneration
   );
 
-  // --- Sync server status back to local state ---
-  useEffect(() => {
-    if (!activeGeneration) return;
-    if (activeGeneration.status === "complete" && localStatus === "generating") {
-      setLocalStatus("complete");
-      setLocalError(null);
-      setUserProps({});
-    }
-    if (activeGeneration.status === "failed" && localStatus === "generating") {
-      setLocalStatus("failed");
-      setLocalError(activeGeneration.error ?? "Generation failed");
-    }
-  }, [activeGeneration, localStatus]);
-
   // --- Parse generated output ---
   const compiledPreset = useMemo(() => {
     if (
@@ -165,9 +150,19 @@ function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
       props[key] = field.default;
     }
     return props;
-  }, [compiledPreset?.preset?.schema]);
+  }, [compiledPreset]);
 
   const inputProps = { ...defaultProps, ...userProps };
+  const effectiveStatus: GenerationStatus =
+    localStatus === "generating" && activeGeneration?.status === "complete"
+      ? "complete"
+      : localStatus === "generating" && activeGeneration?.status === "failed"
+        ? "failed"
+        : localStatus;
+  const effectiveError =
+    localStatus === "generating" && activeGeneration?.status === "failed"
+      ? activeGeneration.error ?? "Generation failed"
+      : localError;
 
   // --- Handlers ---
 
@@ -295,7 +290,7 @@ function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
           | "map"
           | "social",
         tags: meta.tags ?? [],
-        author: undefined,
+        author: userName,
         authorId: userId,
         bundleUrl: `ai://generated/${activeGenerationId}`,
         fps: meta.fps,
@@ -327,19 +322,19 @@ function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
   };
 
   // --- Derived state ---
-  const isGenerating = localStatus === "generating";
+  const isGenerating = effectiveStatus === "generating";
   const isComplete =
-    localStatus === "complete" ||
+    effectiveStatus === "complete" ||
     (activeGeneration?.status === "complete" && localStatus !== "generating");
-  const isFailed = localStatus === "failed";
+  const isFailed = effectiveStatus === "failed";
   const hasPreview = isComplete && compiledPreset?.preset != null;
   const compileError = isComplete && compiledPreset?.error;
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 overflow-hidden text-zinc-100 font-sans">
+    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans">
       <SiteHeader />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-auto">
         {/* ================================================================ */}
         {/* LEFT COLUMN - AI Generator Panel                                 */}
         {/* ================================================================ */}
@@ -550,7 +545,7 @@ function CreateWorkstation({ userId }: { userId: Id<"users"> }) {
             {/* FAILED state */}
             {isFailed && (
               <ErrorState
-                error={localError}
+                error={effectiveError}
                 onRetry={handleGenerate}
               />
             )}

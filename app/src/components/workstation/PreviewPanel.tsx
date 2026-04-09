@@ -57,16 +57,14 @@ export function PreviewPanel({
       <Separator />
 
       {/* Render Queue */}
-      {renderJobs.length > 0 && (
-        <div className="h-[150px] shrink-0 border-t border-zinc-800">
-          <div className="px-4 py-2 border-b border-zinc-800 flex justify-between items-center">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Active Renders
-            </h3>
-          </div>
-          <RenderQueue jobs={renderJobs} isLoading={isLoadingJobs} />
+      <div className="h-[150px] shrink-0 border-t border-zinc-800">
+        <div className="px-4 py-2 border-b border-zinc-800 flex justify-between items-center">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Active Renders
+          </h3>
         </div>
-      )}
+        <RenderQueue jobs={renderJobs} isLoading={isLoadingJobs} />
+      </div>
     </div>
   );
 }

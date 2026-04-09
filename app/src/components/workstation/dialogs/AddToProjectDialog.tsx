@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
@@ -13,28 +16,86 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export function AddToProjectDialog() {
+interface AddToProjectDialogProps {
+  userId: Id<"users">;
+  presetId: Id<"presets">;
+  savedPresetId?: Id<"savedPresets">;
+  triggerClassName?: string;
+  onAdded?: (projectId: Id<"projects">) => void;
+}
+
+export function AddToProjectDialog({
+  userId,
+  presetId,
+  savedPresetId,
+  triggerClassName,
+  onAdded,
+}: AddToProjectDialogProps) {
   const [open, setOpen] = useState(false);
   const [projectId, setProjectId] = useState("new");
-  const [projectName, setProjectName] = useState("My New Project");
+  const [projectName, setProjectName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const projects = useQuery(api.projects.listByUser, { userId });
+  const createProject = useMutation(api.projects.create);
+  const addPresetEntry = useMutation(api.projects.addPresetEntry);
+  const nextProjectName = useMemo(
+    () => `Project ${(projects?.length ?? 0) + 1}`,
+    [projects]
+  );
 
-  const handleAdd = () => {
-    // Phase 1: Mock
-    console.log("Adding to project:", projectId, projectName);
-    toast.success("Added to Project", {
-      description: projectId === "new" ? `Created "${projectName}" and added sequence.` : "Appended to your sequence.",
-    });
-    setOpen(false);
+  const handleAdd = async () => {
+    try {
+      setIsSaving(true);
+
+      const selectedProject = projects?.find((project) => project._id === projectId);
+      const resolvedProjectId =
+        projectId === "new"
+          ? await createProject({
+              name: projectName.trim() || nextProjectName,
+              userId,
+            })
+          : (projectId as Id<"projects">);
+
+      await addPresetEntry({
+        projectId: resolvedProjectId,
+        entry: {
+          presetId,
+          savedPresetId,
+          order: projectId === "new" ? 0 : selectedProject?.presetEntries.length ?? 0,
+        },
+      });
+
+      toast.success("Added to project", {
+        description:
+          projectId === "new"
+            ? `Created "${projectName.trim() || nextProjectName}" and added this preset.`
+            : "Appended this preset to your project sequence.",
+      });
+      setOpen(false);
+      onAdded?.(resolvedProjectId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add to project");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" size="sm" className="hidden sm:flex border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 bg-zinc-900 shadow-sm" />}>
-          <FolderPlus className="w-4 h-4 mr-2" /> Add to Project
+      <DialogTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className={triggerClassName ?? "hidden sm:flex border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 bg-zinc-900 shadow-sm"}
+          />
+        }
+      >
+        <FolderPlus className="w-4 h-4 mr-2" /> Add to Project
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-zinc-800 text-zinc-100">
         <DialogHeader>
@@ -52,10 +113,18 @@ export function AddToProjectDialog() {
               </SelectTrigger>
               <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
                 <SelectItem value="new" className="text-amber-500 font-medium">+ Create New Project</SelectItem>
-                <SelectItem value="yt">Product Demo V1</SelectItem>
-                <SelectItem value="client">Gaming Highlight</SelectItem>
+                {projects?.map((project) => (
+                  <SelectItem key={project._id} value={project._id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {projects === undefined && (
+              <p className="text-xs text-zinc-500 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading projects...
+              </p>
+            )}
           </div>
           
           {projectId === "new" && (
@@ -65,6 +134,7 @@ export function AddToProjectDialog() {
                 id="project-name"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
+                placeholder={nextProjectName}
                 className="bg-zinc-900 border-zinc-800 text-zinc-100 focus-visible:ring-amber-500"
               />
             </div>
@@ -74,7 +144,7 @@ export function AddToProjectDialog() {
           <Button variant="outline" onClick={() => setOpen(false)} className="border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100">
             Cancel
           </Button>
-          <Button onClick={handleAdd} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold">
+          <Button onClick={() => void handleAdd()} disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold">
             {projectId === "new" ? "Create & Add" : "Add to Sequence"}
           </Button>
         </DialogFooter>

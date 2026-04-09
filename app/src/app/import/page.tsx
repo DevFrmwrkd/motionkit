@@ -7,36 +7,13 @@ import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { SiteHeader } from "@/components/shared/SiteHeader";
 import { PresetPlayer } from "@/components/preset/PresetPlayer";
-import { CodePreview } from "@/components/ai/CodePreview";
 import { codeToComponent } from "@/lib/code-to-component";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Eye, Save, AlertCircle, CheckCircle, Loader2, Code2 } from "lucide-react";
-
-const CATEGORIES = [
-  { value: "intro", label: "Intro" },
-  { value: "title", label: "Title" },
-  { value: "lower-third", label: "Lower Third" },
-  { value: "cta", label: "CTA" },
-  { value: "transition", label: "Transition" },
-  { value: "outro", label: "Outro" },
-  { value: "full", label: "Full Composition" },
-  { value: "chart", label: "Chart / Data" },
-  { value: "map", label: "Map" },
-  { value: "social", label: "Social Media" },
-] as const;
+import { Upload, AlertCircle, CheckCircle, Loader2, Code2 } from "lucide-react";
 
 const TEMPLATE_CODE = `// Your Remotion component
 const Component = ({ title = "Hello World", color = "#ffffff" }) => {

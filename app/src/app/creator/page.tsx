@@ -1,99 +1,196 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getCreatorMetrics, formatCurrency } from "@/lib/creator-metrics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, TrendingUp, DollarSign, Eye, Play } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Download,
+  TrendingUp,
+  DollarSign,
+  Eye,
+  Film,
+  Loader2,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 
 export default function CreatorOverview() {
+  const { user, isLoading } = useCurrentUser();
+  const presets = useQuery(
+    api.presets.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const renderJobs = useQuery(
+    api.renderJobs.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+
+  const metrics = useMemo(
+    () => getCreatorMetrics(presets ?? [], renderJobs ?? []),
+    [presets, renderJobs]
+  );
+
+  if (isLoading || !user || presets === undefined || renderJobs === undefined) {
+    return (
+      <div className="flex items-center justify-center py-24 text-zinc-500">
+        <Loader2 className="mr-2 size-5 animate-spin" />
+        Loading creator overview...
+      </div>
+    );
+  }
+
+  const stats = [
+    { label: "Total Views", value: metrics.totalViews.toLocaleString(), icon: Eye },
+    {
+      label: "Downloads",
+      value: metrics.totalDownloads.toLocaleString(),
+      icon: Download,
+    },
+    {
+      label: "Est. Gross Revenue",
+      value: formatCurrency(metrics.estimatedRevenue),
+      icon: DollarSign,
+    },
+    { label: "Published Presets", value: metrics.publishedCount, icon: Film },
+  ];
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Creator Overview</h1>
-        <p className="text-zinc-400">Track your preset performance and earnings.</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Total Views</CardTitle>
-            <Eye className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">14.2k</div>
-            <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp className="w-3 h-3 mr-1" /> +12% from last week</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Downloads</CardTitle>
-            <Download className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">3,492</div>
-            <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp className="w-3 h-3 mr-1" /> +5% from last week</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Total Revenue</CardTitle>
-            <DollarSign className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">$8,240</div>
-            <p className="text-xs text-zinc-500 mt-1">Available to payout: $1,200</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-zinc-900 border-zinc-800">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Active Presets</CardTitle>
-            <Play className="w-4 h-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">12</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="bg-zinc-900 border-zinc-800">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
-          <CardTitle className="text-lg text-zinc-100">Top Performing Presets</CardTitle>
-          <Link href="/creator/upload">
-            <Button size="sm" className="bg-amber-500 text-zinc-950 hover:bg-amber-600 font-semibold">Publish New</Button>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-100">
+            Creator Overview
+          </h1>
+          <p className="mt-2 max-w-2xl text-zinc-400">
+            Track how your presets are performing and move drafts into the marketplace.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Link href="/create">
+            <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-900">
+              <Sparkles className="mr-2 size-4" />
+              Create Preset
+            </Button>
           </Link>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 bg-zinc-950 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded overflow-hidden bg-zinc-900 border border-zinc-800 relative">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Play className="w-6 h-6 text-zinc-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-zinc-100 group-hover:text-amber-400 transition-colors">
-                      Cyberpunk Title V{i}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-[10px] text-zinc-400 border-zinc-700">Titles</Badge>
-                      <span className="text-xs text-green-500 font-medium">$450 earned</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right text-sm text-zinc-400">
-                  <div className="flex items-center justify-end gap-1 mb-1">
-                    <Download className="w-3 h-3" /> {120 * i}
-                  </div>
-                  <div className="flex items-center justify-end gap-1">
-                    <Eye className="w-3 h-3" /> {1400 * i}
-                  </div>
-                </div>
+          <Link href="/creator/upload">
+            <Button className="bg-amber-500 font-semibold text-zinc-950 hover:bg-amber-400">
+              <Upload className="mr-2 size-4" />
+              Publish Listing
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-zinc-800 bg-zinc-900">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">
+                {stat.label}
+              </CardTitle>
+              <stat.icon className="size-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-zinc-100">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
+            <CardTitle className="text-lg text-zinc-100">Top Performing Presets</CardTitle>
+            <Link href="/creator/analytics">
+              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-zinc-100">
+                View analytics
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            {metrics.topPresets.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/60 p-8 text-center">
+                <p className="text-sm text-zinc-400">No creator presets yet.</p>
+                <p className="mt-2 text-xs text-zinc-600">
+                  Start in Create or Import, then publish the preset from Creator Studio.
+                </p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            ) : (
+              metrics.topPresets.slice(0, 5).map((preset) => (
+                <div
+                  key={preset._id}
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate font-semibold text-zinc-100">{preset.name}</h3>
+                      <Badge
+                        variant="outline"
+                        className={
+                          preset.status === "published"
+                            ? "border-green-500/30 text-green-400"
+                            : "border-zinc-700 text-zinc-400"
+                        }
+                      >
+                        {preset.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-500">{preset.category}</p>
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-400">
+                      <span>{(preset.viewCount ?? 0).toLocaleString()} views</span>
+                      <span>{(preset.downloads ?? 0).toLocaleString()} downloads</span>
+                      <span>{(preset.voteScore ?? 0).toLocaleString()} vote score</span>
+                    </div>
+                  </div>
+                  <Link href={`/creator/upload?id=${preset._id}`}>
+                    <Button className="bg-zinc-800 text-zinc-200 hover:bg-zinc-700">
+                      Edit listing
+                    </Button>
+                  </Link>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-zinc-800 bg-zinc-900">
+          <CardHeader className="border-b border-zinc-800 pb-4">
+            <CardTitle className="text-lg text-zinc-100">Catalog Health</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <p className="text-sm text-zinc-400">Draft presets</p>
+              <p className="mt-2 text-3xl font-bold text-zinc-100">{metrics.draftCount}</p>
+              <p className="mt-2 text-xs text-zinc-600">
+                Drafts are private until you publish them from the listing editor.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <p className="text-sm text-zinc-400">Premium presets</p>
+              <p className="mt-2 text-3xl font-bold text-zinc-100">{metrics.premiumCount}</p>
+              <p className="mt-2 text-xs text-zinc-600">
+                Revenue is currently estimated from price × download count.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <p className="text-sm text-zinc-400">Completed renders</p>
+              <p className="mt-2 text-3xl font-bold text-zinc-100">{metrics.completedRenders}</p>
+              <p className="mt-2 flex items-center text-xs text-zinc-600">
+                <TrendingUp className="mr-1 size-3 text-amber-500" />
+                {metrics.failedRenders} failed render
+                {metrics.failedRenders === 1 ? "" : "s"} captured in history
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { action } from "../_generated/server";
 import { v } from "convex/values";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { getSkillForCategory } from "../lib/ai_skills/index";
 import { generateWithGemini } from "../lib/ai_providers/gemini";
 import { generateWithClaude } from "../lib/ai_providers/claude";
@@ -28,14 +28,14 @@ export const dispatchGeneration = action({
   handler: async (ctx, args) => {
     try {
       // 1. Get the generation record to find the user
-      const generation = await ctx.runQuery(api.aiGeneration.get, {
+      const generation = await ctx.runQuery(internal.aiGeneration.getInternal, {
         id: args.generationId,
       });
       if (!generation) throw new Error("Generation not found");
 
       // 2. Get user's own API keys
-      const user = await ctx.runQuery(api.users.get, {
-        id: generation.userId,
+      const userKeys = await ctx.runQuery(internal.users.getApiKeys, {
+        userId: generation.userId,
       });
 
       // 3. Build the system prompt from base + category skill
@@ -44,7 +44,7 @@ export const dispatchGeneration = action({
       // 4. If iterating, fetch previous generation's code for context
       let previousCode: string | undefined;
       if (args.parentGenerationId) {
-        const parent = await ctx.runQuery(api.aiGeneration.get, {
+        const parent = await ctx.runQuery(internal.aiGeneration.getInternal, {
           id: args.parentGenerationId,
         });
         if (parent?.generatedCode) {
@@ -64,7 +64,7 @@ export const dispatchGeneration = action({
       let result;
       if (args.provider === "gemini") {
         const apiKey =
-          user?.geminiApiKey || process.env.GOOGLE_API_KEY;
+          userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY;
         if (!apiKey) {
           throw new Error(
             "No Gemini API key found. Add your Google API key in Settings → API Keys."
@@ -73,7 +73,7 @@ export const dispatchGeneration = action({
         result = await generateWithGemini({ apiKey }, request);
       } else {
         const apiKey =
-          user?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+          userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
           throw new Error(
             "No Claude API key found. Add your Anthropic API key in Settings → API Keys."
@@ -83,7 +83,7 @@ export const dispatchGeneration = action({
       }
 
       // 7. Mark generation as complete
-      await ctx.runMutation(api.aiGeneration.markComplete, {
+      await ctx.runMutation(internal.aiGeneration.markComplete, {
         generationId: args.generationId,
         generatedCode: result.componentCode,
         generatedSchema: result.schema,
@@ -96,7 +96,7 @@ export const dispatchGeneration = action({
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
 
-      await ctx.runMutation(api.aiGeneration.markFailed, {
+      await ctx.runMutation(internal.aiGeneration.markFailed, {
         generationId: args.generationId,
         error: errorMessage,
       });

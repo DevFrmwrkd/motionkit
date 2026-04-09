@@ -1,5 +1,6 @@
 # Plan 01 -- Frontend Technical Plan
 
+> Historical planning document. Use `README.md` and `docs/CONTENT-MAP.md` for the current implemented state.
 > Next.js 15 + React 19 + Remotion Player + Tailwind + Shadcn/UI
 
 ---
@@ -226,7 +227,7 @@ User refines via chat or direct prop editing
 "Save as preset" -> bundles and uploads to R2
 ```
 
-This is a Phase 4+ feature but architecturally planned from the start. The Google API key from `ai-image-outreach` (`AIzaSyACFbBvs8ksoA2jL8KxMJsw_NkqSRsf22k`) can power this.
+This is a Phase 4+ feature but architecturally planned from the start. A Gemini API key can power this via a local environment fallback or a user-provided key stored in Settings.
 
 ---
 

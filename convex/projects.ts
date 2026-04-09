@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { canAccessPreset, requireAuthorizedUser } from "./lib/authz";
 
 const presetEntryValidator = v.object({
   presetId: v.id("presets"),
@@ -10,6 +11,8 @@ const presetEntryValidator = v.object({
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     return await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
@@ -20,7 +23,11 @@ export const listByUser = query({
 export const get = query({
   args: { id: v.id("projects") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    const project = await ctx.db.get(args.id);
+    if (!project) return null;
+
+    await requireAuthorizedUser(ctx, project.userId);
+    return project;
   },
 });
 
@@ -31,6 +38,8 @@ export const create = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     return await ctx.db.insert("projects", {
       ...args,
       presetEntries: [],
@@ -46,6 +55,22 @@ export const addPresetEntry = mutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
+
+    await requireAuthorizedUser(ctx, project.userId);
+
+    const preset = await ctx.db.get(args.entry.presetId);
+    if (!preset) throw new Error("Preset not found");
+    if (!canAccessPreset(preset, project.userId)) {
+      throw new Error("You can only add public presets or presets you own");
+    }
+
+    if (args.entry.savedPresetId) {
+      const savedPreset = await ctx.db.get(args.entry.savedPresetId);
+      if (!savedPreset || savedPreset.userId !== project.userId) {
+        throw new Error("Saved preset not found");
+      }
+    }
+
     await ctx.db.patch(args.projectId, {
       presetEntries: [...project.presetEntries, args.entry],
     });
@@ -58,6 +83,26 @@ export const updatePresetEntries = mutation({
     presetEntries: v.array(presetEntryValidator),
   },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+
+    await requireAuthorizedUser(ctx, project.userId);
+
+    for (const entry of args.presetEntries) {
+      const preset = await ctx.db.get(entry.presetId);
+      if (!preset) throw new Error("Preset not found");
+      if (!canAccessPreset(preset, project.userId)) {
+        throw new Error("You can only add public presets or presets you own");
+      }
+
+      if (entry.savedPresetId) {
+        const savedPreset = await ctx.db.get(entry.savedPresetId);
+        if (!savedPreset || savedPreset.userId !== project.userId) {
+          throw new Error("Saved preset not found");
+        }
+      }
+    }
+
     await ctx.db.patch(args.projectId, {
       presetEntries: args.presetEntries,
     });
@@ -67,6 +112,10 @@ export const updatePresetEntries = mutation({
 export const remove = mutation({
   args: { id: v.id("projects") },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    if (!project) throw new Error("Project not found");
+
+    await requireAuthorizedUser(ctx, project.userId);
     await ctx.db.delete(args.id);
   },
 });

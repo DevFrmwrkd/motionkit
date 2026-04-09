@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAuthorizedUser } from "./lib/authz";
 
 export const castVote = mutation({
   args: {
@@ -8,6 +9,8 @@ export const castVote = mutation({
     value: v.number(), // +1 or -1
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     if (args.value !== 1 && args.value !== -1) {
       throw new Error("Vote value must be +1 or -1");
     }
@@ -74,6 +77,8 @@ export const getUserVote = query({
     presetId: v.id("presets"),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     const vote = await ctx.db
       .query("votes")
       .withIndex("by_user_preset", (q) =>
@@ -90,6 +95,8 @@ export const getUserVotesForPresets = query({
     presetIds: v.array(v.id("presets")),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     const result: Record<string, number> = {};
     for (const presetId of args.presetIds) {
       const vote = await ctx.db

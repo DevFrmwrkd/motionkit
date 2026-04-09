@@ -1,174 +1,116 @@
 # MotionKit -- Project Content Map
 
-> Last updated: 2025-04-08
+> Last updated: 2026-04-09
+> This file describes the current checked-in repo. The files under `docs/plans/` are planning and handover notes, not the primary source of truth.
 
-## Directory Structure (Target)
+## Current Repo Shape
 
-```
-motionkit/
-│
-├── docs/                              # Documentation & planning
-│   ├── CONTENT-MAP.md                 # THIS FILE -- project overview & file index
-│   └── plans/
-│       ├── 00-overview.md             # High-level architecture & phase roadmap
-│       ├── 01-frontend.md             # Frontend technical plan
-│       ├── 02-backend.md              # Backend technical plan (Convex + rendering)
-│       └── 03-infrastructure.md       # Infra, CI/CD, deployment, credentials
-│
-├── app/                               # Next.js frontend (Cloudflare Pages)
-│   ├── public/                        # Static assets
-│   ├── src/
-│   │   ├── app/                       # Next.js App Router pages
-│   │   │   ├── layout.tsx             # Root layout (providers, fonts, theme)
-│   │   │   ├── page.tsx               # Landing / marketplace home
-│   │   │   ├── workstation/
-│   │   │   │   └── page.tsx           # Three-panel workstation UI
-│   │   │   ├── marketplace/
-│   │   │   │   ├── page.tsx           # Browse/search presets
-│   │   │   │   └── [presetId]/
-│   │   │   │       └── page.tsx       # Single preset detail
-│   │   │   ├── settings/
-│   │   │   │   └── page.tsx           # BYOK key management, profile
-│   │   │   └── api/                   # API routes (render proxy, upload)
-│   │   │       ├── render/
-│   │   │       │   └── route.ts       # Render dispatch (Modal / Lambda)
-│   │   │       └── upload/
-│   │   │           └── route.ts       # Preset bundle upload to R2
-│   │   │
-│   │   ├── components/                # React components
-│   │   │   ├── ui/                    # Shadcn/UI primitives
-│   │   │   ├── workstation/
-│   │   │   │   ├── PresetLibrary.tsx  # Left panel -- preset browser
-│   │   │   │   ├── PreviewPanel.tsx   # Center panel -- Remotion Player + queue
-│   │   │   │   ├── InputControls.tsx  # Right panel -- schema-driven form
-│   │   │   │   ├── RenderQueue.tsx    # Real-time render job list
-│   │   │   │   └── BatchDialog.tsx    # Variations batch render modal
-│   │   │   ├── marketplace/
-│   │   │   │   ├── PresetCard.tsx     # Preset thumbnail card
-│   │   │   │   ├── PresetGrid.tsx     # Filterable grid of presets
-│   │   │   │   └── CategoryNav.tsx    # Category/tag sidebar
-│   │   │   ├── preset/
-│   │   │   │   ├── PresetLoader.tsx   # Dynamic import() runtime loader
-│   │   │   │   ├── SchemaForm.tsx     # JSON schema -> form generator
-│   │   │   │   └── PresetPlayer.tsx   # Remotion Player wrapper
-│   │   │   └── shared/
-│   │   │       ├── Header.tsx
-│   │   │       ├── Sidebar.tsx
-│   │   │       └── ThemeProvider.tsx
-│   │   │
-│   │   ├── lib/                       # Utilities & helpers
-│   │   │   ├── preset-loader.ts       # Dynamic preset import logic
-│   │   │   ├── schema-parser.ts       # Schema -> form field mapping
-│   │   │   ├── r2-client.ts           # R2 upload/download helpers
-│   │   │   └── convex.ts              # Convex client setup
-│   │   │
-│   │   ├── hooks/                     # Custom React hooks
-│   │   │   ├── usePreset.ts           # Load & manage active preset
-│   │   │   ├── useRenderQueue.ts      # Subscribe to render job updates
-│   │   │   └── usePresetProps.ts      # Manage preset input props state
-│   │   │
-│   │   └── styles/
-│   │       └── globals.css            # Tailwind base + custom styles
-│   │
-│   ├── .env.local                     # Local env vars (gitignored)
-│   ├── next.config.ts
-│   ├── tailwind.config.ts
-│   ├── tsconfig.json
-│   └── package.json
-│
-├── convex/                            # Convex backend (co-located)
-│   ├── _generated/                    # Auto-generated Convex types
-│   ├── schema.ts                      # Database schema definition
-│   ├── presets.ts                     # Preset CRUD queries/mutations
-│   ├── users.ts                       # User management
-│   ├── collections.ts                 # Folders/collections
-│   ├── savedPresets.ts                # User-saved preset variations
-│   ├── renderJobs.ts                  # Render job queue management
-│   ├── projects.ts                    # Video project groupings
-│   ├── actions/
-│   │   ├── renderWithModal.ts         # Modal API render dispatch
-│   │   ├── renderWithLambda.ts        # Remotion Lambda render dispatch
-│   │   └── validateBundle.ts          # Preset bundle validation
-│   ├── lib/
-│   │   ├── encryption.ts              # API key encrypt/decrypt
-│   │   └── validation.ts              # Input sanitization
-│   └── convex.config.ts
-│
-├── presets/                           # Local preset development
-│   ├── _template/                     # Starter template for new presets
-│   │   ├── index.tsx                  # Preset component
-│   │   ├── schema.ts                  # Input schema definition
-│   │   └── build.ts                   # Esbuild bundle script
-│   ├── text-title/                    # Example: animated text title
-│   ├── logo-intro/                    # Example: logo reveal intro
-│   ├── lower-third/                   # Example: name/title lower third
-│   └── cta-subscribe/                 # Example: call-to-action overlay
-│
-├── remotion/                          # Remotion config (preview & render)
-│   ├── remotion.config.ts
-│   ├── Root.tsx                       # Dev-only: registers presets for local preview
-│   └── index.ts
-│
-├── scripts/                           # Build & deployment scripts
-│   ├── build-preset.ts                # Bundle a preset for R2 upload
-│   ├── upload-preset.ts               # Upload bundle to R2
-│   └── seed-presets.ts                # Seed Convex with initial presets
-│
-├── .env.local                         # Root-level env vars (gitignored)
-├── .gitignore
-├── package.json                       # Monorepo root (workspaces)
-├── turbo.json                         # Turborepo config (if using)
-├── tsconfig.base.json
-└── motionkit-master-prompt.md         # Master prompt (already exists)
+```text
+MotionKit/
+├── README.md
+├── motionkit-master-prompt.md
+├── .env.example
+├── package.json
+├── app/                  # Next.js frontend
+├── convex/               # Convex backend
+├── docs/                 # Current map + historical planning docs
+├── presets/              # Minimal local preset template area
+├── scripts/              # Reserved for future tooling
+└── temp/                 # Local scratch / seed artifacts
 ```
 
----
+## What Is Live Versus Planned
 
-## Key Files by Domain
+Live and wired today:
 
-### Preset System (Core Innovation)
+- Public landing page and marketplace
+- AI creation flow backed by Convex actions
+- Manual preset import flow
+- Workstation with live Remotion preview, saved variants, cloning, and render queue
+- Dashboard, settings, login, and signup flows
+- Convex-backed presets, votes, collections, saved presets, projects, AI generations, and render jobs
+
+Present but still mostly scaffolded:
+
+- Creator analytics, earnings, and upload screens
+- Real Modal rendering
+- Cloudflare R2 upload and preset packaging workflow
+
+## Frontend Route Map
+
+| Route | File | Status | Notes |
+|------|------|--------|-------|
+| `/` | `app/src/app/page.tsx` | Live | Product landing page |
+| `/login` | `app/src/app/(auth)/login/page.tsx` | Live | Supports demo-mode entry |
+| `/signup` | `app/src/app/(auth)/signup/page.tsx` | Live | Signup UI |
+| `/marketplace` | `app/src/app/marketplace/page.tsx` | Live | Convex-backed search, filters, votes |
+| `/create` | `app/src/app/create/page.tsx` | Live | AI generation, iteration, preview, save |
+| `/import` | `app/src/app/import/page.tsx` | Live | Manual Remotion preset import |
+| `/workstation` | `app/src/app/workstation/page.tsx` | Live | Library, preview, props, queue, project dialogs |
+| `/dashboard` | `app/src/app/dashboard/page.tsx` | Live | Convex-backed overview |
+| `/dashboard/projects` | `app/src/app/dashboard/projects/page.tsx` | Live | Project list |
+| `/dashboard/collections` | `app/src/app/dashboard/collections/page.tsx` | Live | Collection list |
+| `/dashboard/history` | `app/src/app/dashboard/history/page.tsx` | Live | Render and activity history |
+| `/settings` | `app/src/app/settings/page.tsx` | Live | Profile + API key management |
+| `/creator` | `app/src/app/creator/page.tsx` | Scaffolded | Mostly static creator overview |
+| `/creator/analytics` | `app/src/app/creator/analytics/page.tsx` | Scaffolded | Mock analytics UI |
+| `/creator/earnings` | `app/src/app/creator/earnings/page.tsx` | Scaffolded | Mock earnings UI |
+| `/creator/upload` | `app/src/app/creator/upload/page.tsx` | Scaffolded | Upload flow UI, not fully wired |
+
+## Key Frontend Modules
+
+| Area | File / Folder | Purpose |
+|------|---------------|---------|
+| App shell | `app/src/app/layout.tsx` | Root providers and global UI |
+| Global styles | `app/src/app/globals.css` | Theme tokens and base styles |
+| Workstation | `app/src/components/workstation/` | Preset library, preview, controls, dialogs, render queue |
+| Marketplace | `app/src/components/marketplace/` | Cards and voting controls |
+| Preset runtime | `app/src/components/preset/` | Player, schema form, version tree |
+| AI helpers | `app/src/components/ai/` | Code preview and reference image upload |
+| Frontend utilities | `app/src/lib/` | Convex provider, preset registry, runtime compilation helpers |
+| Local presets | `app/src/remotion/presets/` | Checked-in preset implementations used by the app |
+
+## Backend Modules
+
 | File | Purpose |
 |------|---------|
-| `app/src/lib/preset-loader.ts` | Runtime dynamic `import()` of preset bundles from R2 |
-| `app/src/components/preset/SchemaForm.tsx` | Generates UI controls from preset JSON schema |
-| `app/src/components/preset/PresetPlayer.tsx` | Remotion Player wrapper for live preview |
-| `convex/presets.ts` | Preset metadata CRUD + marketplace queries |
-| `presets/_template/` | Boilerplate for building new presets |
-| `scripts/build-preset.ts` | Esbuild bundler for preset -> single JS file |
+| `convex/schema.ts` | Core schema and indexes |
+| `convex/presets.ts` | Preset CRUD, marketplace sorting, search, clone/version tree |
+| `convex/users.ts` | Auth lookups, demo mode, profiles, API keys |
+| `convex/collections.ts` | User collections |
+| `convex/savedPresets.ts` | Saved preset variants |
+| `convex/projects.ts` | Project groupings |
+| `convex/renderJobs.ts` | Render queue records and internal mutations |
+| `convex/aiGeneration.ts` | AI generation records and upload URLs |
+| `convex/votes.ts` | Marketplace voting |
+| `convex/actions/generatePreset.ts` | Gemini / Claude generation dispatch |
+| `convex/actions/renderWithModal.ts` | Mocked render dispatch with progress simulation |
 
-### Rendering Pipeline
-| File | Purpose |
-|------|---------|
-| `convex/renderJobs.ts` | Job queue: create, update status, list by user |
-| `convex/actions/renderWithModal.ts` | Dispatch render to Modal API |
-| `convex/actions/renderWithLambda.ts` | Dispatch render to Remotion Lambda |
-| `app/src/hooks/useRenderQueue.ts` | Real-time render status subscription |
-| `app/src/components/workstation/RenderQueue.tsx` | Render progress UI |
+## Preset Sources
 
-### Workstation UI
-| File | Purpose |
-|------|---------|
-| `app/src/app/workstation/page.tsx` | Three-panel layout shell |
-| `app/src/components/workstation/PresetLibrary.tsx` | Left panel: browse & select |
-| `app/src/components/workstation/PreviewPanel.tsx` | Center: player + queue |
-| `app/src/components/workstation/InputControls.tsx` | Right: schema-driven form |
+There are two preset sources in this repo today:
 
-### Data Layer (Convex)
-| File | Purpose |
-|------|---------|
-| `convex/schema.ts` | All table definitions |
-| `convex/users.ts` | Auth, profile, encrypted API keys |
-| `convex/collections.ts` | User preset folders |
-| `convex/projects.ts` | Video project groupings |
+1. `app/src/remotion/presets/`
+   The actively used local preset registry for the frontend.
+2. `presets/`
+   A minimal template/scratch area that is not yet fully wired into an R2 packaging workflow.
 
----
+## Environment Surface
 
-## Credential Sources
+Current runtime environment keys:
 
-| Key | Source Project | Usage |
-|-----|---------------|-------|
-| `GOOGLE_API_KEY` | ai-image-outreach | Gemini AI (preset generation assist) |
-| `CONVEX_DEPLOYMENT` | NEW (to create) | MotionKit's own Convex project |
-| `R2_*` | ai-image-outreach (template) | Cloudflare R2 bucket credentials |
-| `MODAL_API_KEY` | User-provided (BYOK) | Server-side rendering |
-| `GITHUB_TOKEN` | ai-image-outreach | Repo management |
+- `CONVEX_DEPLOYMENT`
+- `NEXT_PUBLIC_CONVEX_URL`
+- `GOOGLE_API_KEY` optional fallback
+- `ANTHROPIC_API_KEY` optional fallback
+
+Planned or partially wired keys:
+
+- `ENCRYPTION_KEY`
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET_NAME`
+- `R2_PUBLIC_URL`
+
+Use [`/.env.example`](/Volumes/SSD/New Coding Projects/Remotion Marketplace/.env.example) for the safe template. Never place literal secrets in docs.

@@ -1,100 +1,173 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import type { Id } from "../../../../../convex/_generated/dataModel";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatCurrency, getCreatorMetrics } from "@/lib/creator-metrics";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, Download, ArrowUpRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DollarSign, Download, Loader2, Sparkles, Tag } from "lucide-react";
 
 export default function CreatorEarnings() {
-  const transactions = [
-    { id: "tx_1", date: "Oct 24, 2023", amount: "+$4.99", preset: "Neon Cyberpunk Title", status: "cleared" },
-    { id: "tx_2", date: "Oct 23, 2023", amount: "+$9.99", preset: "Pro Lower Thirds Pack", status: "cleared" },
-    { id: "tx_3", date: "Oct 23, 2023", amount: "+$0.00", preset: "Basic Text Intro", status: "free" },
-    { id: "tx_4", date: "Oct 21, 2023", amount: "-$125.00", preset: "Payout to Bank", status: "paid" },
-    { id: "tx_5", date: "Oct 19, 2023", amount: "+$4.99", preset: "Neon Cyberpunk Title", status: "cleared" },
-  ];
+  const { user, isLoading } = useCurrentUser();
+  const presets = useQuery(
+    api.presets.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const renderJobs = useQuery(
+    api.renderJobs.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+
+  const metrics = useMemo(
+    () => getCreatorMetrics(presets ?? [], renderJobs ?? []),
+    [presets, renderJobs]
+  );
+
+  if (isLoading || !user || presets === undefined || renderJobs === undefined) {
+    return (
+      <div className="flex items-center justify-center py-24 text-zinc-500">
+        <Loader2 className="mr-2 size-5 animate-spin" />
+        Loading earnings...
+      </div>
+    );
+  }
+
+  const premiumDownloads = metrics.revenueBreakdown.reduce(
+    (sum, preset) => sum + (preset.downloads ?? 0),
+    0
+  );
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-100 mb-2">Earnings</h1>
-        <p className="text-zinc-400">Manage your revenue, payouts, and transaction history.</p>
+        <h1 className="text-3xl font-bold text-zinc-100">Earnings</h1>
+        <p className="mt-2 max-w-2xl text-zinc-400">
+          Revenue is currently estimated from marketplace pricing and download counts. Payouts are not wired yet.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-amber-500 border-amber-400 text-zinc-950 shadow-lg shadow-amber-500/20">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card className="border-amber-400 bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold uppercase tracking-wider text-zinc-800">Available Balance</CardTitle>
-            <DollarSign className="w-5 h-5 text-zinc-900" />
+            <CardTitle className="text-sm font-bold uppercase tracking-wider text-zinc-800">
+              Estimated Gross
+            </CardTitle>
+            <DollarSign className="size-5 text-zinc-900" />
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-extrabold text-zinc-950">$1,245.50</div>
-            <Button className="mt-4 bg-zinc-950 text-amber-500 hover:bg-zinc-800 w-full font-bold">
-              Withdraw Funds
-            </Button>
+            <div className="text-4xl font-extrabold text-zinc-950">
+              {formatCurrency(metrics.estimatedRevenue)}
+            </div>
+            <p className="mt-2 text-sm text-zinc-800/80">
+              Based on premium preset price × download count.
+            </p>
           </CardContent>
         </Card>
-        
-        <Card className="bg-zinc-900 border-zinc-800">
+
+        <Card className="border-zinc-800 bg-zinc-900">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Revenue (30d)</CardTitle>
-            <ArrowUpRight className="w-4 h-4 text-green-500" />
+            <CardTitle className="text-sm font-medium text-zinc-400">
+              Premium Downloads
+            </CardTitle>
+            <Download className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">$480.00</div>
-            <p className="text-xs text-zinc-500 mt-1">From 96 premium downloads</p>
+            <div className="text-2xl font-bold text-zinc-100">
+              {premiumDownloads.toLocaleString()}
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">
+              Across {metrics.premiumCount} premium preset
+              {metrics.premiumCount === 1 ? "" : "s"}
+            </p>
           </CardContent>
         </Card>
-        
-        <Card className="bg-zinc-900 border-zinc-800">
+
+        <Card className="border-zinc-800 bg-zinc-900">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Total Lifetime Earned</CardTitle>
-            <DollarSign className="w-4 h-4 text-zinc-500" />
+            <CardTitle className="text-sm font-medium text-zinc-400">
+              Draft Monetization
+            </CardTitle>
+            <Tag className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">$8,240.00</div>
-            <p className="text-xs text-zinc-500 mt-1">Since Jan 2023</p>
+            <div className="text-2xl font-bold text-zinc-100">{metrics.draftCount}</div>
+            <p className="mt-1 text-xs text-zinc-500">
+              Draft presets still need listing settings before they can earn.
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="border-zinc-800 bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
           <div>
-            <CardTitle className="text-lg text-zinc-100">Recent Transactions</CardTitle>
-            <CardDescription className="text-zinc-400 mt-1">Your latest sales and payouts.</CardDescription>
+            <CardTitle className="text-lg text-zinc-100">Revenue Breakdown</CardTitle>
+            <CardDescription className="mt-1 text-zinc-400">
+              Estimated gross by premium preset.
+            </CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="border-zinc-800 text-zinc-300 hover:bg-zinc-800">
-            <FileText className="w-4 h-4 mr-2" /> Export CSV
-          </Button>
+          <Link href="/creator/upload">
+            <Button variant="outline" size="sm" className="border-zinc-800 text-zinc-300 hover:bg-zinc-800">
+              <Sparkles className="mr-2 size-4" />
+              Update pricing
+            </Button>
+          </Link>
         </CardHeader>
-        <CardContent className="pt-6 p-0">
-          <div className="divide-y divide-zinc-800">
-            {transactions.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-zinc-800/50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    tx.amount.startsWith('-') ? 'bg-zinc-800 text-zinc-400' : 'bg-green-500/10 text-green-500'
-                  }`}>
-                    {tx.amount.startsWith('-') ? <DollarSign className="w-5 h-5" /> : <Download className="w-5 h-5" />}
+        <CardContent className="p-0">
+          {metrics.revenueBreakdown.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-zinc-400">No premium listings yet.</p>
+              <p className="mt-2 text-xs text-zinc-600">
+                Open a preset in the publish screen and add pricing to start estimating revenue.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-800">
+              {metrics.revenueBreakdown.map((preset) => (
+                <div
+                  key={preset._id}
+                  className="flex flex-col gap-4 p-4 transition-colors hover:bg-zinc-800/40 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate font-medium text-zinc-200">{preset.name}</h3>
+                      <Badge
+                        variant="outline"
+                        className={
+                          preset.status === "published"
+                            ? "border-green-500/30 text-green-400"
+                            : "border-zinc-700 text-zinc-400"
+                        }
+                      >
+                        {preset.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-4 text-xs text-zinc-500">
+                      <span>Price {formatCurrency(preset.price ?? 0)}</span>
+                      <span>{(preset.downloads ?? 0).toLocaleString()} downloads</span>
+                      <span>{(preset.viewCount ?? 0).toLocaleString()} views</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-zinc-200">{tx.preset}</h3>
-                    <p className="text-xs text-zinc-500">{tx.date} • {tx.id}</p>
+                  <div className="text-left md:text-right">
+                    <div className="text-lg font-bold text-green-400">
+                      {formatCurrency(preset.revenue)}
+                    </div>
+                    <Link
+                      href={`/creator/upload?id=${preset._id}`}
+                      className="mt-1 inline-block text-xs text-amber-500 hover:text-amber-400"
+                    >
+                      Edit listing
+                    </Link>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className={`font-bold ${tx.amount.startsWith('-') ? 'text-zinc-100' : 'text-green-500'}`}>
-                    {tx.amount}
-                  </div>
-                  <Badge variant="outline" className={`mt-1 text-[10px] ${
-                    tx.status === 'cleared' ? 'text-green-500 border-green-500/30' :
-                    tx.status === 'free' ? 'text-zinc-500 border-zinc-700' : 'text-amber-500 border-amber-500/30'
-                  }`}>
-                    {tx.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

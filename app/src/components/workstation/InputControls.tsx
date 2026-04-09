@@ -20,7 +20,7 @@ interface InputControlsProps {
   isRendering: boolean;
   presetName: string | null;
   sourceCode?: string | null;
-  onSaveCode?: (code: string) => void;
+  onSaveCode?: (code: string) => Promise<void> | void;
 }
 
 /**
@@ -53,11 +53,15 @@ export function InputControls({
     setCodeChanged(true);
   };
 
-  const handleSaveCode = () => {
+  const handleSaveCode = async () => {
     if (onSaveCode) {
-      onSaveCode(editableCode);
-      setCodeChanged(false);
-      toast.success("Code saved — preview updated");
+      try {
+        await onSaveCode(editableCode);
+        setCodeChanged(false);
+        toast.success("Code saved — preview updated");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save code");
+      }
     }
   };
 

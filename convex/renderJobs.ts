@@ -1,5 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { canAccessPreset, requireAuthorizedUser } from "./lib/authz";
 
 export const create = mutation({
   args: {
@@ -14,8 +15,17 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
+    const preset = await ctx.db.get(args.presetId);
+    if (!preset) throw new Error("Preset not found");
+    if (!canAccessPreset(preset, args.userId)) {
+      throw new Error("You can only render public presets or presets you own");
+    }
+
     return await ctx.db.insert("renderJobs", {
       ...args,
+      bundleUrl: preset.bundleUrl,
       status: "queued",
     });
   },
@@ -24,6 +34,8 @@ export const create = mutation({
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.userId);
+
     return await ctx.db
       .query("renderJobs")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
