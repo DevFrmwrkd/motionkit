@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Save, Key, User, CreditCard } from "lucide-react";
+import { Loader2, Save, Key, User, CreditCard, Sparkles, ExternalLink, Info } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useCurrentUser();
@@ -181,6 +181,59 @@ function ApiKeysTab({
 
   return (
     <div className="space-y-6">
+      {/* BYOK How-To Guide */}
+      <Card className="bg-card border-border border-amber-500/30">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            Default: Gemini 3.0 (Free)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            By default, MotionKit uses <span className="text-amber-400 font-medium">Gemini 3.0</span> to
+            generate your motion graphics. The free tier gives you roughly{" "}
+            <span className="text-foreground font-medium">20 requests per day</span> — that&apos;s about
+            20 charts/day free of charge.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Need more iterations? Add your own Google AI Studio key below and use your personal quota.
+            If you need even more, you can upgrade to a paid Google AI Studio account for higher limits.
+          </p>
+          <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+            <p className="text-xs font-semibold text-foreground uppercase tracking-wide">How to get your key</p>
+            <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+              <li>
+                Open{" "}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-500 hover:text-amber-400 inline-flex items-center gap-1"
+                >
+                  aistudio.google.com/apikey
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>Click <span className="text-foreground">Create API key</span> and copy the <code className="text-amber-400">AIzaSy...</code> string</li>
+              <li>Paste it into the Gemini field below and hit Save</li>
+              <li>
+                Check your usage anytime at{" "}
+                <a
+                  href="https://aistudio.google.com/usage?timeRange=last-28-days&project=gen-lang-client-0333927695"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-500 hover:text-amber-400 inline-flex items-center gap-1"
+                >
+                  aistudio.google.com/usage
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* AI Generation Keys */}
       <Card className="bg-card border-border">
         <CardHeader>
@@ -188,7 +241,7 @@ function ApiKeysTab({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Add your own API keys to generate motion graphics with AI. Without keys, you&apos;ll use the free demo quota.
+            Add your own API keys to generate motion graphics with your personal quota. Without keys, you&apos;ll use the shared Gemini 3.0 free tier.
           </p>
           <div className="space-y-1.5">
             <Label className="text-sm text-muted-foreground">Google Gemini API Key</Label>
@@ -199,11 +252,14 @@ function ApiKeysTab({
               placeholder="AIzaSy..."
               className="bg-muted border-zinc-700"
             />
-            <p className="text-xs text-muted-foreground">
-              Free tier: 15 requests/minute. Get yours at{" "}
-              <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
-                aistudio.google.com
-              </a>
+            <p className="text-xs text-muted-foreground flex items-start gap-1">
+              <Info className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>
+                Free: ~20 requests/day (≈ 20 charts/day). Paid accounts get far higher limits. Get yours at{" "}
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
+                  aistudio.google.com/apikey
+                </a>
+              </span>
             </p>
           </div>
           <div className="space-y-1.5">
@@ -277,7 +333,8 @@ function BillingTab({ plan, credits }: { plan: string; credits: number }) {
           <span className="text-sm font-semibold text-foreground">{credits}</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          Upgrade options coming soon. AI generations use Google Gemini&apos;s free tier by default.
+          Upgrade options coming soon. AI generations use Google Gemini 3.0 on the free tier by default
+          (~20 requests/day). Add your own key in the API Keys tab for more.
         </p>
       </CardContent>
     </Card>

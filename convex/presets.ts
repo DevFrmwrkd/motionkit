@@ -154,6 +154,22 @@ export const create = mutation({
   },
 });
 
+export const generateThumbnailUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const getStorageUrl = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const url = await ctx.storage.getUrl(args.storageId);
+    if (!url) throw new Error("Storage object not found");
+    return url;
+  },
+});
+
 export const getByBundleUrl = query({
   args: { bundleUrl: v.string() },
   handler: async (ctx, args) => {

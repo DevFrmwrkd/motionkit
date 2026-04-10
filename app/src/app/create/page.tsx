@@ -10,6 +10,8 @@ import { ReferenceImageUpload } from "@/components/ai/ReferenceImageUpload";
 import { CodePreview } from "@/components/ai/CodePreview";
 import { codeToComponent } from "@/lib/code-to-component";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { generatePresetThumbnail } from "@/lib/thumbnail";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -35,6 +37,8 @@ import {
   History,
   ChevronRight,
   Film,
+  Info,
+  Key,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -74,14 +78,28 @@ export default function CreatePage() {
     );
   }
 
-  return <CreateWorkstation userId={user._id as Id<"users">} userName={user.name ?? "Creator"} />;
+  return (
+    <CreateWorkstation
+      userId={user._id as Id<"users">}
+      userName={user.name ?? "Creator"}
+      hasOwnGeminiKey={Boolean(user.geminiApiKey)}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Main Workstation Component
 // ---------------------------------------------------------------------------
 
-function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName: string }) {
+function CreateWorkstation({
+  userId,
+  userName,
+  hasOwnGeminiKey,
+}: {
+  userId: Id<"users">;
+  userName: string;
+  hasOwnGeminiKey: boolean;
+}) {
   // --- AI Generation State ---
   const [prompt, setPrompt] = useState("");
   const [category, setCategory] = useState<Category>("title");
@@ -106,6 +124,10 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
   const generationHistory = useQuery(api.aiGeneration.listByUser, { userId });
   const createGeneration = useMutation(api.aiGeneration.create);
   const createPreset = useMutation(api.presets.create);
+  const generateThumbnailUploadUrl = useMutation(
+    api.presets.generateThumbnailUploadUrl
+  );
+  const getStorageUrl = useMutation(api.presets.getStorageUrl);
   const dispatchGeneration = useAction(
     api.actions.generatePreset.dispatchGeneration
   );
@@ -259,22 +281,52 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
     }
 
     const { meta } = compiledPreset.preset;
+    const presetCategory = (meta.category ?? category) as
+      | "intro"
+      | "title"
+      | "lower-third"
+      | "cta"
+      | "transition"
+      | "outro"
+      | "full"
+      | "chart"
+      | "map"
+      | "social";
+
+    const savingToast = toast.loading(
+      publish ? "Rendering preview & publishing..." : "Saving to your library..."
+    );
 
     try {
+      // Generate a branded thumbnail so marketplace cards have a visible preview.
+      let thumbnailUrl: string | undefined;
+      try {
+        const blob = await generatePresetThumbnail({
+          name: meta.name,
+          description: meta.description,
+          category: presetCategory,
+        });
+        const uploadUrl = await generateThumbnailUploadUrl();
+        const uploadRes = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": "image/jpeg" },
+          body: blob,
+        });
+        if (uploadRes.ok) {
+          const { storageId } = (await uploadRes.json()) as {
+            storageId: Id<"_storage">;
+          };
+          thumbnailUrl = await getStorageUrl({ storageId });
+        }
+      } catch (thumbErr) {
+        // Non-fatal: still save the preset without a custom thumbnail.
+        console.warn("Thumbnail generation failed:", thumbErr);
+      }
+
       await createPreset({
         name: meta.name,
         description: meta.description,
-        category: (meta.category ?? category) as
-          | "intro"
-          | "title"
-          | "lower-third"
-          | "cta"
-          | "transition"
-          | "outro"
-          | "full"
-          | "chart"
-          | "map"
-          | "social",
+        category: presetCategory,
         tags: meta.tags ?? [],
         author: userName,
         authorId: userId,
@@ -286,16 +338,19 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
         inputSchema: activeGeneration.generatedSchema!,
         sourceCode: activeGeneration.generatedCode,
         generationId: activeGenerationId!,
+        thumbnailUrl,
         isPublic: publish,
         status: publish ? "published" : "draft",
       });
 
       toast.success(
-        publish ? "Published to marketplace!" : "Saved to your library!"
+        publish ? "Published to marketplace!" : "Saved to your library!",
+        { id: savingToast }
       );
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to save preset"
+        err instanceof Error ? err.message : "Failed to save preset",
+        { id: savingToast }
       );
     }
   };
@@ -331,6 +386,37 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                   AI Generator
                 </h2>
               </div>
+
+              {/* BYOK info banner */}
+              {hasOwnGeminiKey ? (
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-[11px] leading-relaxed">
+                  <div className="flex items-start gap-1.5">
+                    <Key className="w-3 h-3 mt-0.5 text-emerald-400 shrink-0" />
+                    <div className="text-emerald-300/90">
+                      Using your personal <span className="font-semibold">Gemini 3.0</span> key.
+                      Your usage counts against your own quota.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
+                  <div className="flex items-start gap-1.5">
+                    <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
+                    <div className="space-y-1 text-muted-foreground">
+                      <div>
+                        Default model: <span className="text-amber-400 font-semibold">Gemini 3.0</span>.
+                        Free tier ≈ 20 charts/day.
+                      </div>
+                      <Link
+                        href="/settings"
+                        className="inline-block text-amber-400 hover:text-amber-300 font-medium"
+                      >
+                        Add your own key →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Prompt */}
               <div className="space-y-1.5">
