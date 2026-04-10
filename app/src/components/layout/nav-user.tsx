@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -41,33 +39,29 @@ export function NavUser() {
   if (!user) return null;
 
   const handleSignOut = async () => {
-    if (isDemoMode) {
+    try {
       writeDemoMode(false);
-      router.push("/");
-      router.refresh();
-    } else {
-      await signOut();
+      if (!isDemoMode) {
+        await signOut();
+      }
+    } finally {
       router.push("/");
       router.refresh();
     }
   };
 
+  const avatarSrc = (user as { avatarUrl?: string; image?: string }).avatarUrl
+    ?? (user as { avatarUrl?: string; image?: string }).image;
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <SidebarMenuButton
-                size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              />
-            }
-          >
+          <DropdownMenuTrigger className="flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-amber-500 data-[popup-open]:bg-sidebar-accent">
             <Avatar className="h-8 w-8 rounded-lg">
-              {(user.avatarUrl ?? user.image) && (
-                <AvatarImage src={(user.avatarUrl ?? user.image)} alt={user.name ?? ""} />
-              )}
+              {avatarSrc ? (
+                <AvatarImage src={avatarSrc} alt={user.name ?? ""} />
+              ) : null}
               <AvatarFallback className="rounded-lg bg-sidebar-accent text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>
@@ -80,10 +74,10 @@ export function NavUser() {
                 {user.email ?? (isDemoMode ? "Demo Mode" : "")}
               </span>
             </div>
-            <ChevronsUpDown className="ml-auto size-4" />
+            <ChevronsUpDown className="ml-auto size-4 shrink-0" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
@@ -91,9 +85,9 @@ export function NavUser() {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  {(user.avatarUrl ?? user.image) && (
-                    <AvatarImage src={(user.avatarUrl ?? user.image)} alt={user.name ?? ""} />
-                  )}
+                  {avatarSrc ? (
+                    <AvatarImage src={avatarSrc} alt={user.name ?? ""} />
+                  ) : null}
                   <AvatarFallback className="rounded-lg bg-sidebar-accent text-xs">
                     {getInitials(user.name)}
                   </AvatarFallback>
@@ -109,12 +103,12 @@ export function NavUser() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/settings" />}>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
               <Settings className="mr-2 size-4" />
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem onClick={() => void handleSignOut()}>
               <LogOut className="mr-2 size-4" />
               Sign Out
             </DropdownMenuItem>
