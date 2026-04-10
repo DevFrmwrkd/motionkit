@@ -1,5 +1,6 @@
 import type { Id, Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 const DEMO_TOKEN_IDENTIFIER = "demo:demo-user";
 
@@ -15,17 +16,19 @@ export async function requireAuthorizedUser(
     throw new Error("User not found");
   }
 
+  // Demo account bypasses the auth check.
   if (user.tokenIdentifier === DEMO_TOKEN_IDENTIFIER) {
     return user;
   }
 
-  const identity = await ctx.auth.getUserIdentity();
+  // Convex Auth: the authenticated user's _id IS the auth id.
+  const authUserId = await getAuthUserId(ctx);
 
-  if (!identity) {
+  if (!authUserId) {
     throw new Error("Sign in required");
   }
 
-  if (!user.tokenIdentifier || user.tokenIdentifier !== identity.tokenIdentifier) {
+  if (authUserId !== userId) {
     throw new Error("You do not have access to this resource");
   }
 
