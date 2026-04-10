@@ -10,7 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -112,7 +111,7 @@ export function SiteHeader() {
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                  <DropdownMenuLabel className="font-normal">
+                  <div className="px-2 py-1.5">
                     <div className="flex flex-col gap-0.5">
                       <p className="text-sm font-medium text-zinc-100">
                         {user.name ?? "User"}
@@ -123,7 +122,7 @@ export function SiteHeader() {
                         </p>
                       )}
                     </div>
-                  </DropdownMenuLabel>
+                  </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push("/dashboard")}>
                     <LayoutDashboard className="size-4" />
