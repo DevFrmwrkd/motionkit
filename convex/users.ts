@@ -1,5 +1,6 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAuthorizedUser } from "./lib/authz";
 
 function stripPrivateUserFields<T extends Record<string, unknown>>(user: T | null) {
@@ -27,22 +28,15 @@ function stripPrivateUserFields<T extends Record<string, unknown>>(user: T | nul
 
 /**
  * Get the currently authenticated user.
- * Uses the auth identity to look up the user document.
+ * Convex Auth stores the user doc directly in the users table,
+ * so we look it up by the auth user id (which is the user doc _id).
  */
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .first();
-
-    return user;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    return await ctx.db.get(userId);
   },
 });
 
