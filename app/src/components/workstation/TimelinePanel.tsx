@@ -105,16 +105,16 @@ export function TimelinePanel({
   const isEmpty = !presetName;
 
   return (
-    <div className="h-44 border-t border-zinc-800 bg-zinc-950 flex flex-col shrink-0 z-20">
+    <div className="h-44 border-t border-border bg-background flex flex-col shrink-0 z-20">
       {/* Transport bar */}
-      <div className="h-10 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between px-4">
+      <div className="h-10 border-b border-border bg-background flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Timeline</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timeline</span>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
               onClick={handleSkipBack}
               disabled={isEmpty}
             >
@@ -123,7 +123,7 @@ export function TimelinePanel({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
               onClick={handlePlayPause}
               disabled={isEmpty}
             >
@@ -132,7 +132,7 @@ export function TimelinePanel({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
               onClick={handleSkipForward}
               disabled={isEmpty}
             >
@@ -141,21 +141,21 @@ export function TimelinePanel({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded font-mono">
+          <span className="text-xs text-muted-foreground bg-card px-2 py-0.5 rounded font-mono">
             {formatTimecode(Math.floor(currentFrame), fps)}
           </span>
-          <span className="text-[10px] text-zinc-600">/</span>
-          <span className="text-xs text-zinc-600 font-mono">
+          <span className="text-[10px] text-muted-foreground">/</span>
+          <span className="text-xs text-muted-foreground font-mono">
             {formatTimecode(durationInFrames, fps)}
           </span>
-          <span className="text-[10px] text-zinc-600 ml-1">{fps}fps</span>
+          <span className="text-[10px] text-muted-foreground ml-1">{fps}fps</span>
         </div>
       </div>
 
       {/* Timeline area */}
-      <div className="flex-1 relative overflow-hidden bg-zinc-900/30">
+      <div className="flex-1 relative overflow-hidden bg-card/30">
         {isEmpty ? (
-          <div className="flex items-center justify-center h-full text-zinc-600 text-xs">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
             Select a preset to view its timeline
           </div>
         ) : (
@@ -163,7 +163,7 @@ export function TimelinePanel({
             {/* Ruler */}
             <div
               ref={rulerRef}
-              className="h-5 border-b border-zinc-800/50 relative cursor-pointer ml-20"
+              className="h-5 border-b border-border/50 relative cursor-pointer ml-20"
               onClick={handleRulerClick}
             >
               {rulerMarks.map((mark, i) => (
@@ -173,7 +173,7 @@ export function TimelinePanel({
                   style={{ left: `${mark.position}%` }}
                 >
                   <div className="w-px h-2 bg-zinc-700" />
-                  <span className="text-[8px] text-zinc-600 mt-px font-mono">{mark.label}</span>
+                  <span className="text-[8px] text-muted-foreground mt-px font-mono">{mark.label}</span>
                 </div>
               ))}
             </div>
@@ -188,11 +188,11 @@ export function TimelinePanel({
 
             {/* Track: Preset Composition */}
             <div className="flex items-center pt-2 px-4">
-              <div className="w-20 shrink-0 text-[10px] text-zinc-500 flex items-center gap-1.5">
+              <div className="w-20 shrink-0 text-[10px] text-muted-foreground flex items-center gap-1.5">
                 <VideoIcon /> Video
               </div>
               <div
-                className="flex-1 h-12 bg-zinc-900 border border-zinc-800 rounded relative cursor-pointer"
+                className="flex-1 h-12 bg-card border border-border rounded relative cursor-pointer"
                 onClick={handleRulerClick}
               >
                 <div className="absolute inset-0 bg-amber-500/15 border border-amber-500/40 rounded flex items-center px-3">
@@ -213,10 +213,10 @@ export function TimelinePanel({
 
             {/* Track: Audio placeholder */}
             <div className="flex items-center pt-2 px-4">
-              <div className="w-20 shrink-0 text-[10px] text-zinc-500 flex items-center gap-1.5">
+              <div className="w-20 shrink-0 text-[10px] text-muted-foreground flex items-center gap-1.5">
                 <AudioIcon /> Audio
               </div>
-              <div className="flex-1 h-8 bg-zinc-900/50 border border-zinc-800/50 rounded border-dashed flex items-center justify-center">
+              <div className="flex-1 h-8 bg-card/50 border border-border/50 rounded border-dashed flex items-center justify-center">
                 <span className="text-[10px] text-zinc-700">Drop audio here</span>
               </div>
             </div>

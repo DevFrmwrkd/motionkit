@@ -21,13 +21,13 @@ export function CodePreview({ code, language = "tsx" }: CodePreviewProps) {
   };
 
   return (
-    <div className="relative rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+    <div className="relative rounded-lg border border-border bg-card/50 overflow-hidden">
       {/* Copy button */}
       <div className="absolute top-2 right-2 z-10">
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200"
+          className="h-7 w-7 bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground"
           onClick={handleCopy}
         >
           {copied ? (
@@ -49,7 +49,7 @@ export function CodePreview({ code, language = "tsx" }: CodePreviewProps) {
                 const lineProps = getLineProps({ line });
                 return (
                   <div key={i} {...lineProps}>
-                    <span className="inline-block w-8 text-right mr-4 text-zinc-600 select-none">
+                    <span className="inline-block w-8 text-right mr-4 text-muted-foreground select-none">
                       {i + 1}
                     </span>
                     {line.map((token, key) => {

@@ -1,0 +1,28 @@
+[Unit]
+Description=MotionKit Remotion render worker
+After=network.target
+
+[Service]
+Type=simple
+User=motionkit
+Group=motionkit
+WorkingDirectory=/opt/motionkit/render-worker
+EnvironmentFile=/opt/motionkit/render-worker/.env
+ExecStart=/usr/bin/node /opt/motionkit/render-worker/node_modules/.bin/tsx src/server.ts
+Restart=on-failure
+RestartSec=5s
+# Chromium needs a bit of room; leave 2 GB headroom on an 8 GB box.
+MemoryHigh=5G
+MemoryMax=6G
+# Let the process see temp dirs for Remotion's on-disk webpack bundle cache.
+PrivateTmp=false
+# Harden a bit; render-worker only needs to read its own dir and write output.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=false
+
+StandardOutput=append:/var/log/motionkit-render.log
+StandardError=append:/var/log/motionkit-render.log
+
+[Install]
+WantedBy=multi-user.target

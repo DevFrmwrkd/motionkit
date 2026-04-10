@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { SiteHeader } from "@/components/shared/SiteHeader";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,34 +16,17 @@ import { toast } from "sonner";
 import { Loader2, Save, Key, User, CreditCard } from "lucide-react";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useCurrentUser();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [isLoading, isAuthenticated, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-500">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-        Loading...
-      </div>
-    );
-  }
+  const { user } = useCurrentUser();
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <SiteHeader />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="max-w-3xl mx-auto w-full">
         <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
         <Tabs defaultValue="profile">
-          <TabsList className="bg-zinc-900 border border-zinc-800 mb-6">
+          <TabsList className="bg-card border border-border mb-6">
             <TabsTrigger value="profile" className="text-sm">
               <User className="w-4 h-4 mr-1.5" />
               Profile
@@ -120,40 +101,40 @@ function ProfileTab({
   };
 
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-base">Profile Information</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <Label className="text-sm text-zinc-400">Display Name</Label>
+          <Label className="text-sm text-muted-foreground">Display Name</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="bg-zinc-800 border-zinc-700"
+            className="bg-muted border-zinc-700"
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm text-zinc-400">Email</Label>
-          <Input value={email} disabled className="bg-zinc-800/50 border-zinc-700 text-zinc-500" />
-          <p className="text-xs text-zinc-600">Managed by Google sign-in</p>
+          <Label className="text-sm text-muted-foreground">Email</Label>
+          <Input value={email} disabled className="bg-accent border-zinc-700 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">Managed by Google sign-in</p>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm text-zinc-400">Bio</Label>
+          <Label className="text-sm text-muted-foreground">Bio</Label>
           <Textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell others about yourself..."
-            className="bg-zinc-800 border-zinc-700 min-h-[80px]"
+            className="bg-muted border-zinc-700 min-h-[80px]"
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm text-zinc-400">Website</Label>
+          <Label className="text-sm text-muted-foreground">Website</Label>
           <Input
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             placeholder="https://..."
-            className="bg-zinc-800 border-zinc-700"
+            className="bg-muted border-zinc-700"
           />
         </div>
         <Button
@@ -201,24 +182,24 @@ function ApiKeysTab({
   return (
     <div className="space-y-6">
       {/* AI Generation Keys */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-base">AI Generation Keys</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Add your own API keys to generate motion graphics with AI. Without keys, you&apos;ll use the free demo quota.
           </p>
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-400">Google Gemini API Key</Label>
+            <Label className="text-sm text-muted-foreground">Google Gemini API Key</Label>
             <Input
               type="password"
               value={geminiApiKey}
               onChange={(e) => setGeminiApiKey(e.target.value)}
               placeholder="AIzaSy..."
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-zinc-700"
             />
-            <p className="text-xs text-zinc-600">
+            <p className="text-xs text-muted-foreground">
               Free tier: 15 requests/minute. Get yours at{" "}
               <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
                 aistudio.google.com
@@ -226,15 +207,15 @@ function ApiKeysTab({
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-400">Anthropic (Claude) API Key</Label>
+            <Label className="text-sm text-muted-foreground">Anthropic (Claude) API Key</Label>
             <Input
               type="password"
               value={anthropicApiKey}
               onChange={(e) => setAnthropicApiKey(e.target.value)}
               placeholder="sk-ant-..."
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-zinc-700"
             />
-            <p className="text-xs text-zinc-600">
+            <p className="text-xs text-muted-foreground">
               Paid per token. Better code quality. Get yours at{" "}
               <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
                 console.anthropic.com
@@ -245,22 +226,22 @@ function ApiKeysTab({
       </Card>
 
       {/* Rendering Keys */}
-      <Card className="bg-zinc-900 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-base">Render Keys (BYOK)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Bring your own keys for cloud rendering.
           </p>
           <div className="space-y-1.5">
-            <Label className="text-sm text-zinc-400">Modal API Key</Label>
+            <Label className="text-sm text-muted-foreground">Modal API Key</Label>
             <Input
               type="password"
               value={modalApiKey}
               onChange={(e) => setModalApiKey(e.target.value)}
               placeholder="mk-..."
-              className="bg-zinc-800 border-zinc-700"
+              className="bg-muted border-zinc-700"
             />
           </div>
         </CardContent>
@@ -280,22 +261,22 @@ function ApiKeysTab({
 
 function BillingTab({ plan, credits }: { plan: string; credits: number }) {
   return (
-    <Card className="bg-zinc-900 border-zinc-800">
+    <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-base">Billing & Plan</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-400">Current Plan:</span>
+          <span className="text-sm text-muted-foreground">Current Plan:</span>
           <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30">
             {plan.charAt(0).toUpperCase() + plan.slice(1)}
           </Badge>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-400">Render Credits:</span>
-          <span className="text-sm font-semibold text-zinc-200">{credits}</span>
+          <span className="text-sm text-muted-foreground">Render Credits:</span>
+          <span className="text-sm font-semibold text-foreground">{credits}</span>
         </div>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted-foreground">
           Upgrade options coming soon. AI generations use Google Gemini&apos;s free tier by default.
         </p>
       </CardContent>

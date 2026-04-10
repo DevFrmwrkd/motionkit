@@ -43,7 +43,7 @@ export function SchemaForm({ schema, values, onChange }: SchemaFormProps) {
     <div className="space-y-6">
       {Array.from(groups.entries()).map(([groupName, fields]) => (
         <div key={groupName}>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             {groupName}
           </h3>
           <div className="space-y-4">
@@ -119,7 +119,7 @@ function FieldRenderer({
         <div className="space-y-1.5">
           <div className="flex justify-between">
             <Label>{label}</Label>
-            <span className="text-xs text-zinc-400 tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {String(value ?? field.default)}
               {field.type === "duration" ? "s" : ""}
             </span>

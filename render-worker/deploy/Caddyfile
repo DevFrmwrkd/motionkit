@@ -1,0 +1,43 @@
+# Caddy automatically provisions & renews a Let's Encrypt cert for this host.
+# Replace render.motionkit.dev with whatever subdomain you point at the box.
+
+render.motionkit.dev {
+	encode zstd gzip
+
+	# POST /render — proxy to the Fastify worker (signed requests from Convex).
+	handle /render {
+		reverse_proxy 127.0.0.1:4000 {
+			# Renders can take 60+ seconds on cold-warm transitions.
+			transport http {
+				dial_timeout 10s
+				response_header_timeout 600s
+				read_timeout 600s
+			}
+		}
+	}
+
+	handle /health {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# GET /renders/<jobId>.mp4 — serve finished MP4s straight from disk.
+	# Bypass the Node worker entirely for speed + zero extra CPU.
+	handle_path /renders/* {
+		root * /var/www/renders
+		file_server {
+			precompressed gzip
+		}
+		header Cache-Control "public, max-age=604800, immutable"
+		header Access-Control-Allow-Origin "*"
+	}
+
+	# Block everything else.
+	handle {
+		respond "not found" 404
+	}
+
+	log {
+		output file /var/log/caddy/motionkit-render.log
+		format console
+	}
+}

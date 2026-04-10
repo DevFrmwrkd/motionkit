@@ -66,9 +66,9 @@ export function PresetCard({
 
   return (
     <Link href={`/workstation?presetId=${preset._id}`}>
-      <Card className="bg-zinc-900 border-zinc-800 overflow-hidden hover:border-amber-500/40 transition-all duration-200 group cursor-pointer h-full flex flex-col hover:scale-[1.01]">
+      <Card className="bg-card border-border overflow-hidden hover:border-amber-500/40 transition-all duration-200 group cursor-pointer h-full flex flex-col hover:scale-[1.01]">
         {/* Thumbnail area */}
-        <div className="aspect-video relative overflow-hidden border-b border-zinc-800">
+        <div className="aspect-video relative overflow-hidden border-b border-border">
           {preset.thumbnailUrl ? (
             <Image
               src={preset.thumbnailUrl}
@@ -101,7 +101,7 @@ export function PresetCard({
           </Badge>
           {/* Version badge */}
           {preset.parentPresetId && (
-            <Badge className="absolute top-3 left-3 text-xs bg-zinc-950/80 text-zinc-300 border-zinc-700 backdrop-blur-sm">
+            <Badge className="absolute top-3 left-3 text-xs bg-background/80 text-muted-foreground border-border backdrop-blur-sm">
               <GitFork className="size-3 mr-1" />
               Fork
             </Badge>
@@ -121,11 +121,11 @@ export function PresetCard({
 
             {/* Title + description */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-zinc-100 group-hover:text-amber-400 transition-colors truncate">
+              <h3 className="text-base font-semibold text-foreground group-hover:text-amber-400 transition-colors truncate">
                 {preset.name}
               </h3>
               {preset.description && (
-                <p className="text-sm text-zinc-500 line-clamp-2 mt-0.5">
+                <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
                   {preset.description}
                 </p>
               )}
@@ -133,10 +133,10 @@ export function PresetCard({
           </div>
 
           {/* Footer */}
-          <div className="mt-auto pt-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
+          <div className="mt-auto pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
             <span>
               By{" "}
-              <span className="text-zinc-300 font-medium">
+              <span className="text-muted-foreground font-medium">
                 {preset.author ?? "Unknown"}
               </span>
             </span>

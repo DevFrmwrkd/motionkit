@@ -75,16 +75,16 @@ export function SavePresetDialog({
           <Button
             variant="outline"
             size="sm"
-            className={triggerClassName ?? "hidden sm:flex border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 bg-zinc-900 shadow-sm"}
+            className={triggerClassName ?? "hidden sm:flex border-border text-muted-foreground hover:bg-accent hover:text-foreground bg-card shadow-sm"}
           />
         }
       >
         <Save className="w-4 h-4 mr-2" /> Save Preset
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-zinc-800 text-zinc-100">
+      <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Save Variant</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Save your current settings for this preset so you can reuse them later.
           </DialogDescription>
         </DialogHeader>
@@ -95,12 +95,12 @@ export function SavePresetDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Variant name"
-              className="bg-zinc-900 border-zinc-800 text-zinc-100 focus-visible:ring-amber-500"
+              className="bg-card border-border text-foreground focus-visible:ring-amber-500"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground hover:bg-accent hover:text-foreground">
             Cancel
           </Button>
           <Button onClick={() => void handleSave()} disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold">

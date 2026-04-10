@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ConvexClientProvider } from "@/lib/convex";
 import { Toaster } from "@/components/ui/sonner";
+import { AppShell } from "@/components/layout/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,9 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased dark">
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100 font-sans">
+      <body className="h-full font-sans">
         <ConvexClientProvider>
-          {children}
+          <AppShell>{children}</AppShell>
           <Toaster theme="dark" position="bottom-right" />
         </ConvexClientProvider>
       </body>

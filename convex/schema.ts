@@ -86,6 +86,12 @@ export default defineSchema({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
+    // Convex Auth standard fields (populated by OAuth providers)
+    image: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
     role: v.optional(
       v.union(v.literal("user"), v.literal("creator"), v.literal("admin"))
     ),
@@ -125,7 +131,7 @@ export default defineSchema({
     dailyGenerations: v.optional(v.number()),
     lastGenerationDate: v.optional(v.string()),
   })
-    .index("by_email", ["email"])
+    .index("email", ["email"])
     .index("by_tokenIdentifier", ["tokenIdentifier"]),
 
   collections: defineTable({

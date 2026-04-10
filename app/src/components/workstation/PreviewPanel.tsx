@@ -48,7 +48,7 @@ export function PreviewPanel({
             className="w-full max-w-[960px]"
           />
         ) : (
-          <div className="text-zinc-500 text-sm">
+          <div className="text-muted-foreground text-sm">
             Select a preset to preview
           </div>
         )}
@@ -57,9 +57,9 @@ export function PreviewPanel({
       <Separator />
 
       {/* Render Queue */}
-      <div className="h-[150px] shrink-0 border-t border-zinc-800">
-        <div className="px-4 py-2 border-b border-zinc-800 flex justify-between items-center">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+      <div className="h-[150px] shrink-0 border-t border-border">
+        <div className="px-4 py-2 border-b border-border flex justify-between items-center">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Active Renders
           </h3>
         </div>

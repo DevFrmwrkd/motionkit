@@ -2,7 +2,6 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SiteHeader } from "@/components/shared/SiteHeader";
 import { PresetLibrary } from "@/components/workstation/PresetLibrary";
 import { PreviewPanel } from "@/components/workstation/PreviewPanel";
 import { TimelinePanel } from "@/components/workstation/TimelinePanel";
@@ -15,7 +14,7 @@ import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { presetRegistry } from "@/lib/preset-registry";
 import { codeToComponent } from "@/lib/code-to-component";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { GitFork, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,7 +22,7 @@ export default function WorkstationPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-500">
+        <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin mr-2" />
           Loading workstation...
         </div>
@@ -48,20 +47,115 @@ function WorkstationContent() {
     api.renderJobs.listByUser,
     user ? { userId: user._id as Id<"users"> } : "skip"
   );
+  const urlPresetId = searchParams.get("presetId");
+  const fallbackPresetId = useMemo(() => {
+    if (!presets || presets.length === 0) {
+      return null;
+    }
+
+    const previewablePreset = presets.find((preset) => canResolvePreset(preset));
+    return previewablePreset?._id ?? presets[0]._id;
+  }, [presets]);
+
+  const effectivePresetId =
+    urlPresetId || savedPreset?.presetId || fallbackPresetId;
+  const activePreset = presets?.find((preset) => preset._id === effectivePresetId) ?? null;
+  const workspaceKey = `${effectivePresetId ?? "empty"}:${urlSavedPresetId ?? "base"}`;
+
+  const handleSelectPreset = (id: string) => {
+    router.replace(`/workstation?presetId=${id}`);
+  };
+
+  return (
+    <div className="flex h-[calc(100svh-3.5rem)] overflow-hidden bg-background text-foreground font-sans">
+      <div className="w-[280px] shrink-0 border-r border-border bg-background flex flex-col z-10">
+        {presets === undefined ? (
+          <div className="p-4 text-muted-foreground text-sm flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+          </div>
+        ) : (
+          <PresetLibrary
+            presets={presets.map((preset) => ({
+              _id: preset._id,
+              name: preset.name,
+              category: preset.category,
+              description: preset.description || "",
+              tags: preset.tags || [],
+            }))}
+            activePresetId={effectivePresetId ?? undefined}
+            onSelectPreset={handleSelectPreset}
+          />
+        )}
+      </div>
+
+      <ActivePresetWorkspace
+        key={workspaceKey}
+        activePreset={activePreset}
+        savedPreset={savedPreset ?? null}
+        user={user}
+        renderJobs={renderJobs ?? []}
+        isLoadingJobs={renderJobs === undefined}
+        urlSavedPresetId={urlSavedPresetId}
+      />
+    </div>
+  );
+}
+
+function canResolvePreset(preset: Doc<"presets">) {
+  if (presetRegistry[preset.bundleUrl]) {
+    return true;
+  }
+
+  if (!preset.sourceCode || !preset.inputSchema) {
+    return false;
+  }
+
+  const result = codeToComponent(
+    preset.sourceCode,
+    preset.inputSchema,
+    JSON.stringify({
+      name: preset.name,
+      fps: preset.fps,
+      width: preset.width,
+      height: preset.height,
+      durationInFrames: preset.durationInFrames,
+      category: preset.category,
+    })
+  );
+
+  return !!result.preset;
+}
+
+interface ActivePresetWorkspaceProps {
+  activePreset: Doc<"presets"> | null;
+  savedPreset: Doc<"savedPresets"> | null;
+  user: Doc<"users"> | null;
+  renderJobs: Doc<"renderJobs">[];
+  isLoadingJobs: boolean;
+  urlSavedPresetId: string | null;
+}
+
+function ActivePresetWorkspace({
+  activePreset,
+  savedPreset,
+  user,
+  renderJobs,
+  isLoadingJobs,
+  urlSavedPresetId,
+}: ActivePresetWorkspaceProps) {
+  const router = useRouter();
   const clonePreset = useMutation(api.presets.clonePreset);
   const createRenderJob = useMutation(api.renderJobs.create);
   const updatePreset = useMutation(api.presets.update);
-  const dispatchRender = useAction(api.actions.renderWithModal.dispatchRender);
-
+  const dispatchRender = useAction(api.actions.renderWithLambda.dispatchRender);
   const [userProps, setUserProps] = useState<Record<string, unknown>>({});
   const [editedCode, setEditedCode] = useState<string | null>(null);
-  const urlPresetId = searchParams.get("presetId");
+  const [ignoreSavedVariantProps, setIgnoreSavedVariantProps] = useState(false);
 
-  const effectivePresetId =
-    urlPresetId || savedPreset?.presetId || (presets && presets.length > 0 ? presets[0]._id : null);
-  const activePreset = presets?.find((p) => p._id === effectivePresetId);
   const savedVariantProps = useMemo(() => {
-    if (!savedPreset?.customProps) return {};
+    if (!savedPreset?.customProps) {
+      return {};
+    }
 
     try {
       return JSON.parse(savedPreset.customProps) as Record<string, unknown>;
@@ -69,8 +163,11 @@ function WorkstationContent() {
       return {};
     }
   }, [savedPreset]);
+
   const activePresetMetaJson = useMemo(() => {
-    if (!activePreset) return null;
+    if (!activePreset) {
+      return null;
+    }
 
     return JSON.stringify({
       name: activePreset.name,
@@ -82,14 +179,13 @@ function WorkstationContent() {
     });
   }, [activePreset]);
 
-  // The source code to display — edited version or original
   const displayCode = editedCode ?? activePreset?.sourceCode ?? null;
 
-  // Resolve the component: static registry first, then try AI/edited code
   const resolvedPreset = useMemo(() => {
-    if (!activePreset) return null;
+    if (!activePreset) {
+      return null;
+    }
 
-    // If we have edited code, use that
     if (editedCode && activePreset.inputSchema && activePresetMetaJson) {
       const result = codeToComponent(
         editedCode,
@@ -99,11 +195,11 @@ function WorkstationContent() {
       return result.preset;
     }
 
-    // Try static registry
     const staticPreset = presetRegistry[activePreset.bundleUrl];
-    if (staticPreset) return staticPreset;
+    if (staticPreset) {
+      return staticPreset;
+    }
 
-    // Try AI-generated code
     if (activePreset.sourceCode && activePreset.inputSchema && activePresetMetaJson) {
       const result = codeToComponent(
         activePreset.sourceCode,
@@ -116,9 +212,11 @@ function WorkstationContent() {
     return null;
   }, [activePreset, activePresetMetaJson, editedCode]);
 
-  // Parse schema
   const currentSchema = useMemo(() => {
-    if (!activePreset?.inputSchema) return null;
+    if (!activePreset?.inputSchema) {
+      return null;
+    }
+
     try {
       return JSON.parse(activePreset.inputSchema);
     } catch {
@@ -126,18 +224,30 @@ function WorkstationContent() {
     }
   }, [activePreset]);
 
-  // Default props from schema
   const defaultProps = useMemo(() => {
     const props: Record<string, unknown> = {};
+
     if (currentSchema) {
       for (const [key, field] of Object.entries(currentSchema)) {
         props[key] = (field as { default: unknown }).default;
       }
     }
+
     return props;
   }, [currentSchema]);
 
-  const inputProps = { ...defaultProps, ...savedVariantProps, ...userProps };
+  const baseProps = useMemo(
+    () => ({
+      ...defaultProps,
+      ...(ignoreSavedVariantProps ? {} : savedVariantProps),
+    }),
+    [defaultProps, ignoreSavedVariantProps, savedVariantProps]
+  );
+
+  const inputProps = useMemo(
+    () => ({ ...baseProps, ...userProps }),
+    [baseProps, userProps]
+  );
 
   const currentMeta = activePreset
     ? {
@@ -150,7 +260,9 @@ function WorkstationContent() {
     : null;
 
   const isRendering = useMemo(() => {
-    if (!activePreset || !renderJobs) return false;
+    if (!activePreset) {
+      return false;
+    }
 
     return renderJobs.some(
       (job) =>
@@ -159,18 +271,13 @@ function WorkstationContent() {
     );
   }, [activePreset, renderJobs]);
 
-  const handleSelectPreset = (id: string) => {
-    setUserProps({});
-    setEditedCode(null);
-    router.replace(`/workstation?presetId=${id}`);
-  };
-
   const handlePropChange = (key: string, value: unknown) => {
     setUserProps((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleReset = () => {
     setUserProps({});
+    setIgnoreSavedVariantProps(true);
     toast("Properties reset to defaults");
   };
 
@@ -179,14 +286,13 @@ function WorkstationContent() {
       toast.error("Sign in to clone presets");
       return;
     }
+
     try {
       const newId = await clonePreset({
         sourcePresetId: activePreset._id as Id<"presets">,
         userId: user._id as Id<"users">,
       });
       toast.success("Preset cloned to your library!");
-      setUserProps({});
-      setEditedCode(null);
       router.replace(`/workstation?presetId=${newId}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to clone");
@@ -203,7 +309,7 @@ function WorkstationContent() {
     }
 
     setEditedCode(code);
-    // Also persist to database if the user owns this preset
+
     if (activePreset && user && activePreset.authorId === user._id) {
       try {
         await updatePreset({
@@ -212,7 +318,7 @@ function WorkstationContent() {
           sourceCode: code,
         });
       } catch {
-        // Still updates locally even if DB save fails
+        // Keep the optimistic local preview even if persistence fails.
       }
     }
   };
@@ -263,96 +369,68 @@ function WorkstationContent() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans">
-      <SiteHeader />
-
-      <div className="flex flex-1 min-h-0 overflow-auto">
-        {/* Left: Preset Library */}
-        <div className="w-[280px] shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col z-10">
-          {presets === undefined ? (
-            <div className="p-4 text-zinc-500 text-sm flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-            </div>
-          ) : (
-            <PresetLibrary
-              presets={presets.map((p) => ({
-                _id: p._id,
-                name: p.name,
-                category: p.category,
-                description: p.description || "",
-                tags: p.tags || [],
-              }))}
-              activePresetId={effectivePresetId ?? undefined}
-              onSelectPreset={handleSelectPreset}
-            />
-          )}
+    <>
+      <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative">
+        <div className="flex-1 flex flex-col min-h-0">
+          <PreviewPanel
+            component={resolvedPreset ? resolvedPreset.component : null}
+            inputProps={inputProps}
+            meta={currentMeta}
+            renderJobs={renderJobs}
+            isLoadingJobs={isLoadingJobs}
+          />
         </div>
 
-        {/* Center: Preview */}
-        <div className="flex-1 min-w-0 bg-zinc-950/50 flex flex-col relative">
-          <div className="flex-1 flex flex-col min-h-0">
-            <PreviewPanel
-              component={resolvedPreset ? resolvedPreset.component : null}
-              inputProps={inputProps}
-              meta={currentMeta}
-              renderJobs={renderJobs || []}
-              isLoadingJobs={renderJobs === undefined}
+        {activePreset && user && (
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+            <AddToProjectDialog
+              userId={user._id as Id<"users">}
+              presetId={activePreset._id as Id<"presets">}
+              savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
+              triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5 bg-background/90"
             />
+            <SavePresetDialog
+              key={urlSavedPresetId ?? activePreset._id}
+              userId={user._id as Id<"users">}
+              presetId={activePreset._id as Id<"presets">}
+              presetName={activePreset.name}
+              customProps={inputProps}
+              triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5 bg-background/90"
+              onSaved={handleSavedVariant}
+            />
+            <Button
+              onClick={handleClone}
+              variant="outline"
+              size="sm"
+              className="border-border text-muted-foreground hover:bg-accent gap-1.5 bg-background/90"
+            >
+              <GitFork className="w-3.5 h-3.5" />
+              Clone
+            </Button>
           </div>
+        )}
 
-          {/* Clone button overlay */}
-          {activePreset && user && (
-            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-              <AddToProjectDialog
-                userId={user._id as Id<"users">}
-                presetId={activePreset._id as Id<"presets">}
-                savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
-                triggerClassName="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5 bg-zinc-950/90"
-              />
-              <SavePresetDialog
-                key={urlSavedPresetId ?? activePreset._id}
-                userId={user._id as Id<"users">}
-                presetId={activePreset._id as Id<"presets">}
-                presetName={activePreset.name}
-                customProps={inputProps}
-                triggerClassName="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5 bg-zinc-950/90"
-                onSaved={handleSavedVariant}
-              />
-              <Button
-                onClick={handleClone}
-                variant="outline"
-                size="sm"
-                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5 bg-zinc-950/90"
-              >
-                <GitFork className="w-3.5 h-3.5" />
-                Clone
-              </Button>
-            </div>
-          )}
-
-          <TimelinePanel
-            presetName={currentMeta?.name || null}
-            fps={currentMeta?.fps || 30}
-            durationInFrames={currentMeta?.durationInFrames || 150}
-          />
-        </div>
-
-        {/* Right: Controls */}
-        <div className="w-[360px] shrink-0 border-l border-zinc-800 bg-zinc-950 flex flex-col z-10">
-          <InputControls
-            key={urlSavedPresetId ?? effectivePresetId ?? "empty"}
-            schema={currentSchema}
-            values={inputProps}
-            onChange={handlePropChange}
-            onReset={handleReset}
-            onRender={handleRender}
-            isRendering={isRendering}
-            presetName={currentMeta?.name || null}
-            sourceCode={displayCode}
-            onSaveCode={handleSaveCode}
-          />
-        </div>
+        <TimelinePanel
+          presetName={currentMeta?.name || null}
+          fps={currentMeta?.fps || 30}
+          durationInFrames={currentMeta?.durationInFrames || 150}
+        />
       </div>
-    </div>
+
+      <div className="w-[360px] shrink-0 border-l border-border bg-background flex flex-col z-10">
+        <InputControls
+          key={urlSavedPresetId ?? activePreset?._id ?? "empty"}
+          schema={currentSchema}
+          values={inputProps}
+          onChange={handlePropChange}
+          onReset={handleReset}
+          onRender={handleRender}
+          isRendering={isRendering}
+          presetName={currentMeta?.name || null}
+          sourceCode={displayCode}
+          onSaveCode={handleSaveCode}
+        />
+      </div>
+    </>
   );
 }

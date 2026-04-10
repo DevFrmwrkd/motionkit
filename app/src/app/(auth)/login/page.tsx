@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { motion } from "framer-motion";
+import { writeDemoMode } from "@/lib/demo-mode";
 
 export default function LoginPage() {
   const { signIn } = useAuthActions();
@@ -35,10 +36,9 @@ export default function LoginPage() {
     setSigningIn(true);
     try {
       await createDemoUser();
-      localStorage.setItem("motionkit_demo", "true");
+      writeDemoMode(true);
       router.replace("/dashboard");
-      // Force a re-render so useCurrentUser picks up the demo flag
-      window.location.href = "/dashboard";
+      router.refresh();
     } catch {
       setSigningIn(false);
     }

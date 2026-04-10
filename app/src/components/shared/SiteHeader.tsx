@@ -27,6 +27,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { useState } from "react";
+import { writeDemoMode } from "@/lib/demo-mode";
 
 const navLinks = [
   { href: "/marketplace", label: "Marketplace" },
@@ -51,12 +52,13 @@ export function SiteHeader() {
   const { user, isAuthenticated, isLoading, isDemoMode } = useCurrentUser();
   const { signOut } = useAuthActions();
 
-  const handleSignOut = () => {
-    localStorage.removeItem("motionkit_demo");
+  const handleSignOut = async () => {
+    writeDemoMode(false);
     if (!isDemoMode) {
-      void signOut();
+      await signOut();
     }
-    window.location.href = "/";
+    router.push("/");
+    router.refresh();
   };
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -101,8 +103,8 @@ export function SiteHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger className="cursor-pointer rounded-full outline-none ring-amber-500 focus-visible:ring-2">
                   <Avatar size="default">
-                    {user.avatarUrl ? (
-                      <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />
+                    {(user.avatarUrl ?? user.image) ? (
+                      <AvatarImage src={(user.avatarUrl ?? user.image)} alt={user.name ?? ""} />
                     ) : null}
                     <AvatarFallback className="bg-zinc-800 text-zinc-300 text-xs">
                       {getInitials(user.name)}
@@ -133,7 +135,7 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={handleSignOut}
+                    onClick={() => void handleSignOut()}
                     variant="destructive"
                   >
                     <LogOut className="size-4" />
@@ -187,9 +189,9 @@ export function SiteHeader() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <Avatar size="default">
-                        {user.avatarUrl ? (
+                        {(user.avatarUrl ?? user.image) ? (
                           <AvatarImage
-                            src={user.avatarUrl}
+                            src={(user.avatarUrl ?? user.image)}
                             alt={user.name ?? ""}
                           />
                         ) : null}
@@ -227,7 +229,7 @@ export function SiteHeader() {
                       </Link>
                       <button
                         onClick={() => {
-                          handleSignOut();
+                          void handleSignOut();
                           setMobileOpen(false);
                         }}
                         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"

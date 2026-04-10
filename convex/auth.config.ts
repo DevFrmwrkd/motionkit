@@ -1,7 +1,7 @@
 export default {
   providers: [
     {
-      domain: "https://accounts.google.com",
+      domain: process.env.CONVEX_SITE_URL,
       applicationID: "convex",
     },
   ],

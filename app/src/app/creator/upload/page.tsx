@@ -144,7 +144,7 @@ export default function CreatorUpload() {
 
   if (isLoading || (user && presets === undefined)) {
     return (
-      <div className="flex items-center justify-center py-24 text-zinc-500">
+      <div className="flex items-center justify-center py-24 text-muted-foreground">
         <Loader2 className="mr-2 size-5 animate-spin" />
         Loading publish tools...
       </div>
@@ -155,19 +155,19 @@ export default function CreatorUpload() {
 
   if (!presets || presets.length === 0) {
     return (
-      <div className="space-y-8">
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-100">Publish Preset</h1>
-          <p className="mt-2 text-zinc-400">
+          <h1 className="text-3xl font-bold text-foreground">Publish Preset</h1>
+          <p className="mt-2 text-muted-foreground">
             Bundle upload is still planned. For now, publish presets you already created or imported.
           </p>
         </div>
 
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardContent className="flex flex-col items-center justify-center gap-4 p-10 text-center">
-            <UploadCloud className="size-12 text-zinc-600" />
-            <h2 className="text-xl font-semibold text-zinc-100">No presets available yet</h2>
-            <p className="max-w-md text-sm text-zinc-500">
+            <UploadCloud className="size-12 text-muted-foreground" />
+            <h2 className="text-xl font-semibold text-foreground">No presets available yet</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
               Start in Create or Import, then come back here to add marketplace metadata and publish the listing.
             </p>
             <div className="flex gap-3">
@@ -178,7 +178,7 @@ export default function CreatorUpload() {
                 </Button>
               </Link>
               <Link href="/import">
-                <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-900">
+                <Button variant="outline" className="border-border text-foreground hover:bg-accent">
                   Import preset
                 </Button>
               </Link>
@@ -190,19 +190,19 @@ export default function CreatorUpload() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-100">Publish Preset</h1>
-        <p className="mt-2 max-w-3xl text-zinc-400">
+        <h1 className="text-3xl font-bold text-foreground">Publish Preset</h1>
+        <p className="mt-2 max-w-3xl text-muted-foreground">
           Select one of your existing presets, refine its listing details, and control whether it stays private or appears in the marketplace.
         </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.3fr]">
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader>
-            <CardTitle className="text-zinc-100">Your Presets</CardTitle>
-            <CardDescription className="text-zinc-400">
+            <CardTitle className="text-foreground">Your Presets</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Choose a preset to edit its marketplace listing.
             </CardDescription>
           </CardHeader>
@@ -215,26 +215,26 @@ export default function CreatorUpload() {
                 className={`w-full rounded-2xl border p-4 text-left transition-colors ${
                   selectedPresetId === preset._id
                     ? "border-amber-500/40 bg-amber-500/5"
-                    : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-700"
+                    : "border-border bg-zinc-950/70 hover:border-zinc-700"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-zinc-100">{preset.name}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{preset.category}</p>
+                    <p className="truncate font-medium text-foreground">{preset.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{preset.category}</p>
                   </div>
                   <Badge
                     variant="outline"
                     className={
                       preset.status === "published"
                         ? "border-green-500/30 text-green-400"
-                        : "border-zinc-700 text-zinc-400"
+                        : "border-zinc-700 text-muted-foreground"
                     }
                   >
                     {preset.status}
                   </Badge>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-500">
+                <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                   <span>{(preset.viewCount ?? 0).toLocaleString()} views</span>
                   <span>{(preset.downloads ?? 0).toLocaleString()} downloads</span>
                   <span>{preset.isPublic ? "Public" : "Private"}</span>
@@ -244,18 +244,18 @@ export default function CreatorUpload() {
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-800 bg-zinc-900">
-          <CardHeader className="border-b border-zinc-800 pb-4">
+        <Card className="border-border bg-card">
+          <CardHeader className="border-b border-border pb-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <CardTitle className="text-zinc-100">Listing Details</CardTitle>
-                <CardDescription className="text-zinc-400">
+                <CardTitle className="text-foreground">Listing Details</CardTitle>
+                <CardDescription className="text-muted-foreground">
                   Marketplace metadata for the selected preset.
                 </CardDescription>
               </div>
               {selectedPreset && (
                 <Link href={`/workstation?presetId=${selectedPreset._id}`}>
-                  <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-800">
+                  <Button variant="outline" className="border-border text-foreground hover:bg-accent">
                     <PencilLine className="mr-2 size-4" />
                     Open in workstation
                   </Button>
@@ -266,17 +266,17 @@ export default function CreatorUpload() {
           <CardContent className="space-y-6 pt-6">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-zinc-300">Preset Name</Label>
+                <Label className="text-muted-foreground">Preset Name</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                  className="border-border bg-zinc-950 text-foreground"
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-300">Category</Label>
+                <Label className="text-muted-foreground">Category</Label>
                 <Select value={category} onValueChange={(value) => setCategory(value as Category)}>
-                  <SelectTrigger className="border-zinc-800 bg-zinc-950 text-zinc-100">
+                  <SelectTrigger className="border-border bg-zinc-950 text-foreground">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -291,50 +291,50 @@ export default function CreatorUpload() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-300">Description</Label>
+              <Label className="text-muted-foreground">Description</Label>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[120px] border-zinc-800 bg-zinc-950 text-zinc-100"
+                className="min-h-[120px] border-border bg-zinc-950 text-foreground"
                 placeholder="Describe what makes this preset useful."
               />
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-zinc-300">Tags</Label>
+                <Label className="text-muted-foreground">Tags</Label>
                 <Input
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
-                  className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                  className="border-border bg-zinc-950 text-foreground"
                   placeholder="intro, neon, tech"
                 />
-                <p className="text-xs text-zinc-500">Comma-separated tags.</p>
+                <p className="text-xs text-muted-foreground">Comma-separated tags.</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-zinc-300">Thumbnail URL</Label>
+                <Label className="text-muted-foreground">Thumbnail URL</Label>
                 <Input
                   value={thumbnailUrl}
                   onChange={(e) => setThumbnailUrl(e.target.value)}
-                  className="border-zinc-800 bg-zinc-950 text-zinc-100"
+                  className="border-border bg-zinc-950 text-foreground"
                   placeholder="https://..."
                 />
               </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <div className="rounded-2xl border border-border bg-zinc-950/70 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium text-zinc-100">Premium listing</p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="font-medium text-foreground">Premium listing</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Charge for downloads by setting a marketplace price.
                     </p>
                   </div>
                   <Switch checked={isPremium} onCheckedChange={setIsPremium} />
                 </div>
                 <div className="mt-4 space-y-2">
-                  <Label className="text-zinc-300">Price (USD)</Label>
+                  <Label className="text-muted-foreground">Price (USD)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -342,16 +342,16 @@ export default function CreatorUpload() {
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     disabled={!isPremium}
-                    className="border-zinc-800 bg-zinc-950 text-zinc-100 disabled:opacity-50"
+                    className="border-border bg-zinc-950 text-foreground disabled:opacity-50"
                   />
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4">
+              <div className="rounded-2xl border border-border bg-zinc-950/70 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium text-zinc-100">Publish to marketplace</p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="font-medium text-foreground">Publish to marketplace</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Published presets become public and discoverable.
                     </p>
                   </div>
@@ -360,7 +360,7 @@ export default function CreatorUpload() {
                     onCheckedChange={setPublishToMarketplace}
                   />
                 </div>
-                <div className="mt-4 flex items-center gap-2 text-xs text-zinc-400">
+                <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
                   <Globe className="size-3.5 text-amber-500" />
                   {publishToMarketplace
                     ? "This preset will be marked as published."
@@ -369,7 +369,7 @@ export default function CreatorUpload() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/60 p-4 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-dashed border-border bg-zinc-950/60 p-4 text-sm text-muted-foreground">
               <p>
                 Bundle upload to Cloudflare R2 is still planned.
               </p>
@@ -381,7 +381,7 @@ export default function CreatorUpload() {
             <div className="flex flex-col gap-3 md:flex-row md:justify-end">
               {selectedPreset && (
                 <Link href={`/workstation?presetId=${selectedPreset._id}`}>
-                  <Button variant="outline" className="border-zinc-800 text-zinc-200 hover:bg-zinc-800">
+                  <Button variant="outline" className="border-border text-foreground hover:bg-accent">
                     Open in workstation
                   </Button>
                 </Link>

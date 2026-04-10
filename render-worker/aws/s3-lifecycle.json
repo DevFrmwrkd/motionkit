@@ -1,0 +1,16 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-renders-after-7-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "renders/" },
+      "Expiration": { "Days": 7 }
+    },
+    {
+      "ID": "abort-multipart-uploads-1-day",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}

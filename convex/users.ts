@@ -55,7 +55,7 @@ export const getOrCreateDemoUser = mutation({
     const demoEmail = "demo@motionkit.dev";
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", demoEmail))
+      .withIndex("email", (q) => q.eq("email", demoEmail))
       .first();
 
     if (existing) return existing._id;
@@ -83,7 +83,7 @@ export const getDemoUser = query({
   handler: async (ctx) => {
     return await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", "demo@motionkit.dev"))
+      .withIndex("email", (q) => q.eq("email", "demo@motionkit.dev"))
       .first();
   },
 });
@@ -98,7 +98,7 @@ export const getOrCreate = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("email", (q) => q.eq("email", args.email))
       .first();
 
     if (existing) return existing._id;
@@ -161,7 +161,7 @@ export const getByEmail = query({
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("email", (q) => q.eq("email", args.email))
       .first();
 
     return stripPrivateUserFields(user);

@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { SiteHeader } from "@/components/shared/SiteHeader";
 import { PresetPlayer } from "@/components/preset/PresetPlayer";
 import { codeToComponent } from "@/lib/code-to-component";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -44,20 +42,9 @@ const TEMPLATE_META = `{
 }`;
 
 export default function ImportPage() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useCurrentUser();
+  const { user } = useCurrentUser();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) router.replace("/login");
-  }, [isLoading, isAuthenticated, router]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-500">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
-      </div>
-    );
-  }
+  if (!user) return null;
 
   return <ImportContent userId={user._id as Id<"users">} />;
 }
@@ -113,114 +100,110 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <SiteHeader />
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <Code2 className="w-6 h-6 text-amber-500" />
+          <h1 className="text-2xl font-bold">Import Preset</h1>
+        </div>
+        <p className="text-muted-foreground text-sm">
+          Paste your Remotion component code, define the input schema, and preview it live.
+        </p>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Code2 className="w-6 h-6 text-amber-500" />
-            <h1 className="text-2xl font-bold">Import Preset</h1>
-          </div>
-          <p className="text-zinc-400 text-sm">
-            Paste your Remotion component code, define the input schema, and preview it live.
-          </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Code inputs */}
+        <div className="space-y-4">
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Component Code (TSX)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={componentCode}
+                onChange={(e) => setComponentCode(e.target.value)}
+                className="font-mono text-xs bg-muted border-zinc-700 min-h-[200px] resize-y"
+                placeholder="Paste your Remotion component..."
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Input Schema (JSON)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={schemaJson}
+                onChange={(e) => setSchemaJson(e.target.value)}
+                className="font-mono text-xs bg-muted border-zinc-700 min-h-[100px] resize-y"
+                placeholder='{ "title": { "type": "text", "default": "Hello" } }'
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Metadata (JSON)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={metaJson}
+                onChange={(e) => setMetaJson(e.target.value)}
+                className="font-mono text-xs bg-muted border-zinc-700 min-h-[100px] resize-y"
+                placeholder='{ "name": "My Preset", "fps": 30, "width": 1920, "height": 1080, "durationInFrames": 90 }'
+              />
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Code inputs */}
-          <div className="space-y-4">
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Component Code (TSX)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={componentCode}
-                  onChange={(e) => setComponentCode(e.target.value)}
-                  className="font-mono text-xs bg-zinc-800 border-zinc-700 min-h-[200px] resize-y"
-                  placeholder="Paste your Remotion component..."
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Input Schema (JSON)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={schemaJson}
-                  onChange={(e) => setSchemaJson(e.target.value)}
-                  className="font-mono text-xs bg-zinc-800 border-zinc-700 min-h-[100px] resize-y"
-                  placeholder='{ "title": { "type": "text", "default": "Hello" } }'
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Metadata (JSON)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={metaJson}
-                  onChange={(e) => setMetaJson(e.target.value)}
-                  className="font-mono text-xs bg-zinc-800 border-zinc-700 min-h-[100px] resize-y"
-                  placeholder='{ "name": "My Preset", "fps": 30, "width": 1920, "height": 1080, "durationInFrames": 90 }'
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right: Preview + status */}
-          <div className="space-y-4">
-            {/* Validation status */}
-            <Card className={`border ${compiled.error ? "bg-red-500/5 border-red-500/20" : "bg-green-500/5 border-green-500/20"}`}>
-              <CardContent className="p-3 flex items-center gap-2">
-                {compiled.error ? (
-                  <>
-                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                    <p className="text-sm text-red-400">{compiled.error}</p>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-                    <p className="text-sm text-green-400">Valid preset — ready to import</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Live preview */}
-            {compiled.preset && (
-              <Card className="bg-zinc-900 border-zinc-800 overflow-hidden">
-                <CardContent className="p-0">
-                  <PresetPlayer
-                    component={compiled.preset.component}
-                    inputProps={Object.fromEntries(
-                      Object.entries(compiled.preset.schema).map(([k, v]) => [k, v.default])
-                    )}
-                    meta={compiled.preset.meta}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Import button */}
-            <Button
-              onClick={handleImport}
-              disabled={!compiled.preset || saving}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold h-11"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        {/* Right: Preview + status */}
+        <div className="space-y-4">
+          {/* Validation status */}
+          <Card className={`border ${compiled.error ? "bg-red-500/5 border-red-500/20" : "bg-green-500/5 border-green-500/20"}`}>
+            <CardContent className="p-3 flex items-center gap-2">
+              {compiled.error ? (
+                <>
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <p className="text-sm text-red-400">{compiled.error}</p>
+                </>
               ) : (
-                <Upload className="w-4 h-4 mr-2" />
+                <>
+                  <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                  <p className="text-sm text-green-400">Valid preset — ready to import</p>
+                </>
               )}
-              Import to Library
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Live preview */}
+          {compiled.preset && (
+            <Card className="bg-card border-border overflow-hidden">
+              <CardContent className="p-0">
+                <PresetPlayer
+                  component={compiled.preset.component}
+                  inputProps={Object.fromEntries(
+                    Object.entries(compiled.preset.schema).map(([k, v]) => [k, v.default])
+                  )}
+                  meta={compiled.preset.meta}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Import button */}
+          <Button
+            onClick={handleImport}
+            disabled={!compiled.preset || saving}
+            className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold h-11"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-2" />
+            )}
+            Import to Library
+          </Button>
         </div>
       </div>
     </div>

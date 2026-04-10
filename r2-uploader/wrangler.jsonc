@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "motionkit-r2-uploader",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [
+    {
+      "binding": "RENDERS",
+      "bucket_name": "motionkit-renders"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,7 +1,9 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { readDemoMode, subscribeDemoMode } from "@/lib/demo-mode";
 
 /**
  * Returns the current user — from OAuth or demo mode.
@@ -9,6 +11,11 @@ import { api } from "../../../convex/_generated/api";
  */
 export function useCurrentUser() {
   const { isAuthenticated: oauthAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const isDemoMode = useSyncExternalStore<boolean | null>(
+    subscribeDemoMode,
+    readDemoMode,
+    () => null
+  );
 
   // Try real auth
   const authUser = useQuery(
@@ -16,19 +23,25 @@ export function useCurrentUser() {
     oauthAuthenticated ? {} : "skip"
   );
 
-  // Always check for demo user (cheap, cached by Convex)
-  const demoUser = useQuery(api.users.getDemoUser);
-
-  const isDemoMode =
-    typeof window !== "undefined" &&
-    localStorage.getItem("motionkit_demo") === "true";
+  // Only resolve the demo account when demo mode is enabled.
+  const demoUser = useQuery(api.users.getDemoUser, isDemoMode ? {} : "skip");
 
   // Real OAuth user takes priority
-  if (oauthAuthenticated && authUser) {
-    return { user: authUser, isLoading: false, isAuthenticated: true, isDemoMode: false };
+  if (oauthAuthenticated) {
+    if (authUser === undefined) {
+      return { user: null, isLoading: true, isAuthenticated: false, isDemoMode: false };
+    }
+
+    if (authUser) {
+      return { user: authUser, isLoading: false, isAuthenticated: true, isDemoMode: false };
+    }
   }
 
   if (authLoading) {
+    return { user: null, isLoading: true, isAuthenticated: false, isDemoMode: false };
+  }
+
+  if (isDemoMode === null) {
     return { user: null, isLoading: true, isAuthenticated: false, isDemoMode: false };
   }
 

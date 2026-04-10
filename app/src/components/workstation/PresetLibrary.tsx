@@ -28,6 +28,7 @@ const categories = [
   { value: "cta", label: "CTA" },
   { value: "transition", label: "Transition" },
   { value: "outro", label: "Outro" },
+  { value: "full", label: "Full" },
   { value: "chart", label: "Chart" },
   { value: "map", label: "Map" },
   { value: "social", label: "Social" },
@@ -58,20 +59,20 @@ export function PresetLibrary({
   return (
     <div className="flex flex-col h-full">
       {/* Search */}
-      <div className="p-3 border-b border-zinc-800">
+      <div className="p-3 border-b border-border">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search presets..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-zinc-900 border-zinc-800"
+            className="pl-9 bg-card border-border"
           />
         </div>
       </div>
 
       {/* Category filters */}
-      <div className="flex flex-wrap gap-1 p-3 border-b border-zinc-800">
+      <div className="flex flex-wrap gap-1 p-3 border-b border-border">
         {categories.map((cat) => (
           <button
             key={cat.value}
@@ -79,7 +80,7 @@ export function PresetLibrary({
             className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
               activeCategory === cat.value
                 ? "bg-amber-500/20 text-amber-500"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             {cat.label}
@@ -97,11 +98,11 @@ export function PresetLibrary({
               className={`w-full text-left p-3 rounded-lg transition-colors ${
                 activePresetId === preset._id
                   ? "bg-amber-500/10 border border-amber-500/30"
-                  : "hover:bg-zinc-800/50 border border-transparent"
+                  : "hover:bg-accent border border-transparent"
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-200">
+                <span className="text-sm font-medium text-foreground">
                   {preset.name}
                 </span>
                 <Badge variant="outline" className="text-[10px]">
@@ -109,14 +110,14 @@ export function PresetLibrary({
                 </Badge>
               </div>
               {preset.description && (
-                <p className="text-xs text-zinc-500 mt-1 line-clamp-1">
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                   {preset.description}
                 </p>
               )}
             </button>
           ))}
           {filtered.length === 0 && (
-            <p className="text-center text-sm text-zinc-500 py-8">
+            <p className="text-center text-sm text-muted-foreground py-8">
               No presets found
             </p>
           )}

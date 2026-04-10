@@ -19,6 +19,7 @@
     "@convex-dev/auth": "^0.0.91",
     "@google/generative-ai": "^0.24.1",
     "@remotion/cli": "^4.0.0",
+    "@remotion/lambda": "^4.0.447",
     "@remotion/player": "^4.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

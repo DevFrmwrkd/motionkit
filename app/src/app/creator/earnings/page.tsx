@@ -30,7 +30,7 @@ export default function CreatorEarnings() {
 
   if (isLoading || !user || presets === undefined || renderJobs === undefined) {
     return (
-      <div className="flex items-center justify-center py-24 text-zinc-500">
+      <div className="flex items-center justify-center py-24 text-muted-foreground">
         <Loader2 className="mr-2 size-5 animate-spin" />
         Loading earnings...
       </div>
@@ -43,10 +43,10 @@ export default function CreatorEarnings() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
       <div>
-        <h1 className="text-3xl font-bold text-zinc-100">Earnings</h1>
-        <p className="mt-2 max-w-2xl text-zinc-400">
+        <h1 className="text-3xl font-bold text-foreground">Earnings</h1>
+        <p className="mt-2 max-w-2xl text-muted-foreground">
           Revenue is currently estimated from marketplace pricing and download counts. Payouts are not wired yet.
         </p>
       </div>
@@ -69,50 +69,50 @@ export default function CreatorEarnings() {
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Premium Downloads
             </CardTitle>
             <Download className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">
+            <div className="text-2xl font-bold text-foreground">
               {premiumDownloads.toLocaleString()}
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Across {metrics.premiumCount} premium preset
               {metrics.premiumCount === 1 ? "" : "s"}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-800 bg-zinc-900">
+        <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Draft Monetization
             </CardTitle>
             <Tag className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-zinc-100">{metrics.draftCount}</div>
-            <p className="mt-1 text-xs text-zinc-500">
+            <div className="text-2xl font-bold text-foreground">{metrics.draftCount}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
               Draft presets still need listing settings before they can earn.
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-zinc-800 bg-zinc-900">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
+      <Card className="border-border bg-card">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
           <div>
-            <CardTitle className="text-lg text-zinc-100">Revenue Breakdown</CardTitle>
-            <CardDescription className="mt-1 text-zinc-400">
+            <CardTitle className="text-lg text-foreground">Revenue Breakdown</CardTitle>
+            <CardDescription className="mt-1 text-muted-foreground">
               Estimated gross by premium preset.
             </CardDescription>
           </div>
           <Link href="/creator/upload">
-            <Button variant="outline" size="sm" className="border-zinc-800 text-zinc-300 hover:bg-zinc-800">
+            <Button variant="outline" size="sm" className="border-border text-muted-foreground hover:bg-accent">
               <Sparkles className="mr-2 size-4" />
               Update pricing
             </Button>
@@ -121,33 +121,33 @@ export default function CreatorEarnings() {
         <CardContent className="p-0">
           {metrics.revenueBreakdown.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm text-zinc-400">No premium listings yet.</p>
-              <p className="mt-2 text-xs text-zinc-600">
+              <p className="text-sm text-muted-foreground">No premium listings yet.</p>
+              <p className="mt-2 text-xs text-muted-foreground">
                 Open a preset in the publish screen and add pricing to start estimating revenue.
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-border">
               {metrics.revenueBreakdown.map((preset) => (
                 <div
                   key={preset._id}
-                  className="flex flex-col gap-4 p-4 transition-colors hover:bg-zinc-800/40 md:flex-row md:items-center md:justify-between"
+                  className="flex flex-col gap-4 p-4 transition-colors hover:bg-accent md:flex-row md:items-center md:justify-between"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="truncate font-medium text-zinc-200">{preset.name}</h3>
+                      <h3 className="truncate font-medium text-foreground">{preset.name}</h3>
                       <Badge
                         variant="outline"
                         className={
                           preset.status === "published"
                             ? "border-green-500/30 text-green-400"
-                            : "border-zinc-700 text-zinc-400"
+                            : "border-zinc-700 text-muted-foreground"
                         }
                       >
                         {preset.status}
                       </Badge>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-4 text-xs text-zinc-500">
+                    <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
                       <span>Price {formatCurrency(preset.price ?? 0)}</span>
                       <span>{(preset.downloads ?? 0).toLocaleString()} downloads</span>
                       <span>{(preset.viewCount ?? 0).toLocaleString()} views</span>

@@ -97,20 +97,20 @@ export function ReferenceImageUpload({
             unoptimized
           />
         ) : (
-          <div className="w-full h-24 rounded-lg border border-zinc-700 bg-zinc-800/50 flex items-center justify-center">
-            <ImageIcon className="w-6 h-6 text-zinc-500" />
+          <div className="w-full h-24 rounded-lg border border-zinc-700 bg-accent flex items-center justify-center">
+            <ImageIcon className="w-6 h-6 text-muted-foreground" />
           </div>
         )}
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-1 right-1 h-6 w-6 bg-zinc-900/80 hover:bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1 right-1 h-6 w-6 bg-card/80 hover:bg-red-500/80 opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={handleRemove}
         >
           <X className="w-3 h-3" />
         </Button>
         {uploading && (
-          <div className="absolute inset-0 bg-zinc-900/60 rounded-lg flex items-center justify-center">
+          <div className="absolute inset-0 bg-card/60 rounded-lg flex items-center justify-center">
             <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
@@ -134,8 +134,8 @@ export function ReferenceImageUpload({
         }
       `}
     >
-      <Upload className="w-4 h-4 text-zinc-500" />
-      <span className="text-xs text-zinc-500">
+      <Upload className="w-4 h-4 text-muted-foreground" />
+      <span className="text-xs text-muted-foreground">
         Drop reference image or click
       </span>
       <input

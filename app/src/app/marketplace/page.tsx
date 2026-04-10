@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { SiteHeader } from "@/components/shared/SiteHeader";
 import { PresetCard } from "@/components/marketplace/PresetCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Input } from "@/components/ui/input";
@@ -89,15 +88,12 @@ export default function MarketplacePage() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <SiteHeader />
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
             Motion Graphics <span className="text-amber-500">Marketplace</span>
           </h1>
-          <p className="text-zinc-400 mt-2 max-w-xl mx-auto">
+          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
             Browse community-created motion graphics presets. Clone, customize,
             and make them your own.
           </p>
@@ -106,16 +102,16 @@ export default function MarketplacePage() {
         {/* Search + Sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search presets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-zinc-900 border-zinc-800"
+              className="pl-10 bg-card border-border"
             />
           </div>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-800">
+            <SelectTrigger className="w-[180px] bg-card border-border">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +135,7 @@ export default function MarketplacePage() {
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 activeCategory === cat.value
                   ? "bg-amber-500/20 text-amber-500 border border-amber-500/30"
-                  : "text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200"
+                  : "text-muted-foreground border border-border hover:border-zinc-700 hover:text-foreground"
               }`}
             >
               {cat.label}
@@ -150,15 +146,15 @@ export default function MarketplacePage() {
         {/* Grid */}
         {displayPresets === undefined ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : displayPresets.length === 0 ? (
           <div className="text-center py-20 space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto">
-              <Sparkles className="w-7 h-7 text-zinc-600" />
+            <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto">
+              <Sparkles className="w-7 h-7 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-zinc-300">No presets found</h3>
-            <p className="text-sm text-zinc-500">Be the first to create one!</p>
+            <h3 className="text-lg font-semibold text-muted-foreground">No presets found</h3>
+            <p className="text-sm text-muted-foreground">Be the first to create one!</p>
             <Link
               href="/create"
               className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-amber-500 text-zinc-950 hover:bg-amber-400 transition-colors"
@@ -179,7 +175,6 @@ export default function MarketplacePage() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }

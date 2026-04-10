@@ -91,27 +91,27 @@ export function AddToProjectDialog({
           <Button
             variant="outline"
             size="sm"
-            className={triggerClassName ?? "hidden sm:flex border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 bg-zinc-900 shadow-sm"}
+            className={triggerClassName ?? "hidden sm:flex border-border text-muted-foreground hover:bg-accent hover:text-foreground bg-card shadow-sm"}
           />
         }
       >
         <FolderPlus className="w-4 h-4 mr-2" /> Add to Project
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-zinc-800 text-zinc-100">
+      <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Add Preset to Project</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Add this customized preset to a multi-scene video sequence.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="project-select" className="text-zinc-300">Select Project</Label>
+            <Label htmlFor="project-select" className="text-muted-foreground">Select Project</Label>
             <Select value={projectId} onValueChange={(v) => v !== null && setProjectId(v)}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-100 focus:ring-amber-500">
+              <SelectTrigger className="bg-card border-border text-foreground focus:ring-amber-500">
                 <SelectValue placeholder="Choose a project" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="new" className="text-amber-500 font-medium">+ Create New Project</SelectItem>
                 {projects?.map((project) => (
                   <SelectItem key={project._id} value={project._id}>
@@ -121,7 +121,7 @@ export function AddToProjectDialog({
               </SelectContent>
             </Select>
             {projects === undefined && (
-              <p className="text-xs text-zinc-500 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading projects...
               </p>
             )}
@@ -129,19 +129,19 @@ export function AddToProjectDialog({
           
           {projectId === "new" && (
             <div className="grid gap-2">
-              <Label htmlFor="project-name" className="text-zinc-300">New Project Name</Label>
+              <Label htmlFor="project-name" className="text-muted-foreground">New Project Name</Label>
               <Input
                 id="project-name"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder={nextProjectName}
-                className="bg-zinc-900 border-zinc-800 text-zinc-100 focus-visible:ring-amber-500"
+                className="bg-card border-border text-foreground focus-visible:ring-amber-500"
               />
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground hover:bg-accent hover:text-foreground">
             Cancel
           </Button>
           <Button onClick={() => void handleAdd()} disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold">

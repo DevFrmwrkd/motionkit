@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { SiteHeader } from "@/components/shared/SiteHeader";
 import { PresetPlayer } from "@/components/preset/PresetPlayer";
 import { SchemaForm } from "@/components/preset/SchemaForm";
 import { ReferenceImageUpload } from "@/components/ai/ReferenceImageUpload";
@@ -65,27 +63,15 @@ type GenerationStatus = "idle" | "generating" | "complete" | "failed";
 // ---------------------------------------------------------------------------
 
 export default function CreatePage() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useCurrentUser();
+  const { user } = useCurrentUser();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [authLoading, isAuthenticated, router]);
-
-  if (authLoading) {
+  if (!user) {
     return (
-      <div className="flex items-center justify-center h-screen bg-zinc-950 text-zinc-500">
+      <div className="flex items-center justify-center h-screen text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mr-2" />
         Loading...
       </div>
     );
-  }
-
-  if (!isAuthenticated || !user) {
-    return null;
   }
 
   return <CreateWorkstation userId={user._id as Id<"users">} userName={user.name ?? "Creator"} />;
@@ -331,41 +317,38 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
   const compileError = isComplete && compiledPreset?.error;
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans">
-      <SiteHeader />
-
-      <div className="flex flex-1 min-h-0 overflow-auto">
+    <div className="flex flex-1 min-h-0 overflow-auto">
         {/* ================================================================ */}
         {/* LEFT COLUMN - AI Generator Panel                                 */}
         {/* ================================================================ */}
-        <div className="w-[300px] shrink-0 border-r border-zinc-800 bg-zinc-950 flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)]">
+        <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)]">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {/* Header */}
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                <h2 className="text-sm font-semibold text-zinc-200">
+                <h2 className="text-sm font-semibold text-foreground">
                   AI Generator
                 </h2>
               </div>
 
               {/* Prompt */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-medium text-muted-foreground">
                   Describe your motion graphic
                 </label>
                 <Textarea
                   placeholder="A sleek title card with the company name animating in letter by letter, with a gradient background that shifts from purple to blue..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[100px] bg-zinc-900/50 border-zinc-800 text-sm resize-none placeholder:text-zinc-600"
+                  className="min-h-[100px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
                   disabled={isGenerating}
                 />
               </div>
 
               {/* Category */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-medium text-muted-foreground">
                   Category
                 </label>
                 <Select
@@ -373,7 +356,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                   onValueChange={(v) => setCategory(v as Category)}
                   disabled={isGenerating}
                 >
-                  <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-sm">
+                  <SelectTrigger className="bg-accent border-border text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -388,7 +371,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
 
               {/* Provider */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-medium text-muted-foreground">
                   AI Provider
                 </label>
                 <Select
@@ -396,7 +379,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                   onValueChange={(v) => setProvider(v as Provider)}
                   disabled={isGenerating}
                 >
-                  <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-sm">
+                  <SelectTrigger className="bg-accent border-border text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -428,7 +411,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
 
               {/* Reference Image */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-zinc-400">
+                <label className="text-xs font-medium text-muted-foreground">
                   Reference Image (optional)
                 </label>
                 <ReferenceImageUpload
@@ -459,12 +442,12 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
               {/* Iteration Section -- shown after first generation */}
               {(isComplete || isFailed) && (
                 <>
-                  <Separator className="bg-zinc-800" />
+                  <Separator className="bg-border" />
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 text-zinc-400" />
-                      <span className="text-xs font-medium text-zinc-400">
+                      <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
                         Refine
                       </span>
                     </div>
@@ -472,13 +455,13 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                       placeholder="Make the text bigger, change animation to slide in from the left..."
                       value={iterationPrompt}
                       onChange={(e) => setIterationPrompt(e.target.value)}
-                      className="min-h-[60px] bg-zinc-900/50 border-zinc-800 text-sm resize-none placeholder:text-zinc-600"
+                      className="min-h-[60px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
                       disabled={isGenerating}
                     />
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                      className="w-full border-border text-muted-foreground hover:bg-accent"
                       onClick={handleIterate}
                       disabled={isGenerating || !iterationPrompt.trim()}
                     >
@@ -492,12 +475,12 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
               {/* Generation History */}
               {generationHistory && generationHistory.length > 0 && (
                 <>
-                  <Separator className="bg-zinc-800" />
+                  <Separator className="bg-border" />
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <History className="w-3.5 h-3.5 text-zinc-400" />
-                      <span className="text-xs font-medium text-zinc-400">
+                      <History className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
                         History
                       </span>
                     </div>
@@ -512,7 +495,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                             ${
                               gen._id === activeGenerationId
                                 ? "bg-amber-500/10 text-amber-400"
-                                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
                             }
                           `}
                         >
@@ -532,7 +515,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
         {/* ================================================================ */}
         {/* CENTER COLUMN - Live Preview                                     */}
         {/* ================================================================ */}
-        <div className="flex-1 min-w-0 bg-zinc-950/50 flex flex-col relative">
+        <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative">
           <div className="flex-1 flex flex-col items-center justify-center p-6">
             {/* IDLE state */}
             {localStatus === "idle" && !activeGeneration && (
@@ -565,11 +548,11 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                   component={compiledPreset.preset.component}
                   inputProps={inputProps}
                   meta={compiledPreset.preset.meta}
-                  className="rounded-lg overflow-hidden border border-zinc-800 shadow-2xl"
+                  className="rounded-lg overflow-hidden border border-border shadow-2xl"
                 />
 
                 {/* Frame info below preview */}
-                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-500">
+                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Film className="w-3 h-3" />
                     {compiledPreset.preset.meta.durationInFrames} frames
@@ -606,9 +589,9 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
                     component={compiledPreset.preset.component}
                     inputProps={inputProps}
                     meta={compiledPreset.preset.meta}
-                    className="rounded-lg overflow-hidden border border-zinc-800 shadow-2xl"
+                    className="rounded-lg overflow-hidden border border-border shadow-2xl"
                   />
-                  <div className="mt-3 flex items-center justify-center gap-4 text-xs text-zinc-500">
+                  <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Film className="w-3 h-3" />
                       {compiledPreset.preset.meta.durationInFrames} frames
@@ -627,7 +610,7 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
         {/* ================================================================ */}
         {/* RIGHT COLUMN - Controls + Code                                   */}
         {/* ================================================================ */}
-        <div className="w-[320px] shrink-0 border-l border-zinc-800 bg-zinc-950 flex flex-col z-10 shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.5)]">
+        <div className="w-[320px] shrink-0 border-l border-border bg-background flex flex-col z-10 shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.5)]">
           {(hasPreview || (localStatus === "idle" && activeGeneration?.status === "complete" && compiledPreset?.preset)) ? (
             <RightPanel
               schema={compiledPreset!.preset!.schema}
@@ -641,13 +624,12 @@ function CreateWorkstation({ userId, userName }: { userId: Id<"users">; userName
             />
           ) : (
             <div className="flex-1 flex items-center justify-center p-6">
-              <p className="text-sm text-zinc-600 text-center">
+              <p className="text-sm text-muted-foreground text-center">
                 Generate a preset to see controls and code here
               </p>
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
@@ -678,12 +660,12 @@ function RightPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Preset title */}
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <h3 className="text-sm font-semibold text-zinc-200 truncate">
+      <div className="px-4 py-3 border-b border-border">
+        <h3 className="text-sm font-semibold text-foreground truncate">
           {meta.name}
         </h3>
         {meta.description && (
-          <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
             {meta.description}
           </p>
         )}
@@ -691,7 +673,7 @@ function RightPanel({
 
       {/* Tabs */}
       <Tabs defaultValue="controls" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-4 mt-3 bg-zinc-900 border border-zinc-800">
+        <TabsList className="mx-4 mt-3 bg-card border border-border">
           <TabsTrigger value="controls" className="text-xs">
             Controls
           </TabsTrigger>
@@ -710,17 +692,17 @@ function RightPanel({
                 onChange={onChange}
               />
             ) : (
-              <p className="text-xs text-zinc-500 text-center py-4">
+              <p className="text-xs text-muted-foreground text-center py-4">
                 No customizable properties
               </p>
             )}
           </ScrollArea>
 
-          <div className="px-4 py-2 border-t border-zinc-800">
+          <div className="px-4 py-2 border-t border-border">
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-zinc-400 hover:text-zinc-200 text-xs"
+              className="w-full text-muted-foreground hover:text-foreground text-xs"
               onClick={onReset}
             >
               Reset to defaults
@@ -737,9 +719,9 @@ function RightPanel({
       </Tabs>
 
       {/* Action buttons */}
-      <div className="p-4 border-t border-zinc-800 space-y-2">
+      <div className="p-4 border-t border-border space-y-2">
         <Button
-          className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+          className="w-full bg-muted hover:bg-accent text-foreground"
           onClick={onSave}
         >
           <Save className="w-4 h-4 mr-2" />
@@ -764,14 +746,14 @@ function RightPanel({
 function EmptyState() {
   return (
     <div className="text-center space-y-4 max-w-md">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto">
+      <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto">
         <Sparkles className="w-7 h-7 text-amber-500" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-zinc-200">
+        <h3 className="text-lg font-semibold text-foreground">
           Create with AI
         </h3>
-        <p className="text-sm text-zinc-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Describe your motion graphic on the left panel to generate a live
           preview. No code needed.
         </p>
@@ -786,7 +768,7 @@ function EmptyState() {
           <Badge
             key={example}
             variant="outline"
-            className="text-xs border-zinc-700 text-zinc-400 cursor-default"
+            className="text-xs border-border text-muted-foreground cursor-default"
           >
             {example}
           </Badge>
@@ -799,14 +781,14 @@ function EmptyState() {
 function GeneratingState() {
   return (
     <div className="text-center space-y-4">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto relative">
+      <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto relative">
         <Loader2 className="w-7 h-7 text-amber-500 animate-spin" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-zinc-200">
+        <h3 className="text-lg font-semibold text-foreground">
           Generating your motion graphic...
         </h3>
-        <p className="text-sm text-zinc-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           The AI is writing Remotion code for your preset. This usually takes
           15-30 seconds.
         </p>
@@ -828,7 +810,7 @@ function ErrorState({
         <AlertCircle className="w-7 h-7 text-red-400" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-zinc-200">
+        <h3 className="text-lg font-semibold text-foreground">
           Generation Failed
         </h3>
         <p className="text-sm text-red-400/80 mt-1">{error}</p>
@@ -836,7 +818,7 @@ function ErrorState({
       <Button
         variant="outline"
         onClick={onRetry}
-        className="border-zinc-700 text-zinc-300"
+        className="border-border text-muted-foreground"
       >
         <RefreshCw className="w-4 h-4 mr-2" />
         Try Again

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { PresetSchema } from "@/lib/types";
 
 /**
@@ -17,6 +17,10 @@ export function usePresetProps(schema: PresetSchema) {
   }, [schema]);
 
   const [props, setProps] = useState<Record<string, unknown>>(defaults);
+
+  useEffect(() => {
+    setProps(defaults);
+  }, [defaults]);
 
   const updateProp = useCallback((key: string, value: unknown) => {
     setProps((prev) => ({ ...prev, [key]: value }));
