@@ -23,11 +23,10 @@ export const dispatchGeneration = action({
     category: v.optional(v.string()),
     provider: v.union(v.literal("gemini"), v.literal("claude")),
     parentGenerationId: v.optional(v.id("aiGenerations")),
-    referenceImageUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     try {
-      // 1. Get the generation record to find the user
+      // 1. Get the generation record to find the user + reference image
       const generation = await ctx.runQuery(internal.aiGeneration.getInternal, {
         id: args.generationId,
       });
@@ -42,7 +41,10 @@ export const dispatchGeneration = action({
       const systemPrompt = getSkillForCategory(args.category);
 
       // 4. If iterating, fetch previous generation's code for context
+      //    and inherit the parent's reference image if this iteration
+      //    didn't provide its own.
       let previousCode: string | undefined;
+      let parentReferenceImageId = generation.referenceImageId;
       if (args.parentGenerationId) {
         const parent = await ctx.runQuery(internal.aiGeneration.getInternal, {
           id: args.parentGenerationId,
@@ -50,17 +52,28 @@ export const dispatchGeneration = action({
         if (parent?.generatedCode) {
           previousCode = parent.generatedCode;
         }
+        if (!parentReferenceImageId && parent?.referenceImageId) {
+          parentReferenceImageId = parent.referenceImageId;
+        }
       }
 
-      // 5. Build the generation request
+      // 5. Resolve reference image storage id to a signed URL so the
+      //    provider can fetch it.
+      let referenceImageUrl: string | undefined;
+      if (parentReferenceImageId) {
+        const url = await ctx.storage.getUrl(parentReferenceImageId);
+        if (url) referenceImageUrl = url;
+      }
+
+      // 6. Build the generation request
       const request = {
         prompt: args.prompt,
         systemPrompt,
         previousCode,
-        referenceImageUrl: args.referenceImageUrl,
+        referenceImageUrl,
       };
 
-      // 6. Resolve API key: user's own key first, platform key as fallback
+      // 7. Resolve API key: user's own key first, platform key as fallback
       let result;
       if (args.provider === "gemini") {
         const apiKey =
@@ -82,7 +95,7 @@ export const dispatchGeneration = action({
         result = await generateWithClaude({ apiKey }, request);
       }
 
-      // 7. Mark generation as complete
+      // 8. Mark generation as complete
       await ctx.runMutation(internal.aiGeneration.markComplete, {
         generationId: args.generationId,
         generatedCode: result.componentCode,
