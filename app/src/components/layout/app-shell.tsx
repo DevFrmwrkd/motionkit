@@ -10,6 +10,12 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const PUBLIC_ROUTES = ["/", "/login", "/signup"];
 
+// The preset sandbox used to live at /sandbox/preset as a Next.js route,
+// but Next's bundler kept dragging ws/node:https into every page handler,
+// crashing the worker. It's now served as a plain static file from
+// /public/sandbox/preset.html (see SandboxedPresetPlayer) and never reaches
+// AppShell at all — so no bare-route exemption is needed here.
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublic = PUBLIC_ROUTES.includes(pathname);

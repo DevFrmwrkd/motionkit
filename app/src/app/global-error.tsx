@@ -1,5 +1,11 @@
 "use client";
 
+// NOTE: global-error renders its own <html>/<body> and fires when even the
+// root layout has crashed, so next/link isn't safe here — we deliberately use
+// a plain anchor that forces a full-document reload.
+
+const IS_DEV = process.env.NODE_ENV !== "production";
+
 export default function GlobalError({
   error,
   reset,
@@ -15,18 +21,26 @@ export default function GlobalError({
             <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f87171", margin: 0 }}>
               MotionKit crashed
             </h2>
-            <p style={{ marginTop: 8, fontSize: 14, fontFamily: "monospace", wordBreak: "break-word" }}>
-              {error.message || String(error)}
+            <p style={{ marginTop: 8, fontSize: 14 }}>
+              We hit a fatal error. Try again, or head back to the home page.
             </p>
             {error.digest && (
               <p style={{ marginTop: 4, fontSize: 12, color: "#71717a", fontFamily: "monospace" }}>
-                digest: {error.digest}
+                Error reference: {error.digest}
               </p>
             )}
-            {error.stack && (
-              <pre style={{ marginTop: 16, maxHeight: 256, overflow: "auto", background: "rgba(0,0,0,0.4)", padding: 12, borderRadius: 6, fontSize: 11, color: "#a1a1aa", whiteSpace: "pre-wrap" }}>
-                {error.stack}
-              </pre>
+            {/* Dev-only details. Never leak stacks to end users in prod. */}
+            {IS_DEV && (
+              <>
+                <p style={{ marginTop: 16, fontSize: 12, fontFamily: "monospace", wordBreak: "break-word", color: "#a1a1aa" }}>
+                  {error.message || String(error)}
+                </p>
+                {error.stack && (
+                  <pre style={{ marginTop: 8, maxHeight: 256, overflow: "auto", background: "rgba(0,0,0,0.4)", padding: 12, borderRadius: 6, fontSize: 11, color: "#a1a1aa", whiteSpace: "pre-wrap" }}>
+                    {error.stack}
+                  </pre>
+                )}
+              </>
             )}
             <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
               <button
@@ -35,6 +49,7 @@ export default function GlobalError({
               >
                 Try again
               </button>
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a
                 href="/"
                 style={{ borderRadius: 6, border: "1px solid #3f3f46", padding: "6px 12px", fontSize: 14, color: "#e4e4e7", textDecoration: "none" }}

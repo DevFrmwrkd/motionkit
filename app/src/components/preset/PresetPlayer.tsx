@@ -1,7 +1,8 @@
 "use client";
 
 import { Player } from "@remotion/player";
-import type { FC } from "react";
+import type { PlayerRef } from "@remotion/player";
+import type { FC, Ref } from "react";
 import type { PresetMeta } from "@/lib/types";
 
 interface PresetPlayerProps {
@@ -9,6 +10,7 @@ interface PresetPlayerProps {
   inputProps: Record<string, unknown>;
   meta: PresetMeta;
   className?: string;
+  playerRef?: Ref<PlayerRef | null>;
 }
 
 /**
@@ -21,17 +23,22 @@ export function PresetPlayer({
   inputProps,
   meta,
   className,
+  playerRef,
 }: PresetPlayerProps) {
+  // width:100% + height:100% ensures the player fills whatever aspect-locked
+  // box the parent provides. PreviewPanel's PlayerStage is responsible for
+  // giving us a correctly shaped container.
   return (
-    <div className={className}>
+    <div className={className} style={{ width: "100%", height: "100%" }}>
       <Player
+        ref={playerRef}
         component={component}
         inputProps={inputProps}
         durationInFrames={meta.durationInFrames}
         fps={meta.fps}
         compositionWidth={meta.width}
         compositionHeight={meta.height}
-        style={{ width: "100%" }}
+        style={{ width: "100%", height: "100%" }}
         controls
         autoPlay
         loop

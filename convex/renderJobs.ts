@@ -1,6 +1,62 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { canAccessPreset, requireAuthorizedUser } from "./lib/authz";
+import type { Id } from "./_generated/dataModel";
+
+/**
+ * Phase 2 / WS-2: if the render job that just finished is the "last test
+ * render" on its preset, advance the review state machine. Non-test jobs
+ * are left alone. Called inline from markDone + markFailed so the pipeline
+ * driver doesn't have to poll.
+ */
+async function advanceReviewStateIfTestRender(
+  ctx: MutationCtx,
+  jobId: Id<"renderJobs">,
+  success: boolean,
+  failureReason?: string
+): Promise<void> {
+  const job = await ctx.db.get(jobId);
+  if (!job) return;
+  const preset = await ctx.db.get(job.presetId);
+  if (!preset) return;
+  if (preset.lastTestRenderJobId !== jobId) return;
+  if (preset.reviewState !== "test-rendering") return;
+
+  if (success) {
+    await ctx.db.patch(preset._id, { reviewState: "pending-review" });
+    await ctx.db.insert("auditLog", {
+      actorId: preset.authorId,
+      action: "preset.test-render",
+      targetType: "preset",
+      targetId: preset._id,
+      payload: JSON.stringify({ result: "success", jobId }),
+      createdAt: Date.now(),
+    });
+  } else {
+    await ctx.db.patch(preset._id, {
+      reviewState: "rejected",
+      rejectedReason: `Test render failed: ${failureReason ?? "unknown"}`,
+    });
+    await ctx.db.insert("auditLog", {
+      actorId: preset.authorId,
+      action: "preset.test-render",
+      targetType: "preset",
+      targetId: preset._id,
+      payload: JSON.stringify({
+        result: "fail",
+        reason: failureReason,
+        jobId,
+      }),
+      createdAt: Date.now(),
+    });
+  }
+}
 
 export const create = mutation({
   args: {
@@ -28,6 +84,19 @@ export const create = mutation({
       bundleUrl: preset.bundleUrl,
       status: "queued",
     });
+  },
+});
+
+/**
+ * Internal — used by render actions to load the job record (and its owner)
+ * before dispatching to Lambda/worker. The action authorizes the caller
+ * against job.userId so render dispatch cannot be triggered by third parties
+ * who happen to know a jobId.
+ */
+export const getInternal = internalQuery({
+  args: { jobId: v.id("renderJobs") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.jobId);
   },
 });
 
@@ -76,6 +145,10 @@ export const markDone = internalMutation({
       ...updates,
       status: "done",
     });
+    // Advance the review state if this is the test render tied to a preset
+    // in the publish pipeline. Safe for every other render — it no-ops
+    // when the job isn't the preset's lastTestRenderJobId.
+    await advanceReviewStateIfTestRender(ctx, jobId, true);
   },
 });
 
@@ -90,5 +163,6 @@ export const markFailed = internalMutation({
       error: args.error,
       completedAt: Date.now(),
     });
+    await advanceReviewStateIfTestRender(ctx, args.jobId, false, args.error);
   },
 });

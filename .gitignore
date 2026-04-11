@@ -9,6 +9,9 @@ app/out/
 app/.open-next/
 app/.vercel/
 app/.wrangler/
+
+# Built sandbox bundle (produced by app/scripts/build-sandbox.mjs)
+app/public/sandbox/bundle.js
 *.tsbuildinfo
 
 # Environment

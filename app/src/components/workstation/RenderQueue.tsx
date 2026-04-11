@@ -3,6 +3,7 @@
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getExportFormatById } from "@/lib/export-formats";
 import { Download, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import type { RenderStatus } from "@/lib/types";
 
@@ -61,6 +62,18 @@ export function RenderQueue({ jobs, isLoading }: RenderQueueProps) {
         {jobs.map((job) => {
           const config = statusConfig[job.status];
           const Icon = config.icon;
+          const renderFormat = (() => {
+            try {
+              const parsed = JSON.parse(job.inputProps) as {
+                __exportFormat?: string;
+              };
+              return parsed.__exportFormat
+                ? getExportFormatById(parsed.__exportFormat)
+                : null;
+            } catch {
+              return null;
+            }
+          })();
           return (
             <div
               key={job._id}
@@ -76,6 +89,11 @@ export function RenderQueue({ jobs, isLoading }: RenderQueueProps) {
                   <span className="text-sm text-foreground truncate">
                     Render #{job._id.slice(-6)}
                   </span>
+                  {renderFormat && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {renderFormat.id}
+                    </Badge>
+                  )}
                   <Badge
                     variant="outline"
                     className={`text-[10px] ${config.color}`}

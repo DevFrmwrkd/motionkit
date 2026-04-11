@@ -26,7 +26,9 @@ import {
   Plus,
   ArrowUpRight,
   Store,
+  Loader2,
 } from "lucide-react";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default function DashboardPage() {
   const { user } = useCurrentUser();
@@ -91,7 +93,14 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+    <div className="flex flex-1 flex-col gap-6 p-6 pt-4">
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Your presets, renders, and activity at a glance.
+        </p>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid auto-rows-min gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => {
@@ -181,19 +190,25 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             {myPresets === undefined ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                Loading...
-              </p>
+              <InlineLoader />
             ) : myPresets.length === 0 ? (
-              <div className="py-8 text-center space-y-2">
-                <p className="text-sm text-muted-foreground">No presets yet</p>
-                <Link
-                  href="/create"
-                  className="text-sm text-amber-500 hover:text-amber-400"
-                >
-                  Create your first preset
-                </Link>
-              </div>
+              <EmptyState
+                icon={Film}
+                title="No presets yet"
+                description="Generate your first preset with AI or import existing Remotion code."
+                action={
+                  <Link href="/create">
+                    <Button
+                      size="sm"
+                      className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      Create preset
+                    </Button>
+                  </Link>
+                }
+                compact
+              />
             ) : (
               myPresets.slice(0, 6).map((preset) => (
                 <Link
@@ -240,18 +255,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             {savedPresets === undefined ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                Loading...
-              </p>
+              <InlineLoader />
             ) : savedPresets.length === 0 ? (
-              <div className="py-8 text-center space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  No saved variants yet
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Save customized presets from the workstation.
-                </p>
-              </div>
+              <EmptyState
+                icon={Folder}
+                title="No saved variants"
+                description="Tweak any preset in the workstation, then save it as a reusable variant."
+                compact
+              />
             ) : (
               savedPresets.slice(0, 6).map((item) => (
                 <Link
@@ -292,15 +303,14 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="space-y-1">
           {renderJobs === undefined ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Loading...
-            </p>
+            <InlineLoader />
           ) : renderJobs.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No render jobs yet
-              </p>
-            </div>
+            <EmptyState
+              icon={Clock}
+              title="No renders yet"
+              description="Hit Render on any preset in the workstation to queue your first job."
+              compact
+            />
           ) : (
             renderJobs.slice(0, 5).map((job) => (
               <div
@@ -329,6 +339,14 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function InlineLoader() {
+  return (
+    <div className="py-6 flex items-center justify-center text-muted-foreground">
+      <Loader2 className="w-4 h-4 animate-spin" />
     </div>
   );
 }

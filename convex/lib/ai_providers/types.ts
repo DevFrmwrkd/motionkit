@@ -11,6 +11,7 @@ export interface GenerationRequest {
   systemPrompt: string;
   previousCode?: string;
   referenceImageUrl?: string;
+  referenceImageUrls?: string[];
 }
 
 export interface GenerationResult {

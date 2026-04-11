@@ -1,14 +1,37 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { categoryValidator, statusValidator } from "./lib/validators";
+import type { Doc } from "./_generated/dataModel";
+import { licenseValidator } from "./schema";
 import {
   canAccessPreset,
   filterVisiblePresets,
   requireAuthorizedUser,
+  requireSignedInUser,
 } from "./lib/authz";
+import { getPresetPricing } from "./licenses";
+import { normalizePresetPricing } from "../shared/presetPricing";
 
 function sortNewestFirst<T extends { _creationTime?: number }>(items: T[]) {
   return items.sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0));
+}
+
+function matchesListFilters(
+  preset: Doc<"presets">,
+  args: {
+    category?: NonNullable<Doc<"presets">["category"]>;
+    status?: NonNullable<Doc<"presets">["status"]>;
+  }
+) {
+  if (args.category && preset.category !== args.category) {
+    return false;
+  }
+
+  if (args.status && preset.status !== args.status) {
+    return false;
+  }
+
+  return true;
 }
 
 export const list = query({
@@ -18,29 +41,67 @@ export const list = query({
     viewerId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const presets = await ctx.db.query("presets").collect();
     if (args.viewerId) {
       await requireAuthorizedUser(ctx, args.viewerId);
     }
 
-    const visiblePresets = filterVisiblePresets(presets, args.viewerId);
-    const filtered = visiblePresets.filter((preset) => {
-      if (args.category && preset.category !== args.category) {
-        return false;
+    if (!args.viewerId) {
+      if (args.status && args.status !== "published") {
+        return [];
       }
 
-      if (args.status && preset.status !== args.status) {
-        return false;
-      }
+      const presets = args.category && !args.status
+        ? await ctx.db
+            .query("presets")
+            .withIndex("by_category", (q) =>
+              q.eq("category", args.category!)
+            )
+            .collect()
+        : await ctx.db
+            .query("presets")
+            .withIndex("by_public_status", (q) =>
+              q.eq("isPublic", true).eq("status", "published")
+            )
+            .collect();
 
-      if (!args.viewerId) {
-        return preset.isPublic && preset.status === "published";
-      }
+      return sortNewestFirst(
+        presets.filter(
+          (preset) =>
+            preset.isPublic &&
+            preset.status === "published" &&
+            matchesListFilters(preset, args)
+        )
+      );
+    }
 
-      return true;
-    });
+    const [ownedPresets, publicPresets] = await Promise.all([
+      ctx.db
+        .query("presets")
+        .withIndex("by_author", (q) => q.eq("authorId", args.viewerId!))
+        .collect(),
+      args.status && args.status !== "published"
+        ? Promise.resolve([])
+        : ctx.db
+            .query("presets")
+            .withIndex("by_public_status", (q) =>
+              q.eq("isPublic", true).eq("status", "published")
+            )
+            .collect(),
+    ]);
 
-    return sortNewestFirst(filtered);
+    const visiblePresets = new Map<Doc<"presets">["_id"], Doc<"presets">>();
+    for (const preset of ownedPresets) {
+      visiblePresets.set(preset._id, preset);
+    }
+    for (const preset of publicPresets) {
+      visiblePresets.set(preset._id, preset);
+    }
+
+    return sortNewestFirst(
+      [...visiblePresets.values()].filter((preset) =>
+        matchesListFilters(preset, args)
+      )
+    );
   },
 });
 
@@ -122,8 +183,6 @@ export const create = mutation({
     description: v.optional(v.string()),
     category: categoryValidator,
     tags: v.array(v.string()),
-    author: v.optional(v.string()),
-    authorId: v.optional(v.id("users")),
     bundleUrl: v.string(),
     fps: v.number(),
     width: v.number(),
@@ -134,15 +193,40 @@ export const create = mutation({
     generationId: v.optional(v.id("aiGenerations")),
     thumbnailUrl: v.optional(v.string()),
     isPublic: v.boolean(),
+    license: v.optional(licenseValidator),
+    priceCents: v.optional(v.number()),
+    isPremium: v.optional(v.boolean()),
+    price: v.optional(v.number()),
     status: statusValidator,
   },
   handler: async (ctx, args) => {
-    if (args.authorId) {
-      await requireAuthorizedUser(ctx, args.authorId);
+    // Author identity is derived from the authenticated session — never
+    // from a client-supplied userId. Previously this handler accepted an
+    // optional authorId and only enforced auth if it was present, which
+    // let unauthenticated callers create public marketplace records with
+    // no owner. We now require a real session and stamp the owner here.
+    const author = await requireSignedInUser(ctx);
+
+    // If the new preset is tied to an AI generation, make sure the caller
+    // actually owns that generation. This prevents a signed-in user from
+    // publishing someone else's generated code as their own.
+    if (args.generationId) {
+      const gen = await ctx.db.get(args.generationId);
+      if (!gen) throw new Error("Generation not found");
+      if (gen.userId !== author._id) {
+        throw new Error("You do not own that generation");
+      }
     }
+    const monetization = normalizePresetPricing(args);
 
     return await ctx.db.insert("presets", {
       ...args,
+      author: author.name ?? "Anonymous",
+      authorId: author._id,
+      license: monetization.license,
+      priceCents: monetization.priceCents,
+      isPremium: monetization.isPremium,
+      price: monetization.price,
       downloads: 0,
       rating: 0,
       upvotes: 0,
@@ -157,6 +241,9 @@ export const create = mutation({
 export const generateThumbnailUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    // Must be signed in — otherwise any visitor could mint upload URLs and
+    // burn through storage quota.
+    await requireSignedInUser(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -164,24 +251,25 @@ export const generateThumbnailUploadUrl = mutation({
 export const getStorageUrl = mutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
+    // Require sign-in. Convex storage IDs are high-entropy opaque strings so
+    // an attacker still has to guess, but we should not expose a public URL
+    // resolver on top of that. Callers that need a public URL for a public
+    // preset should go through the preset record's thumbnailUrl field.
+    await requireSignedInUser(ctx);
     const url = await ctx.storage.getUrl(args.storageId);
     if (!url) throw new Error("Storage object not found");
     return url;
   },
 });
 
-export const getByBundleUrl = query({
-  args: { bundleUrl: v.string() },
-  handler: async (ctx, args) => {
-    const all = await ctx.db.query("presets").collect();
-    return all.find((p) => p.bundleUrl === args.bundleUrl) ?? null;
-  },
-});
-
 export const update = mutation({
   args: {
     id: v.id("presets"),
-    userId: v.id("users"),
+    // NOTE: userId is intentionally NOT in this arg list. Previously the
+    // handler trusted a client-supplied userId and only compared it to
+    // preset.authorId, which meant any caller who knew a preset id and its
+    // real author id could spoof the userId and pass the check. The caller
+    // identity now comes from requireSignedInUser(ctx) only.
     name: v.optional(v.string()),
     description: v.optional(v.string()),
     category: v.optional(categoryValidator),
@@ -197,25 +285,46 @@ export const update = mutation({
     thumbnailUrl: v.optional(v.string()),
     previewVideoUrl: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
+    license: v.optional(licenseValidator),
+    priceCents: v.optional(v.number()),
     isPremium: v.optional(v.boolean()),
     price: v.optional(v.number()),
     status: v.optional(statusValidator),
     versionLabel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, userId, ...fields } = args;
+    const caller = await requireSignedInUser(ctx);
+    const { id, ...fields } = args;
     const preset = await ctx.db.get(id);
     if (!preset) {
       throw new Error("Preset not found");
     }
-    if (!preset.authorId || preset.authorId !== userId) {
+    if (!preset.authorId || preset.authorId !== caller._id) {
       throw new Error("You can only edit presets you own");
     }
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) {
+      if (
+        value !== undefined &&
+        key !== "license" &&
+        key !== "priceCents" &&
+        key !== "isPremium" &&
+        key !== "price"
+      ) {
         updates[key] = value;
       }
+    }
+    if (
+      fields.license !== undefined ||
+      fields.priceCents !== undefined ||
+      fields.isPremium !== undefined ||
+      fields.price !== undefined
+    ) {
+      const monetization = normalizePresetPricing(fields);
+      updates.license = monetization.license;
+      updates.priceCents = monetization.priceCents;
+      updates.isPremium = monetization.isPremium;
+      updates.price = monetization.price;
     }
     await ctx.db.patch(id, updates);
   },
@@ -224,15 +333,14 @@ export const update = mutation({
 export const archive = mutation({
   args: {
     id: v.id("presets"),
-    userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const caller = await requireSignedInUser(ctx);
     const preset = await ctx.db.get(args.id);
     if (!preset) throw new Error("Preset not found");
-    if (!preset.authorId || preset.authorId !== args.userId) {
+    if (!preset.authorId || preset.authorId !== caller._id) {
       throw new Error("You can only archive presets you own");
     }
-    await requireAuthorizedUser(ctx, args.userId);
     await ctx.db.patch(args.id, { status: "archived" });
   },
 });
@@ -240,8 +348,14 @@ export const archive = mutation({
 export const incrementDownloads = mutation({
   args: { id: v.id("presets") },
   handler: async (ctx, args) => {
+    // Must be signed in and the preset must be visible to the caller.
+    // Unauthenticated metric increments were trivially gameable before.
+    const caller = await requireSignedInUser(ctx);
     const preset = await ctx.db.get(args.id);
     if (!preset) throw new Error("Preset not found");
+    if (!canAccessPreset(preset, caller._id)) {
+      throw new Error("Cannot record a download for a preset you can't access");
+    }
     await ctx.db.patch(args.id, {
       downloads: (preset.downloads ?? 0) + 1,
     });
@@ -251,8 +365,12 @@ export const incrementDownloads = mutation({
 export const incrementViewCount = mutation({
   args: { id: v.id("presets") },
   handler: async (ctx, args) => {
+    const caller = await requireSignedInUser(ctx);
     const preset = await ctx.db.get(args.id);
     if (!preset) throw new Error("Preset not found");
+    if (!canAccessPreset(preset, caller._id)) {
+      throw new Error("Cannot record a view for a preset you can't access");
+    }
     await ctx.db.patch(args.id, {
       viewCount: (preset.viewCount ?? 0) + 1,
     });
@@ -292,6 +410,7 @@ export const clonePreset = mutation({
     if (!user) throw new Error("User not found");
 
     const rootId = source.rootPresetId ?? args.sourcePresetId;
+    const monetization = getPresetPricing(source);
 
     const newPresetId = await ctx.db.insert("presets", {
       name: `${source.name} (clone)`,
@@ -309,6 +428,12 @@ export const clonePreset = mutation({
       inputSchema: source.inputSchema,
       sourceCode: source.sourceCode,
       thumbnailUrl: source.thumbnailUrl,
+      license: monetization.license,
+      priceCents: monetization.priceCents,
+      isPremium:
+        monetization.license === "paid-personal" ||
+        monetization.license === "paid-commercial",
+      price: monetization.priceCents / 100,
       isPublic: false,
       downloads: 0,
       rating: 0,

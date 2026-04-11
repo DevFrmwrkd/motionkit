@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/select";
 import { Search, Sparkles, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Button } from "@/components/ui/button";
 
 const CATEGORIES = [
   { value: "all", label: "All" },
@@ -88,8 +90,8 @@ export default function MarketplacePage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="text-center mb-8">
+    <div className="flex flex-1 flex-col gap-4 p-6 pt-4">
+        <div className="text-center mb-6">
           <h1 className="text-3xl font-bold tracking-tight">
             Motion Graphics <span className="text-amber-500">Marketplace</span>
           </h1>
@@ -149,19 +151,22 @@ export default function MarketplacePage() {
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : displayPresets.length === 0 ? (
-          <div className="text-center py-20 space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto">
-              <Sparkles className="w-7 h-7 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold text-muted-foreground">No presets found</h3>
-            <p className="text-sm text-muted-foreground">Be the first to create one!</p>
-            <Link
-              href="/create"
-              className="inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold bg-amber-500 text-zinc-950 hover:bg-amber-400 transition-colors"
-            >
-              Create with AI
-            </Link>
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title={searchQuery ? "No matches" : "No presets yet"}
+            description={
+              searchQuery
+                ? "Try a different search or clear the filters."
+                : "Be the first to publish a preset to the marketplace."
+            }
+            action={
+              <Link href="/create">
+                <Button className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold">
+                  <Sparkles className="w-4 h-4 mr-2" /> Create with AI
+                </Button>
+              </Link>
+            }
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {displayPresets.map((preset) => (

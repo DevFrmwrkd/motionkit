@@ -5,17 +5,26 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { readDemoMode, subscribeDemoMode } from "@/lib/demo-mode";
 
+// Must match the server-side check in convex/lib/authz.ts. When this is
+// false, the hook refuses to treat a locally-set demo flag as authenticated,
+// so users can't get routed into UI that will fail on every guarded write.
+const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === "true";
+
 /**
  * Returns the current user — from OAuth or demo mode.
- * Demo mode uses localStorage flag so it persists across refreshes.
+ * Demo mode uses localStorage flag so it persists across refreshes, but is
+ * only honored when NEXT_PUBLIC_ENABLE_DEMO_MODE === "true".
  */
 export function useCurrentUser() {
   const { isAuthenticated: oauthAuthenticated, isLoading: authLoading } = useConvexAuth();
-  const isDemoMode = useSyncExternalStore<boolean | null>(
+  const rawDemoMode = useSyncExternalStore<boolean | null>(
     subscribeDemoMode,
     readDemoMode,
     () => null
   );
+  // A local flag alone is not enough — the deployment must also opt into
+  // demo mode, otherwise we ignore the flag completely.
+  const isDemoMode = DEMO_MODE_ENABLED ? rawDemoMode : false;
 
   // Try real auth
   const authUser = useQuery(
@@ -23,7 +32,8 @@ export function useCurrentUser() {
     oauthAuthenticated ? {} : "skip"
   );
 
-  // Only resolve the demo account when demo mode is enabled.
+  // Only resolve the demo account when demo mode is enabled AND the local
+  // flag is set.
   const demoUser = useQuery(api.users.getDemoUser, isDemoMode ? {} : "skip");
 
   // Real OAuth user takes priority

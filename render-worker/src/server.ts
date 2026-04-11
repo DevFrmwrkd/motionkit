@@ -68,8 +68,21 @@ app.post<{
   if (!jobId || typeof jobId !== "string") {
     return reply.code(400).send({ error: "jobId required" });
   }
+  // Restrict jobId to a safe character set before it hits path.join or any
+  // public URL. Convex ids are always [a-z0-9]+, so this rejects traversal
+  // attempts (`../`, `..\\`), null bytes, and anything else that could
+  // escape the output directory or break URL construction downstream.
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(jobId)) {
+    return reply.code(400).send({ error: "invalid jobId" });
+  }
   if (!compositionId || typeof compositionId !== "string") {
     return reply.code(400).send({ error: "compositionId required" });
+  }
+  // compositionId is passed to Remotion's selectComposition and must map to
+  // a real composition in the bundle. Restrict it to the same safe set so a
+  // malicious caller can't use it for log-injection or other mischief.
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(compositionId)) {
+    return reply.code(400).send({ error: "invalid compositionId" });
   }
   if (!inputProps || typeof inputProps !== "object") {
     return reply.code(400).send({ error: "inputProps required" });

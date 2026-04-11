@@ -69,6 +69,14 @@ export const addPresetEntry = mutation({
       if (!savedPreset || savedPreset.userId !== project.userId) {
         throw new Error("Saved preset not found");
       }
+      // A saved variant must belong to the same base preset as the entry —
+      // otherwise you could attach a variant of preset B onto an entry whose
+      // base is A, which corrupts the entry.
+      if (savedPreset.presetId !== args.entry.presetId) {
+        throw new Error(
+          "Saved variant does not belong to the specified base preset"
+        );
+      }
     }
 
     await ctx.db.patch(args.projectId, {
@@ -99,6 +107,11 @@ export const updatePresetEntries = mutation({
         const savedPreset = await ctx.db.get(entry.savedPresetId);
         if (!savedPreset || savedPreset.userId !== project.userId) {
           throw new Error("Saved preset not found");
+        }
+        if (savedPreset.presetId !== entry.presetId) {
+          throw new Error(
+            "Saved variant does not belong to the specified base preset"
+          );
         }
       }
     }

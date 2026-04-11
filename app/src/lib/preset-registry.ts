@@ -10,17 +10,28 @@ import ClaudeLowerThird from "@/remotion/presets/ClaudeLowerThird";
 import ClaudeCallToAction from "@/remotion/presets/ClaudeCallToAction";
 import ClaudeTextReveal from "@/remotion/presets/ClaudeTextReveal";
 import ClaudeOutroCard from "@/remotion/presets/ClaudeOutroCard";
+import {
+  RENDERABLE_COMPOSITION_IDS,
+  type RenderableCompositionId,
+} from "../../../shared/renderableCompositionIds";
 
-export const presetRegistry: Record<string, PresetExport> = {
-  "local://presets/HelloWorld": HelloWorld,
-  "local://presets/GeminiTitle": GeminiTitle,
-  "local://presets/GeminiLowerThird": GeminiLowerThird,
-  "local://presets/GeminiTransition": GeminiTransition,
-  "local://presets/GeminiOutro": GeminiOutro,
-  "local://presets/GeminiSplitScreen": GeminiSplitScreen,
-  "local://presets/ClaudeGradientWave": ClaudeGradientWave,
-  "local://presets/ClaudeLowerThird": ClaudeLowerThird,
-  "local://presets/ClaudeCallToAction": ClaudeCallToAction,
-  "local://presets/ClaudeTextReveal": ClaudeTextReveal,
-  "local://presets/ClaudeOutroCard": ClaudeOutroCard,
+const renderablePresets: Record<RenderableCompositionId, PresetExport> = {
+  HelloWorld,
+  GeminiTitle,
+  GeminiLowerThird,
+  GeminiTransition,
+  GeminiOutro,
+  GeminiSplitScreen,
+  ClaudeGradientWave,
+  ClaudeLowerThird,
+  ClaudeCallToAction,
+  ClaudeTextReveal,
+  ClaudeOutroCard,
 };
+
+export const presetRegistry = Object.fromEntries(
+  RENDERABLE_COMPOSITION_IDS.map((id) => [
+    `local://presets/${id}`,
+    renderablePresets[id],
+  ])
+) as Record<string, PresetExport>;

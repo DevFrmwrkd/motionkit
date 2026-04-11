@@ -14,7 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Download } from "lucide-react";
+import { Loader2, Download, Clock } from "lucide-react";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default function HistoryPage() {
   const { user } = useCurrentUser();
@@ -35,15 +36,24 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <h1 className="text-2xl font-bold mb-6">Render History</h1>
+    <div className="flex flex-1 flex-col gap-6 p-6 pt-4">
+      <div>
+        <h1 className="text-2xl font-bold">Render History</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Every render you&apos;ve queued, with status and downloads.
+        </p>
+      </div>
 
       {jobs === undefined ? (
-        <div className="py-20 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
-      ) : jobs.length === 0 ? (
         <div className="py-20 text-center">
-          <p className="text-muted-foreground">No render jobs yet</p>
+          <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
         </div>
+      ) : jobs.length === 0 ? (
+        <EmptyState
+          icon={Clock}
+          title="No renders yet"
+          description="Your render history will appear here once you queue a job from the workstation."
+        />
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <Table>

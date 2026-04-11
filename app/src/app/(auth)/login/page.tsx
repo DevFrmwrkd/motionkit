@@ -10,6 +10,13 @@ import { api } from "../../../../../convex/_generated/api";
 import { motion } from "framer-motion";
 import { writeDemoMode } from "@/lib/demo-mode";
 
+// Demo mode on the client mirrors the server-side ENABLE_DEMO_MODE flag
+// in convex/lib/authz.ts. When false (the default in prod), the demo login
+// button is hidden AND the demo account cannot be impersonated, so users
+// never end up in a half-authenticated state that later fails on any
+// guarded mutation.
+const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === "true";
+
 export default function LoginPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useCurrentUser();
@@ -114,23 +121,27 @@ export default function LoginPage() {
             {signingIn ? "Signing in..." : "Sign in with Google"}
           </Button>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-800" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-zinc-900 px-2 text-zinc-500">or</span>
-            </div>
-          </div>
+          {DEMO_MODE_ENABLED && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-zinc-900 px-2 text-zinc-500">or</span>
+                </div>
+              </div>
 
-          <Button
-            onClick={handleDemoLogin}
-            disabled={signingIn}
-            variant="outline"
-            className="w-full border-amber-500/30 text-amber-500 hover:bg-amber-500/10 h-11 font-semibold"
-          >
-            Try Demo Account
-          </Button>
+              <Button
+                onClick={handleDemoLogin}
+                disabled={signingIn}
+                variant="outline"
+                className="w-full border-amber-500/30 text-amber-500 hover:bg-amber-500/10 h-11 font-semibold"
+              >
+                Try Demo Account
+              </Button>
+            </>
+          )}
 
           <p className="mt-6 text-center text-xs text-zinc-500">
             By signing in, you agree to our Terms of Service and Privacy Policy.

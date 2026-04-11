@@ -13,7 +13,8 @@
     "deploy": "npx convex deploy && pnpm build",
     "preset:build": "tsx scripts/build-preset.ts",
     "preset:upload": "tsx scripts/upload-preset.ts",
-    "lint": "pnpm --filter app lint"
+    "lint": "pnpm --filter app lint",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.86.1",

@@ -1,6 +1,8 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
-export const geminiSeed = mutation({
+// internalMutation so this dev seed isn't part of the public deploy surface.
+// Invoke from the dashboard or CLI: `npx convex run geminiSeed:geminiSeed`.
+export const geminiSeed = internalMutation({
   handler: async (ctx) => {
     const presets = [
       {

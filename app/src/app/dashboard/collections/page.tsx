@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Folder, Plus, Loader2, ArrowLeft, Trash2, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 export default function CollectionsPage() {
   const router = useRouter();
@@ -60,11 +62,7 @@ export default function CollectionsPage() {
     }
   };
 
-  const handleDelete = async (collectionId: string, name: string) => {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) {
-      return;
-    }
-
+  const handleDelete = async (collectionId: string) => {
     try {
       setIsDeletingId(collectionId);
       await removeCollection({ id: collectionId as Id<"collections"> });
@@ -74,6 +72,7 @@ export default function CollectionsPage() {
       toast.success("Collection deleted");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete collection");
+      throw error;
     } finally {
       setIsDeletingId(null);
     }
@@ -88,7 +87,7 @@ export default function CollectionsPage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+    <div className="flex flex-1 flex-col gap-4 p-6 pt-4">
       {activeCollection ? (
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-4">
@@ -108,28 +107,38 @@ export default function CollectionsPage() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => void handleDelete(activeCollection._id, activeCollection.name)}
-              disabled={isDeletingId === activeCollection._id}
-              className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-            >
-              {isDeletingId === activeCollection._id ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4 mr-2" />
-              )}
-              Delete
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="outline"
+                  disabled={isDeletingId === activeCollection._id}
+                  className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                />
+              }
+              triggerChildren={
+                <>
+                  {isDeletingId === activeCollection._id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  Delete
+                </>
+              }
+              title={`Delete "${activeCollection.name}"?`}
+              description="This removes the collection but preserves the presets inside it. This cannot be undone."
+              confirmLabel="Delete"
+              destructive
+              onConfirm={() => handleDelete(activeCollection._id)}
+            />
           </div>
 
           {activeCollection.presetIds.length === 0 ? (
-            <div className="py-20 text-center space-y-3">
-              <p className="text-muted-foreground">This collection is empty</p>
-              <p className="text-sm text-muted-foreground">
-                Add presets elsewhere in the app, then use collections to group them.
-              </p>
-            </div>
+            <EmptyState
+              icon={Folder}
+              title="This collection is empty"
+              description="Use the marketplace or your library to add presets to this collection."
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {activeCollection.presetIds.map((presetId) => {
@@ -173,7 +182,12 @@ export default function CollectionsPage() {
       ) : (
         <>
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Collections</h1>
+            <div>
+              <h1 className="text-2xl font-bold">Collections</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Group related presets into themed folders.
+              </p>
+            </div>
             <Button
               onClick={() => setIsCreating((current) => !current)}
               className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
@@ -227,48 +241,73 @@ export default function CollectionsPage() {
           )}
 
           {collections === undefined ? (
-            <div className="py-20 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
-          ) : collections.length === 0 ? (
-            <div className="py-20 text-center space-y-3">
-              <p className="text-muted-foreground">No collections yet</p>
-              <p className="text-sm text-muted-foreground">Create collections to organize your saved presets</p>
+            <div className="py-20 text-center">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
             </div>
+          ) : collections.length === 0 ? (
+            <EmptyState
+              icon={FolderPlus}
+              title="No collections yet"
+              description="Collections are handy folders for grouping presets you use together — per project, per client, per vibe."
+              action={
+                <Button
+                  onClick={() => setIsCreating(true)}
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Create your first collection
+                </Button>
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {collections.map((col) => (
                 <Card
                   key={col._id}
-                  className="bg-card border-border cursor-pointer hover:bg-accent transition-colors"
+                  className="bg-card border-border cursor-pointer hover:border-border/70 hover:bg-accent/30 transition-colors group"
                   onClick={() => handleOpenCollection(col._id)}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <Folder className="w-5 h-5 text-violet-400 shrink-0" />
-                        <h3 className="font-semibold text-foreground truncate">{col.name}</h3>
+                        <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                          <Folder className="w-4 h-4 text-violet-400" />
+                        </div>
+                        <h3 className="font-semibold text-foreground truncate">
+                          {col.name}
+                        </h3>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleDelete(col._id, col.name);
-                        }}
-                        disabled={isDeletingId === col._id}
-                        className="h-8 w-8 text-muted-foreground hover:text-red-300 hover:bg-red-500/10"
-                      >
-                        {isDeletingId === col._id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </Button>
+                      <ConfirmDialog
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isDeletingId === col._id}
+                            onClick={(event) => event.stopPropagation()}
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-300 hover:bg-red-500/10"
+                          />
+                        }
+                        triggerChildren={
+                          isDeletingId === col._id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )
+                        }
+                        title={`Delete "${col.name}"?`}
+                        description="This removes the collection but preserves the presets inside it. This cannot be undone."
+                        confirmLabel="Delete"
+                        destructive
+                        onConfirm={() => handleDelete(col._id)}
+                      />
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {col.presetIds.length} preset{col.presetIds.length !== 1 ? "s" : ""}
+                    <p className="text-xs text-muted-foreground">
+                      {col.presetIds.length} preset
+                      {col.presetIds.length !== 1 ? "s" : ""}
                     </p>
                     {col.description && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{col.description}</p>
+                      <p className="text-xs text-muted-foreground/80 mt-2 line-clamp-2">
+                        {col.description}
+                      </p>
                     )}
                   </CardContent>
                 </Card>
@@ -280,3 +319,4 @@ export default function CollectionsPage() {
     </div>
   );
 }
+

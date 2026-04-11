@@ -18,10 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased dark">
       <body className="h-full font-sans">
+        {/* ConvexClientProvider short-circuits for bare routes (e.g.
+            /sandbox/*) so the preset runtime iframe doesn't boot a Convex
+            client that can't reach the API through a null origin. */}
         <ConvexClientProvider>
           <AppShell>{children}</AppShell>
-          <Toaster theme="dark" position="bottom-right" />
         </ConvexClientProvider>
+        <Toaster theme="dark" position="bottom-right" />
       </body>
     </html>
   );

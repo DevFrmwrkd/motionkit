@@ -1,11 +1,14 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
 /**
  * One-time seed mutation to insert the 5 Claude presets into Convex.
  * Run via: npx convex run seedPresets:seed
  * Safe to re-run — skips presets that already exist by name.
+ *
+ * internalMutation so this isn't part of the public deploy surface; invoke
+ * from the dashboard or CLI only.
  */
-export const seed = mutation({
+export const seed = internalMutation({
   args: {},
   handler: async (ctx) => {
     const existing = await ctx.db.query("presets").collect();

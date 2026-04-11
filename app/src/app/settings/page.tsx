@@ -54,9 +54,12 @@ export default function SettingsPage() {
           <TabsContent value="apikeys">
             <ApiKeysTab
               userId={user._id as Id<"users">}
-              modalApiKey={user.modalApiKey ?? ""}
-              geminiApiKey={user.geminiApiKey ?? ""}
-              anthropicApiKey={user.anthropicApiKey ?? ""}
+              hasModalKey={Boolean(user.hasModalApiKey)}
+              hasGeminiKey={Boolean(user.hasGeminiApiKey)}
+              hasAnthropicKey={Boolean(user.hasAnthropicApiKey)}
+              modalHint={user.modalApiKeyHint ?? null}
+              geminiHint={user.geminiApiKeyHint ?? null}
+              anthropicHint={user.anthropicApiKeyHint ?? null}
             />
           </TabsContent>
 
@@ -152,30 +155,60 @@ function ProfileTab({
 
 function ApiKeysTab({
   userId,
-  modalApiKey: initialModal,
-  geminiApiKey: initialGemini,
-  anthropicApiKey: initialAnthropic,
+  hasModalKey,
+  hasGeminiKey,
+  hasAnthropicKey,
+  modalHint,
+  geminiHint,
+  anthropicHint,
 }: {
   userId: Id<"users">;
-  modalApiKey: string;
-  geminiApiKey: string;
-  anthropicApiKey: string;
+  hasModalKey: boolean;
+  hasGeminiKey: boolean;
+  hasAnthropicKey: boolean;
+  modalHint: string | null;
+  geminiHint: string | null;
+  anthropicHint: string | null;
 }) {
-  const [modalApiKey, setModalApiKey] = useState(initialModal);
-  const [geminiApiKey, setGeminiApiKey] = useState(initialGemini);
-  const [anthropicApiKey, setAnthropicApiKey] = useState(initialAnthropic);
+  // Fields start empty and the server NEVER sends the real key values here.
+  // Leaving a field blank = "keep whatever is stored". Typing = "replace it".
+  // Clicking Remove = send empty string = clear that key server-side.
+  const [modalApiKey, setModalApiKey] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const updateApiKeys = useMutation(api.users.updateApiKeys);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateApiKeys({ userId, modalApiKey, geminiApiKey, anthropicApiKey });
+      // Only send fields the user actually typed into. Empty string means
+      // "don't touch" on the save path.
+      await updateApiKeys({
+        userId,
+        ...(modalApiKey ? { modalApiKey } : {}),
+        ...(geminiApiKey ? { geminiApiKey } : {}),
+        ...(anthropicApiKey ? { anthropicApiKey } : {}),
+      });
+      setModalApiKey("");
+      setGeminiApiKey("");
+      setAnthropicApiKey("");
       toast.success("API keys updated");
     } catch {
       toast.error("Failed to update API keys");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRemove = async (
+    field: "modalApiKey" | "geminiApiKey" | "anthropicApiKey"
+  ) => {
+    try {
+      await updateApiKeys({ userId, [field]: "" });
+      toast.success("Key removed");
+    } catch {
+      toast.error("Failed to remove key");
     }
   };
 
@@ -244,35 +277,78 @@ function ApiKeysTab({
             Add your own API keys to generate motion graphics with your personal quota. Without keys, you&apos;ll use the shared Gemini 3.0 free tier.
           </p>
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground">Google Gemini API Key</Label>
-            <Input
-              type="password"
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              placeholder="AIzaSy..."
-              className="bg-muted border-zinc-700"
-            />
+            <Label className="text-sm text-muted-foreground flex items-center justify-between">
+              <span>Google Gemini API Key</span>
+              {hasGeminiKey && (
+                <span className="text-[10px] text-emerald-400">
+                  Saved · {geminiHint ?? "••••"}
+                </span>
+              )}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                placeholder={hasGeminiKey ? "Enter new key to replace" : "AIzaSy..."}
+                className="bg-muted border-zinc-700 flex-1"
+                autoComplete="off"
+              />
+              {hasGeminiKey && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleRemove("geminiApiKey")}
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground flex items-start gap-1">
               <Info className="w-3 h-3 mt-0.5 shrink-0" />
               <span>
-                Free: ~20 requests/day (≈ 20 charts/day). Paid accounts get far higher limits. Get yours at{" "}
+                Free: ~20 requests/day. Get yours at{" "}
                 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
                   aistudio.google.com/apikey
                 </a>
+                . The key is encrypted at rest and never shown again after saving.
               </span>
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground">Anthropic (Claude) API Key</Label>
-            <Input
-              type="password"
-              value={anthropicApiKey}
-              onChange={(e) => setAnthropicApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-              className="bg-muted border-zinc-700"
-            />
+            <Label className="text-sm text-muted-foreground flex items-center justify-between">
+              <span>Anthropic (Claude) API Key</span>
+              {hasAnthropicKey && (
+                <span className="text-[10px] text-emerald-400">
+                  Saved · {anthropicHint ?? "••••"}
+                </span>
+              )}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={anthropicApiKey}
+                onChange={(e) => setAnthropicApiKey(e.target.value)}
+                placeholder={hasAnthropicKey ? "Enter new key to replace" : "sk-ant-..."}
+                className="bg-muted border-zinc-700 flex-1"
+                autoComplete="off"
+              />
+              {hasAnthropicKey && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleRemove("anthropicApiKey")}
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Paid per token. Better code quality. Get yours at{" "}
+              Paid per token. Get yours at{" "}
               <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
                 console.anthropic.com
               </a>
@@ -291,14 +367,35 @@ function ApiKeysTab({
             Bring your own keys for cloud rendering.
           </p>
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground">Modal API Key</Label>
-            <Input
-              type="password"
-              value={modalApiKey}
-              onChange={(e) => setModalApiKey(e.target.value)}
-              placeholder="mk-..."
-              className="bg-muted border-zinc-700"
-            />
+            <Label className="text-sm text-muted-foreground flex items-center justify-between">
+              <span>Modal API Key</span>
+              {hasModalKey && (
+                <span className="text-[10px] text-emerald-400">
+                  Saved · {modalHint ?? "••••"}
+                </span>
+              )}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={modalApiKey}
+                onChange={(e) => setModalApiKey(e.target.value)}
+                placeholder={hasModalKey ? "Enter new key to replace" : "mk-..."}
+                className="bg-muted border-zinc-700 flex-1"
+                autoComplete="off"
+              />
+              {hasModalKey && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleRemove("modalApiKey")}
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

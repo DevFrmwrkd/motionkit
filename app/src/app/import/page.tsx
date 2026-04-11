@@ -4,9 +4,9 @@ import { useState, useMemo } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { PresetPlayer } from "@/components/preset/PresetPlayer";
-import { codeToComponent } from "@/lib/code-to-component";
+import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import type { PresetSchema, PresetMeta } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,22 +57,56 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
 
   const createPreset = useMutation(api.presets.create);
 
-  const compiled = useMemo(() => {
+  // Parse schema + meta JSON ONLY — never execute componentCode on the main
+  // thread. The live preview sends componentCode to the sandboxed iframe.
+  const parsed = useMemo((): {
+    schema: PresetSchema | null;
+    meta: PresetMeta | null;
+    error: string | null;
+  } => {
     if (!componentCode.trim() || !schemaJson.trim() || !metaJson.trim()) {
-      return { preset: null, error: "Fill in all three sections" };
+      return { schema: null, meta: null, error: "Fill in all three sections" };
     }
-    return codeToComponent(componentCode, schemaJson, metaJson);
+    let schema: PresetSchema;
+    let meta: PresetMeta;
+    try {
+      schema = JSON.parse(schemaJson) as PresetSchema;
+    } catch (e) {
+      return {
+        schema: null,
+        meta: null,
+        error: "Invalid schema JSON: " + (e instanceof Error ? e.message : ""),
+      };
+    }
+    try {
+      meta = JSON.parse(metaJson) as PresetMeta;
+    } catch (e) {
+      return {
+        schema: null,
+        meta: null,
+        error: "Invalid meta JSON: " + (e instanceof Error ? e.message : ""),
+      };
+    }
+    if (!meta.name || !meta.fps || !meta.width || !meta.height || !meta.durationInFrames) {
+      return {
+        schema,
+        meta,
+        error: "Meta must include name, fps, width, height, durationInFrames",
+      };
+    }
+    return { schema, meta, error: null };
   }, [componentCode, schemaJson, metaJson]);
 
   const handleImport = async () => {
-    if (!compiled.preset) {
+    if (parsed.error || !parsed.meta || !parsed.schema) {
       toast.error("Fix errors before importing");
       return;
     }
 
     setSaving(true);
     try {
-      const { meta } = compiled.preset;
+      const { meta } = parsed;
+      // authorId is derived server-side from the authenticated session.
       await createPreset({
         name: meta.name,
         description: meta.description,
@@ -80,7 +114,6 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
           | "intro" | "title" | "lower-third" | "cta" | "transition"
           | "outro" | "full" | "chart" | "map" | "social",
         tags: meta.tags ?? [],
-        authorId: userId,
         bundleUrl: `import://user/${userId}/${Date.now()}`,
         fps: meta.fps,
         width: meta.width,
@@ -160,12 +193,12 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
         {/* Right: Preview + status */}
         <div className="space-y-4">
           {/* Validation status */}
-          <Card className={`border ${compiled.error ? "bg-red-500/5 border-red-500/20" : "bg-green-500/5 border-green-500/20"}`}>
+          <Card className={`border ${parsed.error ? "bg-red-500/5 border-red-500/20" : "bg-green-500/5 border-green-500/20"}`}>
             <CardContent className="p-3 flex items-center gap-2">
-              {compiled.error ? (
+              {parsed.error ? (
                 <>
                   <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-400">{compiled.error}</p>
+                  <p className="text-sm text-red-400">{parsed.error}</p>
                 </>
               ) : (
                 <>
@@ -176,16 +209,19 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
             </CardContent>
           </Card>
 
-          {/* Live preview */}
-          {compiled.preset && (
+          {/* Live preview — rendered in a sandboxed null-origin iframe so
+              the imported code cannot read host state even if malicious. */}
+          {!parsed.error && parsed.schema && parsed.meta && (
             <Card className="bg-card border-border overflow-hidden">
               <CardContent className="p-0">
-                <PresetPlayer
-                  component={compiled.preset.component}
+                <SandboxedPresetPlayer
+                  code={componentCode}
+                  schemaJson={schemaJson}
+                  metaJson={metaJson}
                   inputProps={Object.fromEntries(
-                    Object.entries(compiled.preset.schema).map(([k, v]) => [k, v.default])
+                    Object.entries(parsed.schema).map(([k, v]) => [k, v.default])
                   )}
-                  meta={compiled.preset.meta}
+                  aspectRatio={parsed.meta.width / parsed.meta.height}
                 />
               </CardContent>
             </Card>
@@ -194,7 +230,7 @@ function ImportContent({ userId }: { userId: Id<"users"> }) {
           {/* Import button */}
           <Button
             onClick={handleImport}
-            disabled={!compiled.preset || saving}
+            disabled={Boolean(parsed.error) || saving}
             className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold h-11"
           >
             {saving ? (

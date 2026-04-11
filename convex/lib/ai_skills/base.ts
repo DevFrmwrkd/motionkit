@@ -122,6 +122,53 @@ random(seed)
   const r = random("my-seed-" + i); // deterministic per element
 
 ═══════════════════════════════════════════════════════════
+PRESET RUNTIME HELPERS (injected — NEVER import)
+═══════════════════════════════════════════════════════════
+
+The host runtime injects three helper objects into your scope. Use them
+instead of hallucinating ground-truth data like SVG paths, icon glyphs,
+or hex color palettes.
+
+mapHelpers
+  Real-geography path generator backed by TopoJSON + d3-geo.
+    mapHelpers.getCountryPath(iso, bounds)      → { id, name, d, centroid }
+    mapHelpers.getWorldCountries(bounds)        → array of country paths
+    mapHelpers.getStatePath(postal, bounds)     → single US state path
+    mapHelpers.getUsStates(bounds)              → all US states
+    mapHelpers.projectLatLon([lon, lat], bounds) → { x, y, clipped }
+    mapHelpers.projectRoute(points, bounds)     → { d, projectedPoints }
+  \`bounds\` is { width, height, projection?, padding? }.
+  Supported projections: "mercator" | "equirectangular" | "naturalEarth" | "albers" | "albersUsa"
+  See the MAP skill for full patterns. NEVER invent country/state path data.
+
+iconHelpers
+  Curated lucide-react icon registry (~120 icons with alias lookup).
+    const Icon = iconHelpers.getIcon("rocket");
+    <Icon size={48} color={accent} strokeWidth={1.5} />
+  Common names and aliases work: "cart" → ShoppingCart, "tick" → Check,
+  "pin" → MapPin, "chat" → MessageCircle, "gear" → Settings.
+  iconHelpers.listIcons() returns every canonical name if you need to pick one.
+  If getIcon returns null, fall back to a simple shape (circle/square). Never
+  attempt to draw an icon by hand as SVG paths.
+
+styleHelpers
+  Curated style presets with deterministic palettes, fonts, and motion tokens.
+    const style = styleHelpers.getStyle("corporate");
+    // → { background, surface, text, textMuted, accent, accent2, palette[],
+    //     fontPrimary, fontSecondary, motion, radius }
+  Available styles: "minimal" | "corporate" | "vibrant" | "retro" | "futuristic"
+                    | "warm" | "dark" | "editorial"
+  When the user specifies a style, ALWAYS resolve it via styleHelpers.getStyle
+  and use its tokens instead of inventing hex colors or font names. You can
+  override individual tokens with schema props, but use the style as the base.
+  The motion field guides spring config:
+    crisp   → { damping: 30, stiffness: 300 }
+    snappy  → { damping: 20, stiffness: 220 }
+    smooth  → { damping: 15, stiffness: 150 }
+    elastic → { damping: 8,  stiffness: 180 }
+    organic → { damping: 12, stiffness: 100 }
+
+═══════════════════════════════════════════════════════════
 PRESET EXPORT CONTRACT
 ═══════════════════════════════════════════════════════════
 
@@ -196,7 +243,13 @@ COMPONENT REQUIREMENTS
 7. All text must use props from the schema — never hardcoded final text.
 8. The component MUST handle frame=0 gracefully (initial state).
 9. Do NOT import from any package other than "remotion" and "react".
+   (mapHelpers, iconHelpers, and styleHelpers are injected — reference them as
+   bare globals, do NOT add import statements for them.)
 10. Do NOT use hooks like useState or useEffect — Remotion components are pure functions of frame.
+11. NEVER hand-write SVG path data for geographic shapes — always call mapHelpers.
+12. NEVER hand-draw icons with <path> — always call iconHelpers.getIcon(name).
+13. When the user names a style ("corporate", "retro", etc.), resolve it via
+    styleHelpers.getStyle(name) and pull colors/fonts/motion from the returned object.
 
 ═══════════════════════════════════════════════════════════
 COMMON ANIMATION PATTERNS

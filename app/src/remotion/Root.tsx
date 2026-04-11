@@ -11,8 +11,12 @@ import ClaudeCallToAction from "./presets/ClaudeCallToAction";
 import ClaudeTextReveal from "./presets/ClaudeTextReveal";
 import ClaudeOutroCard from "./presets/ClaudeOutroCard";
 import type { PresetExport } from "../lib/types";
+import {
+  RENDERABLE_COMPOSITION_IDS,
+  type RenderableCompositionId,
+} from "../../../shared/renderableCompositionIds";
 
-const presets: Record<string, PresetExport> = {
+const presets: Record<RenderableCompositionId, PresetExport> = {
   HelloWorld,
   GeminiTitle,
   GeminiLowerThird,
@@ -37,18 +41,21 @@ const defaultPropsFor = (preset: PresetExport): Record<string, unknown> => {
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {Object.entries(presets).map(([id, preset]) => (
-        <Composition
-          key={id}
-          id={id}
-          component={preset.component as React.FC<Record<string, unknown>>}
-          durationInFrames={preset.meta.durationInFrames}
-          fps={preset.meta.fps}
-          width={preset.meta.width}
-          height={preset.meta.height}
-          defaultProps={defaultPropsFor(preset)}
-        />
-      ))}
+      {RENDERABLE_COMPOSITION_IDS.map((id) => {
+        const preset = presets[id];
+        return (
+          <Composition
+            key={id}
+            id={id}
+            component={preset.component as React.FC<Record<string, unknown>>}
+            durationInFrames={preset.meta.durationInFrames}
+            fps={preset.meta.fps}
+            width={preset.meta.width}
+            height={preset.meta.height}
+            defaultProps={defaultPropsFor(preset)}
+          />
+        );
+      })}
     </>
   );
 };

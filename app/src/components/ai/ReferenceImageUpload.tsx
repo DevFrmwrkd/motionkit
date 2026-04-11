@@ -6,14 +6,17 @@ import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Upload, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface ReferenceImageUploadProps {
   onUpload: (storageId: string) => void;
+  onPreviewChange?: (previewUrl: string | null) => void;
   storageId?: string;
 }
 
 export function ReferenceImageUpload({
   onUpload,
+  onPreviewChange,
   storageId,
 }: ReferenceImageUploadProps) {
   const generateUploadUrl = useMutation(api.aiGeneration.generateUploadUrl);
@@ -26,10 +29,19 @@ export function ReferenceImageUpload({
     async (file: File) => {
       if (!file.type.startsWith("image/")) return;
 
-      // Show local preview immediately
-      const reader = new FileReader();
-      reader.onload = (e) => setPreview(e.target?.result as string);
-      reader.readAsDataURL(file);
+      // Render an optimistic local preview so the drop target reacts
+      // immediately, but remember it so we can roll it back if the upload
+      // to Convex storage fails. Previously we left the preview in place
+      // on failure and only logged — so the user thought a reference image
+      // was attached when nothing had actually made it to storage.
+      const localPreview = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+      setPreview(localPreview);
+      onPreviewChange?.(localPreview);
 
       setUploading(true);
       try {
@@ -39,15 +51,34 @@ export function ReferenceImageUpload({
           headers: { "Content-Type": file.type },
           body: file,
         });
-        const { storageId: id } = await result.json();
-        onUpload(id);
+        if (!result.ok) {
+          throw new Error(
+            `Upload rejected (${result.status} ${result.statusText})`,
+          );
+        }
+        const body = (await result.json()) as { storageId?: string };
+        if (!body.storageId) {
+          throw new Error("Upload response missing storageId");
+        }
+        onUpload(body.storageId);
       } catch (err) {
         console.error("Upload failed:", err);
+        // Roll back optimistic state so the UI never claims an attachment
+        // that doesn't exist in storage.
+        setPreview(null);
+        onPreviewChange?.(null);
+        onUpload("");
+        if (inputRef.current) inputRef.current.value = "";
+        toast.error(
+          err instanceof Error
+            ? `Reference image upload failed: ${err.message}`
+            : "Reference image upload failed",
+        );
       } finally {
         setUploading(false);
       }
     },
-    [generateUploadUrl, onUpload]
+    [generateUploadUrl, onPreviewChange, onUpload]
   );
 
   const handleDrop = useCallback(
@@ -80,6 +111,7 @@ export function ReferenceImageUpload({
 
   const handleRemove = () => {
     setPreview(null);
+    onPreviewChange?.(null);
     onUpload("");
     if (inputRef.current) inputRef.current.value = "";
   };

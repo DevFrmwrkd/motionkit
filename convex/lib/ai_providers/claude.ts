@@ -68,10 +68,15 @@ export async function generateWithClaude(
   // Build the user content blocks
   const userContent: Anthropic.Messages.ContentBlockParam[] = [];
 
-  // If a reference image URL is provided, include it
-  if (request.referenceImageUrl) {
+  const referenceImageUrls = request.referenceImageUrls?.length
+    ? request.referenceImageUrls
+    : request.referenceImageUrl
+      ? [request.referenceImageUrl]
+      : [];
+
+  for (const imageUrl of referenceImageUrls) {
     try {
-      const imageResponse = await fetch(request.referenceImageUrl);
+      const imageResponse = await fetch(imageUrl);
       const imageBuffer = await imageResponse.arrayBuffer();
       const base64 = Buffer.from(imageBuffer).toString("base64");
       const mimeType = (imageResponse.headers.get("content-type") ||
@@ -86,7 +91,7 @@ export async function generateWithClaude(
         },
       });
     } catch (e) {
-      // If image fetch fails, continue without it
+      // If an image fetch fails, continue without it.
       console.warn("Failed to fetch reference image:", e);
     }
   }

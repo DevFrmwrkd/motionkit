@@ -30,6 +30,7 @@ import {
   PencilLine,
   ArrowRight,
 } from "lucide-react";
+import { normalizePresetPricing } from "../../../../../shared/presetPricing";
 
 const CATEGORIES = [
   { value: "intro", label: "Intro" },
@@ -85,14 +86,15 @@ export default function CreatorUpload() {
 
   useEffect(() => {
     if (!selectedPreset) return;
+    const monetization = normalizePresetPricing(selectedPreset);
 
     setName(selectedPreset.name);
     setDescription(selectedPreset.description ?? "");
     setCategory(selectedPreset.category as Category);
     setTags((selectedPreset.tags ?? []).join(", "));
     setThumbnailUrl(selectedPreset.thumbnailUrl ?? "");
-    setIsPremium((selectedPreset.isPremium ?? false) || (selectedPreset.price ?? 0) > 0);
-    setPrice(String(selectedPreset.price ?? 0));
+    setIsPremium(monetization.isPremium);
+    setPrice((monetization.priceCents / 100).toFixed(2));
     setPublishToMarketplace(
       selectedPreset.status === "published" && selectedPreset.isPublic
     );
@@ -110,12 +112,16 @@ export default function CreatorUpload() {
       toast.error("Price must be a non-negative number");
       return;
     }
+    if (isPremium && parsedPrice <= 0) {
+      toast.error("Paid presets need a price greater than 0");
+      return;
+    }
 
     setSaving(true);
     try {
+      // Server derives caller identity from the session — no userId arg.
       await updatePreset({
         id: selectedPreset._id as Id<"presets">,
-        userId: user._id as Id<"users">,
         name: name.trim(),
         description: description.trim() || undefined,
         category,
@@ -124,6 +130,8 @@ export default function CreatorUpload() {
           .map((tag) => tag.trim())
           .filter(Boolean),
         thumbnailUrl: thumbnailUrl.trim() || undefined,
+        license: isPremium ? "paid-personal" : "free",
+        priceCents: isPremium ? Math.round(parsedPrice * 100) : 0,
         isPremium,
         price: isPremium ? parsedPrice : 0,
         isPublic: publishToMarketplace,
@@ -326,9 +334,9 @@ export default function CreatorUpload() {
               <div className="rounded-2xl border border-border bg-zinc-950/70 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium text-foreground">Premium listing</p>
+                    <p className="font-medium text-foreground">Paid license</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Charge for downloads by setting a marketplace price.
+                      Charge for downloads with a paid-personal license.
                     </p>
                   </div>
                   <Switch checked={isPremium} onCheckedChange={setIsPremium} />

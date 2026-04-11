@@ -1,29 +1,40 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireAuthorizedUser } from "./lib/authz";
+import { requireAuthorizedUser, isDemoModeEnabled } from "./lib/authz";
+import { encryptApiKey, decryptApiKey, keyHint } from "./lib/keyStorage";
 
-function stripPrivateUserFields<T extends Record<string, unknown>>(user: T | null) {
+/**
+ * Strips every sensitive key from a user doc and replaces each one with a
+ * safe-for-client boolean + masked hint. This is what every client-visible
+ * user query should return — never the raw API key material, and never the
+ * tokenIdentifier (which, combined with the old public createOrUpdateFromAuth
+ * mutation, was an account-takeover primitive).
+ */
+function toClientUser<T extends Record<string, unknown>>(user: T | null) {
   if (!user) return null;
 
   const {
     modalApiKey,
-    awsAccessKeyId,
-    awsSecretAccessKey,
-    awsRegion,
     geminiApiKey,
     anthropicApiKey,
+    tokenIdentifier: _tokenIdentifier,
     ...safeUser
   } = user;
 
-  void modalApiKey;
-  void awsAccessKeyId;
-  void awsSecretAccessKey;
-  void awsRegion;
-  void geminiApiKey;
-  void anthropicApiKey;
-
-  return safeUser;
+  return {
+    ...safeUser,
+    // Presence flags — the client can tell whether a key is set without
+    // ever seeing the value.
+    hasModalApiKey: Boolean(modalApiKey),
+    hasGeminiApiKey: Boolean(geminiApiKey),
+    hasAnthropicApiKey: Boolean(anthropicApiKey),
+    // Masked hints for Settings UI ("••••" or "••••ABCD" depending on
+    // whether the value was encrypted at rest).
+    modalApiKeyHint: keyHint(modalApiKey as string | undefined),
+    geminiApiKeyHint: keyHint(geminiApiKey as string | undefined),
+    anthropicApiKeyHint: keyHint(anthropicApiKey as string | undefined),
+  };
 }
 
 /**
@@ -36,16 +47,25 @@ export const getCurrentUser = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    return await ctx.db.get(userId);
+    // IMPORTANT: never return raw API key fields to the client. The client
+    // gets booleans + masked hints so it can render "Key set" state in
+    // Settings without the key material ever crossing the network.
+    return toClientUser(await ctx.db.get(userId));
   },
 });
 
 /**
- * Get or create a demo user for testing without OAuth.
+ * Get or create the shared demo user. This is a public mutation because the
+ * unauthenticated login page needs to call it, but it refuses to do any work
+ * unless ENABLE_DEMO_MODE is set on the Convex deployment — so production
+ * callers get an error instead of an unauthenticated user-row factory.
  */
 export const getOrCreateDemoUser = mutation({
   args: {},
   handler: async (ctx) => {
+    if (!isDemoModeEnabled()) {
+      throw new Error("Demo mode is not enabled on this deployment");
+    }
     const demoEmail = "demo@motionkit.dev";
     const existing = await ctx.db
       .query("users")
@@ -70,114 +90,62 @@ export const getOrCreateDemoUser = mutation({
 });
 
 /**
- * Get a user by their demo token (for session persistence).
+ * Public query consumed by useCurrentUser when demo mode is on. Returns null
+ * if the deployment hasn't opted into demo mode, so it can't be used as an
+ * unauthenticated account lookup in production.
  */
 export const getDemoUser = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    if (!isDemoModeEnabled()) return null;
+    const user = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", "demo@motionkit.dev"))
       .first();
+    return toClientUser(user);
   },
 });
 
-export const getOrCreate = mutation({
-  args: {
-    name: v.string(),
-    email: v.string(),
-    avatarUrl: v.optional(v.string()),
-    externalId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .first();
-
-    if (existing) return existing._id;
-
-    return await ctx.db.insert("users", {
-      ...args,
-      role: "user",
-      plan: "free",
-      renderCredits: 0,
-    });
-  },
-});
-
-export const createOrUpdateFromAuth = mutation({
-  args: {
-    tokenIdentifier: v.string(),
-    name: v.optional(v.string()),
-    email: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", args.tokenIdentifier)
-      )
-      .first();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        name: args.name ?? existing.name,
-        email: args.email ?? existing.email,
-        avatarUrl: args.avatarUrl ?? existing.avatarUrl,
-      });
-      return existing._id;
-    }
-
-    return await ctx.db.insert("users", {
-      name: args.name,
-      email: args.email,
-      avatarUrl: args.avatarUrl,
-      tokenIdentifier: args.tokenIdentifier,
-      role: "user",
-      plan: "free",
-      renderCredits: 0,
-      dailyGenerations: 0,
-    });
-  },
-});
-
+/**
+ * Get a user doc by id. Requires the caller to be signed in — this used to
+ * be an anonymous query and is no longer: it's the simplest user lookup we
+ * have and doesn't need to be open to the world.
+ */
 export const get = query({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
-    return stripPrivateUserFields(await ctx.db.get(args.id));
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) return null;
+    return toClientUser(await ctx.db.get(args.id));
   },
 });
 
-export const getByEmail = query({
-  args: { email: v.string() },
-  handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
-      .first();
-
-    return stripPrivateUserFields(user);
-  },
-});
-
+/**
+ * Internal — called from actions like dispatchGeneration and renderWithLambda.
+ * Returns DECRYPTED key material. Must never be exposed as a public query.
+ *
+ * Decryption happens inside the query because the ENCRYPTION_KEY env var is
+ * available in the Convex runtime and Web Crypto is deterministic given the
+ * same IV + ciphertext, so queries remain cacheable per-user.
+ */
 export const getApiKeys = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
     return {
-      modalApiKey: user.modalApiKey ?? null,
-      awsAccessKeyId: user.awsAccessKeyId ?? null,
-      awsSecretAccessKey: user.awsSecretAccessKey ?? null,
-      awsRegion: user.awsRegion ?? null,
-      geminiApiKey: user.geminiApiKey ?? null,
-      anthropicApiKey: user.anthropicApiKey ?? null,
+      modalApiKey: await decryptApiKey(user.modalApiKey),
+      geminiApiKey: await decryptApiKey(user.geminiApiKey),
+      anthropicApiKey: await decryptApiKey(user.anthropicApiKey),
     };
   },
 });
 
+/**
+ * Internal — returns the raw user doc including any stored key ciphertext.
+ * Use only for server-side flows that need the full document and will
+ * decrypt themselves. Never expose directly.
+ */
 export const getPrivateById = internalQuery({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
@@ -185,24 +153,36 @@ export const getPrivateById = internalQuery({
   },
 });
 
+/**
+ * Update the caller's BYOK API keys. Each field is one of:
+ *   - undefined  → leave existing value alone
+ *   - "" (empty) → CLEAR the key (user removed it)
+ *   - non-empty  → encrypt with ENCRYPTION_KEY and store as "enc:..."
+ *
+ * Keys are never echoed back to the client — the mutation has no return
+ * value. The client learns the new state via the next getCurrentUser query.
+ */
 export const updateApiKeys = mutation({
   args: {
     userId: v.id("users"),
     modalApiKey: v.optional(v.string()),
-    awsAccessKeyId: v.optional(v.string()),
-    awsSecretAccessKey: v.optional(v.string()),
-    awsRegion: v.optional(v.string()),
     geminiApiKey: v.optional(v.string()),
     anthropicApiKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId, ...keys } = args;
     await requireAuthorizedUser(ctx, userId);
+
     const updates: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries(keys)) {
-      if (value !== undefined) {
-        updates[key] = value;
+    for (const [field, value] of Object.entries(keys)) {
+      if (value === undefined) continue;
+      if (value === "") {
+        // Explicit clear.
+        updates[field] = undefined;
+        continue;
       }
+      // All BYOK keys we accept here are secrets — encrypt at rest.
+      updates[field] = await encryptApiKey(value);
     }
     await ctx.db.patch(userId, updates);
   },
@@ -241,13 +221,16 @@ export const getPublicProfile = query({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
+    if (user.isPublicProfile !== true) return null;
 
     const presets = await ctx.db
       .query("presets")
       .withIndex("by_author", (q) => q.eq("authorId", args.userId))
       .collect();
 
-    const publishedPresets = presets.filter((p) => p.status === "published");
+    const publishedPresets = presets.filter(
+      (p) => p.status === "published" && p.isPublic === true
+    );
     const totalDownloads = publishedPresets.reduce(
       (sum, p) => sum + (p.downloads ?? 0),
       0

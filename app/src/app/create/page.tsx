@@ -1,15 +1,26 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { PresetPlayer } from "@/components/preset/PresetPlayer";
+import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import { SchemaForm } from "@/components/preset/SchemaForm";
 import { ReferenceImageUpload } from "@/components/ai/ReferenceImageUpload";
 import { CodePreview } from "@/components/ai/CodePreview";
-import { codeToComponent } from "@/lib/code-to-component";
+import type {
+  AssistantMetadata,
+  ConversationContentPart,
+  EditOperation,
+  ErrorCorrectionContext,
+  GenerationErrorType,
+  PresetMeta,
+  PresetSchema,
+} from "@/lib/types";
+import { detectPromptSkills } from "@/lib/ai-skill-detector";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAutoCorrection } from "@/hooks/useAutoCorrection";
+import { useConversationState } from "@/hooks/useConversationState";
 import { generatePresetThumbnail } from "@/lib/thumbnail";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -46,21 +57,50 @@ import {
 // ---------------------------------------------------------------------------
 
 const CATEGORIES = [
-  { value: "intro", label: "Intro" },
+  { value: "auto", label: "Auto-detect", hint: "Let AI pick the best type" },
   { value: "title", label: "Title Card" },
+  { value: "intro", label: "Intro" },
+  { value: "outro", label: "Outro" },
   { value: "lower-third", label: "Lower Third" },
   { value: "cta", label: "Call to Action" },
   { value: "transition", label: "Transition" },
-  { value: "outro", label: "Outro" },
   { value: "full", label: "Full Composition" },
   { value: "chart", label: "Chart / Data" },
   { value: "map", label: "Map" },
   { value: "social", label: "Social Media" },
 ] as const;
 
+// Matches the keys in app/src/lib/preset-runtime/styleHelpers.ts.
+// "auto" tells the backend to skip the style contract and let the AI pick.
+const STYLES = [
+  { value: "auto", label: "Auto", hint: "Match the prompt" },
+  { value: "dark", label: "Dark" },
+  { value: "minimal", label: "Minimal" },
+  { value: "corporate", label: "Corporate" },
+  { value: "vibrant", label: "Vibrant" },
+  { value: "retro", label: "Retro" },
+  { value: "futuristic", label: "Futuristic" },
+  { value: "warm", label: "Warm" },
+  { value: "editorial", label: "Editorial" },
+] as const;
+
 type Category = (typeof CATEGORIES)[number]["value"];
+type Style = (typeof STYLES)[number]["value"];
 type Provider = "gemini" | "claude";
 type GenerationStatus = "idle" | "generating" | "complete" | "failed";
+type GenerationDispatchResult =
+  | {
+      ok: true;
+      componentCode: string;
+      summary: string;
+      metadata: AssistantMetadata;
+    }
+  | {
+      ok: false;
+      error: string;
+      errorType: GenerationErrorType;
+      failedEdit?: EditOperation;
+    };
 
 // ---------------------------------------------------------------------------
 // Page
@@ -81,8 +121,7 @@ export default function CreatePage() {
   return (
     <CreateWorkstation
       userId={user._id as Id<"users">}
-      userName={user.name ?? "Creator"}
-      hasOwnGeminiKey={Boolean(user.geminiApiKey)}
+      hasOwnGeminiKey={Boolean(user.hasGeminiApiKey)}
     />
   );
 }
@@ -93,25 +132,48 @@ export default function CreatePage() {
 
 function CreateWorkstation({
   userId,
-  userName,
   hasOwnGeminiKey,
 }: {
   userId: Id<"users">;
-  userName: string;
   hasOwnGeminiKey: boolean;
 }) {
+  const conversation = useConversationState();
+
   // --- AI Generation State ---
   const [prompt, setPrompt] = useState("");
-  const [category, setCategory] = useState<Category>("title");
+  const [category, setCategory] = useState<Category>("auto");
+  const [style, setStyle] = useState<Style>("auto");
   const [provider, setProvider] = useState<Provider>("gemini");
   const [referenceImageId, setReferenceImageId] = useState<string>("");
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(
+    null
+  );
   const [iterationPrompt, setIterationPrompt] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Free-text system-prompt override under Advanced. Appended to the skill
+  // system prompt server-side so the user can nudge tone/constraints without
+  // editing the generator itself.
+  const [customSystemPrompt, setCustomSystemPrompt] = useState("");
 
   // --- Generation tracking ---
   const [activeGenerationId, setActiveGenerationId] =
     useState<Id<"aiGenerations"> | null>(null);
   const [localStatus, setLocalStatus] = useState<GenerationStatus>("idle");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<{
+    message: string;
+    type: GenerationErrorType;
+    failedEdit?: EditOperation;
+  } | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [errorCorrection, setErrorCorrection] =
+    useState<ErrorCorrectionContext | null>(null);
+  const [lastAssistantSummary, setLastAssistantSummary] = useState<string | null>(
+    null
+  );
+  const [lastAssistantMetadata, setLastAssistantMetadata] =
+    useState<AssistantMetadata | null>(null);
+  const markAsAiGeneratedRef = useRef<() => void>(() => {});
 
   // --- User-adjusted props (after generation) ---
   const [userProps, setUserProps] = useState<Record<string, unknown>>({});
@@ -128,12 +190,16 @@ function CreateWorkstation({
     api.presets.generateThumbnailUploadUrl
   );
   const getStorageUrl = useMutation(api.presets.getStorageUrl);
-  const dispatchGeneration = useAction(
-    api.actions.generatePreset.dispatchGeneration
-  );
+  const dispatchGeneration = useAction(api.aiGeneration.dispatch);
 
-  // --- Parse generated output ---
-  const compiledPreset = useMemo(() => {
+  // --- Parse generated schema + meta (pure JSON — no code execution) ---
+  // The actual component code is executed ONLY inside the sandboxed iframe
+  // via <SandboxedPresetPlayer />. Parsing JSON on the main thread is safe.
+  const parsedPreset = useMemo((): {
+    schema: PresetSchema;
+    meta: PresetMeta;
+    error: string | null;
+  } | null => {
     if (
       !activeGeneration ||
       activeGeneration.status !== "complete" ||
@@ -143,22 +209,33 @@ function CreateWorkstation({
     ) {
       return null;
     }
-    return codeToComponent(
-      activeGeneration.generatedCode,
-      activeGeneration.generatedSchema,
-      activeGeneration.generatedMeta
-    );
+    try {
+      const schema = JSON.parse(activeGeneration.generatedSchema) as PresetSchema;
+      const meta = JSON.parse(activeGeneration.generatedMeta) as PresetMeta;
+      if (!meta.name || !meta.fps || !meta.width || !meta.height || !meta.durationInFrames) {
+        return { schema, meta, error: "Meta is missing required fields" };
+      }
+      return { schema, meta, error: null };
+    } catch (err) {
+      return {
+        schema: {},
+        meta: {} as PresetMeta,
+        error:
+          "Could not parse generated schema/meta: " +
+          (err instanceof Error ? err.message : String(err)),
+      };
+    }
   }, [activeGeneration]);
 
   // --- Merge defaults with user overrides ---
   const defaultProps = useMemo(() => {
-    if (!compiledPreset?.preset?.schema) return {};
+    if (!parsedPreset?.schema) return {};
     const props: Record<string, unknown> = {};
-    for (const [key, field] of Object.entries(compiledPreset.preset.schema)) {
+    for (const [key, field] of Object.entries(parsedPreset.schema)) {
       props[key] = field.default;
     }
     return props;
-  }, [compiledPreset]);
+  }, [parsedPreset]);
 
   const inputProps = { ...defaultProps, ...userProps };
   const effectiveStatus: GenerationStatus =
@@ -171,6 +248,216 @@ function CreateWorkstation({
     localStatus === "generating" && activeGeneration?.status === "failed"
       ? activeGeneration.error ?? "Generation failed"
       : localError;
+  const isGenerating = effectiveStatus === "generating";
+
+  const runGenerationRequest = useCallback(
+    async ({
+      promptText,
+      parentGenerationId,
+      currentCode,
+      errorContext,
+      silent = false,
+    }: {
+      promptText: string;
+      parentGenerationId?: Id<"aiGenerations">;
+      currentCode?: string;
+      errorContext?: ErrorCorrectionContext;
+      silent?: boolean;
+    }) => {
+      const trimmedPrompt = promptText.trim();
+      if (!trimmedPrompt) {
+        return false;
+      }
+
+      const buildUserContentParts = (): ConversationContentPart[] => {
+        const parts: ConversationContentPart[] = [
+          { type: "text", text: trimmedPrompt },
+        ];
+
+        if (referenceImageId || referenceImagePreview) {
+          parts.push({
+            type: "image",
+            storageId: referenceImageId || undefined,
+            imageUrl: referenceImagePreview ?? undefined,
+            alt: "Reference image",
+          });
+        }
+
+        return parts;
+      };
+
+      const userContentParts = buildUserContentParts();
+      const pendingSkills = detectPromptSkills({
+        prompt: trimmedPrompt,
+        category: category === "auto" ? undefined : category,
+      });
+
+      setLocalStatus("generating");
+      setLocalError(null);
+      setGenerationError(null);
+      setPreviewError(null);
+      conversation.setPendingMessage(pendingSkills);
+
+      if (!parentGenerationId) {
+        setUserProps({});
+      }
+
+      const persistedCategory = category === "auto" ? undefined : category;
+      const baseConversationHistory = conversation.getFullContext();
+      const conversationHistory = parentGenerationId
+        ? silent
+          ? baseConversationHistory
+          : [
+              ...baseConversationHistory,
+              {
+                role: "user" as const,
+                content: trimmedPrompt,
+                contentParts: userContentParts,
+              },
+            ]
+        : [];
+
+      if (!silent) {
+        conversation.addUserMessage(trimmedPrompt, userContentParts);
+      }
+
+      try {
+        const genId = await createGeneration({
+          userId,
+          prompt: trimmedPrompt,
+          category: persistedCategory,
+          style: style === "auto" ? undefined : style,
+          provider,
+          referenceImageId: referenceImageId
+            ? (referenceImageId as Id<"_storage">)
+            : undefined,
+          parentGenerationId,
+        });
+
+        setActiveGenerationId(genId);
+
+        const result = (await dispatchGeneration({
+          generationId: genId,
+          prompt: trimmedPrompt,
+          category,
+          style,
+          provider,
+          parentGenerationId,
+          currentCode,
+          conversationHistory,
+          hasManualEdits: conversation.hasManualEdits,
+          errorCorrection: errorContext,
+          previouslyUsedSkills: parentGenerationId
+            ? conversation.getPreviouslyUsedSkills()
+            : [],
+          customSystemPrompt: customSystemPrompt.trim() || undefined,
+        })) as GenerationDispatchResult;
+
+        if (!result.ok) {
+          conversation.clearPendingMessage();
+          setLocalStatus("failed");
+          setLocalError(result.error);
+          setGenerationError(
+            result.errorType === "validation"
+              ? null
+              : {
+                  message: result.error,
+                  type: result.errorType,
+                  failedEdit: result.failedEdit,
+                }
+          );
+          conversation.addErrorMessage(
+            result.error,
+            result.errorType,
+            result.failedEdit
+          );
+          return false;
+        }
+
+        conversation.clearPendingMessage();
+        setLocalStatus("complete");
+        setLocalError(null);
+        setGenerationError(null);
+        setErrorCorrection(null);
+        setLastAssistantSummary(result.summary);
+        setLastAssistantMetadata(result.metadata);
+        conversation.addAssistantMessage(
+          result.summary,
+          result.componentCode,
+          result.metadata
+        );
+
+        return true;
+      } catch (err) {
+        conversation.clearPendingMessage();
+        const message =
+          err instanceof Error ? err.message : "Failed to start generation";
+        setLocalStatus("failed");
+        setLocalError(message);
+        setGenerationError({
+          message,
+          type: "api",
+        });
+        conversation.addErrorMessage(message, "api");
+        return false;
+      }
+    },
+    [
+      category,
+      conversation,
+      createGeneration,
+      customSystemPrompt,
+      dispatchGeneration,
+      provider,
+      referenceImagePreview,
+      referenceImageId,
+      style,
+      userId,
+    ]
+  );
+
+  const { markAsAiGenerated } = useAutoCorrection({
+    maxAttempts: 2,
+    compilationError: parsedPreset?.error ?? previewError,
+    generationError,
+    isStreaming: isGenerating,
+    isCompiling: false,
+    hasGeneratedOnce:
+      conversation.messages.some((message) => message.role === "assistant") ||
+      Boolean(activeGeneration?.generatedCode),
+    code: activeGeneration?.generatedCode ?? "",
+    errorCorrection,
+    onTriggerCorrection: (retryPrompt, nextErrorContext) => {
+      if (!activeGenerationId) {
+        return;
+      }
+
+      // Auto-correction is an AI-owned turn. Mark it before we enqueue the
+      // retry so a user edit during the async gap does not steal authorship.
+      markAsAiGeneratedRef.current();
+      setErrorCorrection(nextErrorContext);
+      void runGenerationRequest({
+        promptText: retryPrompt,
+        parentGenerationId: activeGenerationId,
+        currentCode: activeGeneration?.generatedCode,
+        errorContext: nextErrorContext,
+        silent: true,
+      });
+    },
+    onAddErrorMessage: (message, type, failedEdit) => {
+      conversation.addErrorMessage(message, type, failedEdit);
+    },
+    onClearGenerationError: () => {
+      setGenerationError(null);
+      setLocalError(null);
+    },
+    onClearErrorCorrection: () => {
+      setErrorCorrection(null);
+    },
+  });
+  useEffect(() => {
+    markAsAiGeneratedRef.current = markAsAiGenerated;
+  }, [markAsAiGenerated]);
 
   // --- Handlers ---
 
@@ -180,87 +467,38 @@ function CreateWorkstation({
       return;
     }
 
-    setLocalStatus("generating");
-    setLocalError(null);
-    setUserProps({});
+    const success = await runGenerationRequest({
+      promptText: prompt,
+    });
 
-    try {
-      const genId = await createGeneration({
-        userId,
-        prompt: prompt.trim(),
-        category,
-        provider,
-        referenceImageId: referenceImageId
-          ? (referenceImageId as Id<"_storage">)
-          : undefined,
-      });
-
-      setActiveGenerationId(genId);
-
-      // Fire the action (non-blocking -- the reactive query will pick up completion)
-      void dispatchGeneration({
-        generationId: genId,
-        prompt: prompt.trim(),
-        category,
-        provider,
-      });
-    } catch (err) {
-      setLocalStatus("failed");
-      setLocalError(
-        err instanceof Error ? err.message : "Failed to start generation"
-      );
+    if (success) {
+      markAsAiGenerated();
     }
   }, [
+    markAsAiGenerated,
     prompt,
-    category,
-    provider,
-    referenceImageId,
-    userId,
-    createGeneration,
-    dispatchGeneration,
+    runGenerationRequest,
   ]);
 
   const handleIterate = useCallback(async () => {
     if (!iterationPrompt.trim() || !activeGenerationId) return;
 
-    setLocalStatus("generating");
-    setLocalError(null);
-    setUserProps({});
+    const success = await runGenerationRequest({
+      promptText: iterationPrompt,
+      parentGenerationId: activeGenerationId,
+      currentCode: activeGeneration?.generatedCode,
+    });
 
-    try {
-      const genId = await createGeneration({
-        userId,
-        prompt: iterationPrompt.trim(),
-        category,
-        provider,
-        parentGenerationId: activeGenerationId,
-      });
-
-      setActiveGenerationId(genId);
-
-      void dispatchGeneration({
-        generationId: genId,
-        prompt: iterationPrompt.trim(),
-        category,
-        provider,
-        parentGenerationId: activeGenerationId,
-      });
-
+    if (success) {
+      markAsAiGenerated();
       setIterationPrompt("");
-    } catch (err) {
-      setLocalStatus("failed");
-      setLocalError(
-        err instanceof Error ? err.message : "Failed to start iteration"
-      );
     }
   }, [
-    iterationPrompt,
+    activeGeneration?.generatedCode,
     activeGenerationId,
-    category,
-    provider,
-    userId,
-    createGeneration,
-    dispatchGeneration,
+    iterationPrompt,
+    markAsAiGenerated,
+    runGenerationRequest,
   ]);
 
   const handlePropChange = (key: string, value: unknown) => {
@@ -274,13 +512,14 @@ function CreateWorkstation({
   const handleSave = async (publish: boolean) => {
     if (
       !activeGeneration ||
-      !compiledPreset?.preset ||
+      !parsedPreset ||
+      parsedPreset.error ||
       !activeGeneration.generatedCode
     ) {
       return;
     }
 
-    const { meta } = compiledPreset.preset;
+    const { meta } = parsedPreset;
     const presetCategory = (meta.category ?? category) as
       | "intro"
       | "title"
@@ -323,13 +562,12 @@ function CreateWorkstation({
         console.warn("Thumbnail generation failed:", thumbErr);
       }
 
+      // authorId is derived server-side from the authenticated session.
       await createPreset({
         name: meta.name,
         description: meta.description,
         category: presetCategory,
         tags: meta.tags ?? [],
-        author: userName,
-        authorId: userId,
         bundleUrl: `ai://generated/${activeGenerationId}`,
         fps: meta.fps,
         width: meta.width,
@@ -343,8 +581,15 @@ function CreateWorkstation({
         status: publish ? "published" : "draft",
       });
 
+      // Honest note about the current render pipeline state. AI-generated
+      // presets get a synthetic `ai://generated/...` bundle URL which the
+      // Lambda serve URL doesn't know about yet — they preview correctly
+      // (sandbox runtime) but can't be rendered remotely until the dynamic
+      // bundle pipeline ships.
       toast.success(
-        publish ? "Published to marketplace!" : "Saved to your library!",
+        publish
+          ? "Published to marketplace! Note: AI-generated presets preview live but remote rendering is not yet wired up for them."
+          : "Saved to your library!",
         { id: savingToast }
       );
     } catch (err) {
@@ -359,24 +604,29 @@ function CreateWorkstation({
     setActiveGenerationId(genId);
     setLocalStatus("idle");
     setLocalError(null);
+    setGenerationError(null);
+    setPreviewError(null);
+    setErrorCorrection(null);
+    setLastAssistantSummary(null);
+    setLastAssistantMetadata(null);
+    conversation.clearPendingMessage();
     setUserProps({});
   };
 
   // --- Derived state ---
-  const isGenerating = effectiveStatus === "generating";
   const isComplete =
     effectiveStatus === "complete" ||
     (activeGeneration?.status === "complete" && localStatus !== "generating");
   const isFailed = effectiveStatus === "failed";
-  const hasPreview = isComplete && compiledPreset?.preset != null;
-  const compileError = isComplete && compiledPreset?.error;
+  const hasPreview = isComplete && parsedPreset != null && !parsedPreset.error;
+  const compileError = isComplete && (parsedPreset?.error ?? previewError);
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-auto">
+    <div className="flex h-full min-h-0 overflow-hidden">
         {/* ================================================================ */}
         {/* LEFT COLUMN - AI Generator Panel                                 */}
         {/* ================================================================ */}
-        <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)]">
+        <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] h-full overflow-hidden">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {/* Header */}
@@ -421,21 +671,24 @@ function CreateWorkstation({
               {/* Prompt */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Describe your motion graphic
+                  Describe it
                 </label>
                 <Textarea
-                  placeholder="A sleek title card with the company name animating in letter by letter, with a gradient background that shifts from purple to blue..."
+                  placeholder="A sleek title card with the company name animating in letter by letter..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[100px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
+                  className="min-h-[90px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
                   disabled={isGenerating}
                 />
               </div>
 
-              {/* Category */}
+              {/* Visual Type — Auto by default */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Category
+                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                  <span>Visual type</span>
+                  {category === "auto" && (
+                    <span className="text-[10px] text-amber-400/80">auto</span>
+                  )}
                 </label>
                 <Select
                   value={category}
@@ -448,63 +701,155 @@ function CreateWorkstation({
                   <SelectContent>
                     {CATEGORIES.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
+                        <span className="flex items-center gap-2">
+                          {cat.label}
+                          {"hint" in cat && cat.hint && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {cat.hint}
+                            </span>
+                          )}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Provider */}
+              {/* Style — Auto by default, otherwise matches styleHelpers config */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  AI Provider
+                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                  <span>Style</span>
+                  {style === "auto" && (
+                    <span className="text-[10px] text-amber-400/80">auto</span>
+                  )}
                 </label>
                 <Select
-                  value={provider}
-                  onValueChange={(v) => setProvider(v as Provider)}
+                  value={style}
+                  onValueChange={(v) => setStyle(v as Style)}
                   disabled={isGenerating}
                 >
                   <SelectTrigger className="bg-accent border-border text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gemini">
-                      <span className="flex items-center gap-2">
-                        Gemini
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1.5 py-0 border-green-500/30 text-green-400"
-                        >
-                          Free
-                        </Badge>
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="claude">
-                      <span className="flex items-center gap-2">
-                        Claude
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1.5 py-0 border-violet-500/30 text-violet-400"
-                        >
-                          Premium
-                        </Badge>
-                      </span>
-                    </SelectItem>
+                    {STYLES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        <span className="flex items-center gap-2">
+                          {s.label}
+                          {"hint" in s && s.hint && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {s.hint}
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  Matches the reference style config — colors, fonts, and motion
+                  feel are loaded from <code className="text-amber-400/80">styleHelpers</code>{" "}
+                  so generations stay consistent.
+                </p>
               </div>
 
-              {/* Reference Image */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Reference Image (optional)
-                </label>
-                <ReferenceImageUpload
-                  onUpload={setReferenceImageId}
-                  storageId={referenceImageId || undefined}
+              {/* Advanced (collapsed by default — keeps the form clean) */}
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen((v) => !v)}
+                className="w-full text-left text-[11px] font-medium text-muted-foreground hover:text-foreground flex items-center justify-between py-1"
+              >
+                <span>Advanced</span>
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform ${advancedOpen ? "rotate-90" : ""}`}
                 />
-              </div>
+              </button>
+
+              {advancedOpen && (
+                <div className="space-y-3 border-l-2 border-border/50 pl-3">
+                  {/* Provider */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      AI Provider
+                    </label>
+                    <Select
+                      value={provider}
+                      onValueChange={(v) => setProvider(v as Provider)}
+                      disabled={isGenerating}
+                    >
+                      <SelectTrigger className="bg-accent border-border text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gemini">
+                          <span className="flex items-center gap-2">
+                            Gemini
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-green-500/30 text-green-400"
+                            >
+                              Free
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="claude">
+                          <span className="flex items-center gap-2">
+                            Claude
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-violet-500/30 text-violet-400"
+                            >
+                              Premium
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Reference Image */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Reference image
+                    </label>
+                    <ReferenceImageUpload
+                      onUpload={setReferenceImageId}
+                      onPreviewChange={setReferenceImagePreview}
+                      storageId={referenceImageId || undefined}
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      Specific prop values aren&apos;t recommended — the style config
+                      already matches our reference defaults.
+                    </p>
+                  </div>
+
+                  {/* Custom system prompt — appended to the skill system prompt */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="custom-system-prompt"
+                      className="text-xs font-medium text-muted-foreground flex items-center justify-between"
+                    >
+                      <span>Custom system prompt</span>
+                      {customSystemPrompt.trim() && (
+                        <span className="text-[10px] text-amber-400/80">active</span>
+                      )}
+                    </label>
+                    <Textarea
+                      id="custom-system-prompt"
+                      placeholder="Extra instructions for the model. E.g. 'Always use pastel colors and avoid particle effects.'"
+                      value={customSystemPrompt}
+                      onChange={(e) => setCustomSystemPrompt(e.target.value)}
+                      className="min-h-[80px] bg-accent border-border text-xs resize-y placeholder:text-muted-foreground"
+                      disabled={isGenerating}
+                      spellCheck={false}
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      Appended after the built-in skill prompts. Use it to nudge
+                      tone, constraints, or house style.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Generate Button */}
               <Button
@@ -524,6 +869,39 @@ function CreateWorkstation({
                   </>
                 )}
               </Button>
+
+              {(lastAssistantSummary ||
+                (lastAssistantMetadata?.skills &&
+                  lastAssistantMetadata.skills.length > 0)) && (
+                <div className="rounded-md border border-border bg-card/60 p-3 space-y-2">
+                  {lastAssistantSummary && (
+                    <p className="text-xs leading-relaxed text-foreground">
+                      {lastAssistantSummary}
+                    </p>
+                  )}
+                  {lastAssistantMetadata?.skills &&
+                    lastAssistantMetadata.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {lastAssistantMetadata.skills.map((skill) => (
+                          <Badge
+                            key={skill}
+                            variant="outline"
+                            className="text-[10px] border-amber-500/30 text-amber-300"
+                          >
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  {lastAssistantMetadata?.editType && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {lastAssistantMetadata.editType === "tool_edit"
+                        ? "Applied targeted follow-up edits."
+                        : "Generated a full replacement preset variant."}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Iteration Section -- shown after first generation */}
               {(isComplete || isFailed) && (
@@ -601,15 +979,17 @@ function CreateWorkstation({
         {/* ================================================================ */}
         {/* CENTER COLUMN - Live Preview                                     */}
         {/* ================================================================ */}
-        <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative">
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative h-full overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 overflow-auto">
             {/* IDLE state */}
             {localStatus === "idle" && !activeGeneration && (
               <EmptyState />
             )}
 
             {/* GENERATING state */}
-            {isGenerating && <GeneratingState />}
+            {isGenerating && (
+              <GeneratingState pendingMessage={conversation.pendingMessage} />
+            )}
 
             {/* FAILED state */}
             {isFailed && (
@@ -622,87 +1002,50 @@ function CreateWorkstation({
             {/* COMPILE ERROR state */}
             {compileError && (
               <ErrorState
-                error={compiledPreset?.error ?? "Failed to compile generated code"}
+                error={parsedPreset?.error ?? "Failed to compile generated code"}
                 onRetry={handleGenerate}
               />
             )}
 
-            {/* SUCCESS - live preview */}
-            {hasPreview && compiledPreset.preset && (
+            {/* SUCCESS - sandboxed live preview */}
+            {hasPreview && parsedPreset && activeGeneration?.generatedCode && (
               <div className="w-full max-w-3xl">
-                <PresetPlayer
-                  component={compiledPreset.preset.component}
+                <SandboxedPresetPlayer
+                  code={activeGeneration.generatedCode}
+                  schemaJson={activeGeneration.generatedSchema!}
+                  metaJson={activeGeneration.generatedMeta!}
                   inputProps={inputProps}
-                  meta={compiledPreset.preset.meta}
+                  aspectRatio={parsedPreset.meta.width / parsedPreset.meta.height}
                   className="rounded-lg overflow-hidden border border-border shadow-2xl"
+                  onErrorChange={setPreviewError}
                 />
 
                 {/* Frame info below preview */}
                 <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Film className="w-3 h-3" />
-                    {compiledPreset.preset.meta.durationInFrames} frames
+                    {parsedPreset.meta.durationInFrames} frames
                   </span>
-                  <span>{compiledPreset.preset.meta.fps} fps</span>
+                  <span>{parsedPreset.meta.fps} fps</span>
                   <span>
-                    {compiledPreset.preset.meta.width} x{" "}
-                    {compiledPreset.preset.meta.height}
+                    {parsedPreset.meta.width} x {parsedPreset.meta.height}
                   </span>
                 </div>
               </div>
             )}
-
-            {/* Loaded from history but status = idle (not generating) */}
-            {localStatus === "idle" &&
-              activeGeneration?.status === "complete" &&
-              !hasPreview &&
-              compileError && (
-                <ErrorState
-                  error={
-                    compiledPreset?.error ??
-                    "Failed to compile generated code"
-                  }
-                  onRetry={handleGenerate}
-                />
-              )}
-
-            {localStatus === "idle" &&
-              activeGeneration?.status === "complete" &&
-              hasPreview &&
-              compiledPreset?.preset && (
-                <div className="w-full max-w-3xl">
-                  <PresetPlayer
-                    component={compiledPreset.preset.component}
-                    inputProps={inputProps}
-                    meta={compiledPreset.preset.meta}
-                    className="rounded-lg overflow-hidden border border-border shadow-2xl"
-                  />
-                  <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Film className="w-3 h-3" />
-                      {compiledPreset.preset.meta.durationInFrames} frames
-                    </span>
-                    <span>{compiledPreset.preset.meta.fps} fps</span>
-                    <span>
-                      {compiledPreset.preset.meta.width} x{" "}
-                      {compiledPreset.preset.meta.height}
-                    </span>
-                  </div>
-                </div>
-              )}
           </div>
         </div>
 
         {/* ================================================================ */}
         {/* RIGHT COLUMN - Controls + Code                                   */}
         {/* ================================================================ */}
-        <div className="w-[320px] shrink-0 border-l border-border bg-background flex flex-col z-10 shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.5)]">
-          {(hasPreview || (localStatus === "idle" && activeGeneration?.status === "complete" && compiledPreset?.preset)) ? (
+        <div className="w-[320px] shrink-0 border-l border-border bg-background flex flex-col z-10 shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.5)] h-full overflow-hidden">
+          {hasPreview && parsedPreset && activeGeneration?.generatedCode ? (
             <RightPanel
-              schema={compiledPreset!.preset!.schema}
+              schema={parsedPreset.schema}
               values={inputProps}
-              code={activeGeneration!.generatedCode!}
-              meta={compiledPreset!.preset!.meta}
+              code={activeGeneration.generatedCode}
+              meta={parsedPreset.meta}
               onChange={handlePropChange}
               onReset={handleResetProps}
               onSave={() => void handleSave(false)}
@@ -864,7 +1207,15 @@ function EmptyState() {
   );
 }
 
-function GeneratingState() {
+function GeneratingState({
+  pendingMessage,
+}: {
+  pendingMessage?: {
+    skills?: string[];
+    startedAt: number;
+    statusText?: string;
+  };
+}) {
   return (
     <div className="text-center space-y-4">
       <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto relative">
@@ -879,6 +1230,24 @@ function GeneratingState() {
           15-30 seconds.
         </p>
       </div>
+      {pendingMessage?.statusText && (
+        <div className="space-y-2">
+          <p className="text-xs text-amber-300">{pendingMessage.statusText}</p>
+          {pendingMessage.skills && pendingMessage.skills.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1">
+              {pendingMessage.skills.map((skill) => (
+                <Badge
+                  key={skill}
+                  variant="outline"
+                  className="text-[10px] border-amber-500/30 text-amber-300"
+                >
+                  {skill}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
