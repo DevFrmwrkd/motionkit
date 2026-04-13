@@ -22,6 +22,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAutoCorrection } from "@/hooks/useAutoCorrection";
 import { useConversationState } from "@/hooks/useConversationState";
 import { generatePresetThumbnail } from "@/lib/thumbnail";
+import {
+  resolveOpenRouterModel,
+  type AiProvider,
+} from "../../../../shared/aiProviderConfig";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -86,7 +91,7 @@ const STYLES = [
 
 type Category = (typeof CATEGORIES)[number]["value"];
 type Style = (typeof STYLES)[number]["value"];
-type Provider = "gemini" | "claude";
+type Provider = AiProvider;
 type GenerationStatus = "idle" | "generating" | "complete" | "failed";
 type GenerationDispatchResult =
   | {
@@ -122,6 +127,9 @@ export default function CreatePage() {
     <CreateWorkstation
       userId={user._id as Id<"users">}
       hasOwnGeminiKey={Boolean(user.hasGeminiApiKey)}
+      hasAnthropicKey={Boolean(user.hasAnthropicApiKey)}
+      hasOpenRouterKey={Boolean(user.hasOpenRouterApiKey)}
+      savedOpenRouterModel={user.openRouterModel ?? ""}
     />
   );
 }
@@ -133,9 +141,15 @@ export default function CreatePage() {
 function CreateWorkstation({
   userId,
   hasOwnGeminiKey,
+  hasAnthropicKey,
+  hasOpenRouterKey,
+  savedOpenRouterModel,
 }: {
   userId: Id<"users">;
   hasOwnGeminiKey: boolean;
+  hasAnthropicKey: boolean;
+  hasOpenRouterKey: boolean;
+  savedOpenRouterModel: string;
 }) {
   const conversation = useConversationState();
 
@@ -154,6 +168,10 @@ function CreateWorkstation({
   // system prompt server-side so the user can nudge tone/constraints without
   // editing the generator itself.
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
+  // OpenRouter supports any model id the user pastes in. This overrides the
+  // model saved in Settings for a single generation — leave empty to use the
+  // default from Settings.
+  const [openRouterModelOverride, setOpenRouterModelOverride] = useState("");
 
   // --- Generation tracking ---
   const [activeGenerationId, setActiveGenerationId] =
@@ -238,6 +256,23 @@ function CreateWorkstation({
   }, [parsedPreset]);
 
   const inputProps = { ...defaultProps, ...userProps };
+  const configuredOpenRouterModel = useMemo(
+    () =>
+      resolveOpenRouterModel(openRouterModelOverride, savedOpenRouterModel),
+    [openRouterModelOverride, savedOpenRouterModel]
+  );
+  const missingProviderReason =
+    provider === "claude"
+      ? !hasAnthropicKey
+        ? "Claude requires your Anthropic API key. Add it in Settings → API Keys."
+        : null
+      : provider === "openrouter"
+        ? !hasOpenRouterKey
+          ? "OpenRouter requires your API key. Add it in Settings → API Keys."
+          : !configuredOpenRouterModel
+            ? "OpenRouter requires a model id. Save one in Settings or set an override below."
+            : null
+        : null;
   const effectiveStatus: GenerationStatus =
     localStatus === "generating" && activeGeneration?.status === "complete"
       ? "complete"
@@ -249,6 +284,7 @@ function CreateWorkstation({
       ? activeGeneration.error ?? "Generation failed"
       : localError;
   const isGenerating = effectiveStatus === "generating";
+  const canGenerate = !isGenerating && Boolean(prompt.trim()) && !missingProviderReason;
 
   const runGenerationRequest = useCallback(
     async ({
@@ -351,6 +387,10 @@ function CreateWorkstation({
             ? conversation.getPreviouslyUsedSkills()
             : [],
           customSystemPrompt: customSystemPrompt.trim() || undefined,
+          openRouterModelOverride:
+            provider === "openrouter" && openRouterModelOverride.trim()
+              ? openRouterModelOverride.trim()
+              : undefined,
         })) as GenerationDispatchResult;
 
         if (!result.ok) {
@@ -408,6 +448,7 @@ function CreateWorkstation({
       createGeneration,
       customSystemPrompt,
       dispatchGeneration,
+      openRouterModelOverride,
       provider,
       referenceImagePreview,
       referenceImageId,
@@ -467,6 +508,11 @@ function CreateWorkstation({
       return;
     }
 
+    if (missingProviderReason) {
+      toast.error(missingProviderReason);
+      return;
+    }
+
     const success = await runGenerationRequest({
       promptText: prompt,
     });
@@ -475,6 +521,7 @@ function CreateWorkstation({
       markAsAiGenerated();
     }
   }, [
+    missingProviderReason,
     markAsAiGenerated,
     prompt,
     runGenerationRequest,
@@ -638,13 +685,68 @@ function CreateWorkstation({
               </div>
 
               {/* BYOK info banner */}
-              {hasOwnGeminiKey ? (
-                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-[11px] leading-relaxed">
+              {provider === "gemini" ? (
+                hasOwnGeminiKey ? (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-[11px] leading-relaxed">
+                    <div className="flex items-start gap-1.5">
+                      <Key className="w-3 h-3 mt-0.5 text-emerald-400 shrink-0" />
+                      <div className="text-emerald-300/90">
+                        Using your personal <span className="font-semibold">Gemini 3.0</span> key.
+                        Your usage counts against your own quota.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
+                    <div className="flex items-start gap-1.5">
+                      <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
+                      <div className="space-y-1 text-muted-foreground">
+                        <div>
+                          Default model: <span className="text-amber-400 font-semibold">Gemini 3.0</span>.
+                          Free tier ≈ 20 charts/day.
+                        </div>
+                        <Link
+                          href="/settings"
+                          className="inline-block text-amber-400 hover:text-amber-300 font-medium"
+                        >
+                          Add your own key →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : provider === "claude" ? (
+                hasAnthropicKey ? (
+                  <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-2.5 text-[11px] leading-relaxed">
+                    <div className="flex items-start gap-1.5">
+                      <Key className="w-3 h-3 mt-0.5 text-violet-400 shrink-0" />
+                      <div className="text-violet-200/90">
+                        Claude is ready with your personal Anthropic key.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
+                    <div className="flex items-start gap-1.5">
+                      <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
+                      <div className="space-y-1 text-muted-foreground">
+                        <div>Claude requires your Anthropic API key before generation can start.</div>
+                        <Link
+                          href="/settings"
+                          className="inline-block text-amber-400 hover:text-amber-300 font-medium"
+                        >
+                          Add Anthropic key →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : hasOpenRouterKey && configuredOpenRouterModel ? (
+                <div className="rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 text-[11px] leading-relaxed">
                   <div className="flex items-start gap-1.5">
-                    <Key className="w-3 h-3 mt-0.5 text-emerald-400 shrink-0" />
-                    <div className="text-emerald-300/90">
-                      Using your personal <span className="font-semibold">Gemini 3.0</span> key.
-                      Your usage counts against your own quota.
+                    <Key className="w-3 h-3 mt-0.5 text-sky-400 shrink-0" />
+                    <div className="text-sky-200/90">
+                      OpenRouter is ready with <code className="font-mono text-sky-100">{configuredOpenRouterModel}</code>.
                     </div>
                   </div>
                 </div>
@@ -654,14 +756,15 @@ function CreateWorkstation({
                     <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
                     <div className="space-y-1 text-muted-foreground">
                       <div>
-                        Default model: <span className="text-amber-400 font-semibold">Gemini 3.0</span>.
-                        Free tier ≈ 20 charts/day.
+                        {!hasOpenRouterKey
+                          ? "OpenRouter needs your API key before generation can start."
+                          : "OpenRouter needs a model id. Save one in Settings or use the override below."}
                       </div>
                       <Link
                         href="/settings"
                         className="inline-block text-amber-400 hover:text-amber-300 font-medium"
                       >
-                        Add your own key →
+                        Open provider settings →
                       </Link>
                     </div>
                   </div>
@@ -803,9 +906,60 @@ function CreateWorkstation({
                             </Badge>
                           </span>
                         </SelectItem>
+                        <SelectItem value="openrouter">
+                          <span className="flex items-center gap-2">
+                            OpenRouter
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 border-sky-500/30 text-sky-400"
+                            >
+                              BYOK
+                            </Badge>
+                          </span>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* OpenRouter model override — only visible when OpenRouter is selected */}
+                  {provider === "openrouter" && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                        <span>OpenRouter model</span>
+                        {openRouterModelOverride.trim() ? (
+                          <span className="text-[10px] text-sky-400">override</span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">
+                            from settings
+                          </span>
+                        )}
+                      </label>
+                      <Input
+                        value={openRouterModelOverride}
+                        onChange={(e) =>
+                          setOpenRouterModelOverride(e.target.value)
+                        }
+                        placeholder="z-ai/glm-5.1"
+                        className="bg-accent border-border font-mono text-xs"
+                        disabled={isGenerating}
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Any model id from{" "}
+                        <a
+                          href="https://openrouter.ai/models"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-amber-400 hover:text-amber-300"
+                        >
+                          openrouter.ai/models
+                        </a>
+                        . Leave empty to use the default you saved in Settings.
+                        Requires an OpenRouter key.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Reference Image */}
                   <div className="space-y-1.5">
@@ -855,7 +1009,7 @@ function CreateWorkstation({
               <Button
                 className="w-full bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
                 onClick={handleGenerate}
-                disabled={isGenerating || !prompt.trim()}
+                disabled={!canGenerate}
               >
                 {isGenerating ? (
                   <>

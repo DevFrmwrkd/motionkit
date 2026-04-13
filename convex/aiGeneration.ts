@@ -8,14 +8,19 @@ import { internal } from "./_generated/api";
 import { buildSystemPrompt } from "./lib/ai_skills";
 import { generateWithClaude } from "./lib/ai_providers/claude";
 import { generateWithGemini, callGeminiWithFallback } from "./lib/ai_providers/gemini";
+import { generateWithOpenRouter } from "./lib/ai_providers/openrouter";
 import { categoryValidator } from "./lib/validators";
+import {
+  resolveOpenRouterModel,
+  type AiProvider,
+} from "../shared/aiProviderConfig";
 import {
   requireAuthorizedUser,
   requireAuthUserIdFromAction,
   requireSignedInUser,
 } from "./lib/authz";
 
-type Provider = "gemini" | "claude";
+type Provider = AiProvider;
 
 type EditOperation = {
   description: string;
@@ -400,6 +405,7 @@ async function runJsonPrompt<T>(input: {
   referenceImageUrls?: string[];
   temperature?: number;
   maxOutputTokens?: number;
+  openRouterModel?: string;
 }) {
   const {
     provider,
@@ -409,9 +415,91 @@ async function runJsonPrompt<T>(input: {
     referenceImageUrls,
     temperature = 0.2,
     maxOutputTokens = 2048,
+    openRouterModel,
   } = input;
 
   const imageData = await fetchImageDataList(referenceImageUrls);
+
+  if (provider === "openrouter") {
+    const resolvedModel = resolveOpenRouterModel(openRouterModel);
+    if (!resolvedModel) {
+      throw new Error(
+        "OpenRouter model id is missing. Set it in Settings → API Keys."
+      );
+    }
+    const messages: Array<{
+      role: "system" | "user";
+      content:
+        | string
+        | Array<
+            | { type: "text"; text: string }
+            | { type: "image_url"; image_url: { url: string } }
+          >;
+    }> = [
+      { role: "system", content: systemPrompt },
+    ];
+    if (imageData.length === 0) {
+      messages.push({ role: "user", content: prompt });
+    } else {
+      const parts: Array<
+        | { type: "text"; text: string }
+        | { type: "image_url"; image_url: { url: string } }
+      > = [{ type: "text", text: prompt }];
+      for (const img of imageData) {
+        parts.push({
+          type: "image_url",
+          image_url: {
+            url: `data:${img.mimeType};base64,${img.data}`,
+          },
+        });
+      }
+      messages.push({ role: "user", content: parts });
+    }
+    const res = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.SITE_URL ?? "https://motionkit.app",
+          "X-Title": "MotionKit",
+        },
+        body: JSON.stringify({
+          model: resolvedModel,
+          temperature,
+          max_tokens: maxOutputTokens,
+          messages,
+        }),
+      }
+    );
+    const rawText = await res.text();
+    let payload: {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { total_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
+      error?: { message?: string };
+    };
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      throw new Error(
+        `OpenRouter returned non-JSON (${res.status}): ${rawText.slice(0, 300)}`
+      );
+    }
+    if (!res.ok || payload.error) {
+      throw new Error(
+        `OpenRouter error: ${payload.error?.message ?? res.status}`
+      );
+    }
+    const text = payload.choices?.[0]?.message?.content ?? "";
+    return {
+      object: parseJsonObject<T>(text),
+      tokensUsed:
+        payload.usage?.total_tokens ??
+        (payload.usage?.prompt_tokens ?? 0) +
+          (payload.usage?.completion_tokens ?? 0),
+    };
+  }
 
   if (provider === "gemini") {
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -497,6 +585,7 @@ async function validatePromptWithProvider(input: {
   provider: Provider;
   apiKey: string;
   prompt: string;
+  openRouterModel?: string;
 }) {
   const trimmed = input.prompt.trim();
   if (trimmed.length < 8) {
@@ -514,6 +603,7 @@ async function validatePromptWithProvider(input: {
       prompt: `User prompt: "${trimmed}"`,
       maxOutputTokens: 128,
       temperature: 0,
+      openRouterModel: input.openRouterModel,
     });
 
     return result.object;
@@ -638,10 +728,22 @@ async function runInitialGeneration(input: {
   prompt: string;
   systemPrompt: string;
   referenceImageUrls?: string[];
+  openRouterModel?: string;
 }) {
   if (input.provider === "gemini") {
     return generateWithGemini(
       { apiKey: input.apiKey },
+      {
+        prompt: input.prompt,
+        systemPrompt: input.systemPrompt,
+        referenceImageUrls: input.referenceImageUrls,
+      }
+    );
+  }
+
+  if (input.provider === "openrouter") {
+    return generateWithOpenRouter(
+      { apiKey: input.apiKey, model: input.openRouterModel ?? "" },
       {
         prompt: input.prompt,
         systemPrompt: input.systemPrompt,
@@ -672,6 +774,7 @@ async function runFollowUpGeneration(input: {
   hasManualEdits: boolean;
   errorCorrection?: ErrorCorrectionContext;
   referenceImageUrls?: string[];
+  openRouterModel?: string;
 }) {
   const promptText = buildFollowUpPrompt({
     prompt: input.prompt,
@@ -688,6 +791,7 @@ async function runFollowUpGeneration(input: {
     prompt: promptText,
     referenceImageUrls: input.referenceImageUrls,
     maxOutputTokens: 4096,
+    openRouterModel: input.openRouterModel,
   });
 
   const response = result.object;
@@ -752,7 +856,11 @@ export const create = mutation({
     category: v.optional(categoryValidator),
     style: v.optional(v.string()),
     referenceImageId: v.optional(v.id("_storage")),
-    provider: v.union(v.literal("gemini"), v.literal("claude")),
+    provider: v.union(
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openrouter"),
+    ),
     parentGenerationId: v.optional(v.id("aiGenerations")),
   },
   handler: async (ctx, args) => {
@@ -784,7 +892,11 @@ export const dispatch = action({
     prompt: v.string(),
     category: v.optional(v.string()),
     style: v.optional(v.string()),
-    provider: v.union(v.literal("gemini"), v.literal("claude")),
+    provider: v.union(
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openrouter"),
+    ),
     parentGenerationId: v.optional(v.id("aiGenerations")),
     currentCode: v.optional(v.string()),
     conversationHistory: v.optional(v.array(conversationMessageValidator)),
@@ -797,6 +909,12 @@ export const dispatch = action({
      * house style without editing the generator itself.
      */
     customSystemPrompt: v.optional(v.string()),
+    /**
+     * For `provider === "openrouter"`, overrides the model id stored on the
+     * user's account. Lets the Create page's Advanced section pass a
+     * per-request model without making the user re-save Settings.
+     */
+    openRouterModelOverride: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<GenerationDispatchResult> => {
     const generationId = args.generationId;
@@ -828,14 +946,45 @@ export const dispatch = action({
       });
 
       const provider = args.provider;
-      const apiKey =
-        provider === "gemini"
-          ? userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY
-          : userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+      let apiKey: string | null | undefined;
+      let resolvedOpenRouterModel: string | undefined;
+      if (provider === "gemini") {
+        apiKey = userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY;
+      } else if (provider === "claude") {
+        apiKey = userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+      } else {
+        // openrouter: prefer the user's BYOK key, but fall back to a shared
+        // server-side key (OPENROUTER_API_KEY) if the deployment ships one.
+        // That makes OpenRouter usable out-of-the-box for test accounts
+        // without forcing every user to paste credentials first.
+        apiKey =
+          userKeys?.openRouterApiKey || process.env.OPENROUTER_API_KEY || null;
+        resolvedOpenRouterModel = resolveOpenRouterModel(
+          args.openRouterModelOverride,
+          userKeys?.openRouterModel,
+          process.env.OPENROUTER_DEFAULT_MODEL
+        );
+      }
 
       if (!apiKey) {
-        const keyName = provider === "gemini" ? "Google API key" : "Anthropic API key";
+        const keyName =
+          provider === "gemini"
+            ? "Google API key"
+            : provider === "claude"
+              ? "Anthropic API key"
+              : "OpenRouter API key";
         const error = `No ${keyName} found. Add it in Settings → API Keys.`;
+        await markGenerationFailed(ctx, generationId, error);
+        return {
+          ok: false,
+          error,
+          errorType: "api",
+        };
+      }
+
+      if (provider === "openrouter" && !resolvedOpenRouterModel) {
+        const error =
+          "OpenRouter requires a model id. Set one in Settings → API Keys or pass an Advanced override on the Create page.";
         await markGenerationFailed(ctx, generationId, error);
         return {
           ok: false,
@@ -912,6 +1061,7 @@ export const dispatch = action({
           provider,
           apiKey,
           prompt: args.prompt,
+          openRouterModel: resolvedOpenRouterModel,
         });
 
         if (!validation.valid) {
@@ -932,6 +1082,7 @@ export const dispatch = action({
           prompt: effectivePrompt,
           systemPrompt: effectiveSystemPrompt,
           referenceImageUrls,
+          openRouterModel: resolvedOpenRouterModel,
         });
 
         await ctx.runMutation(internal.aiGeneration.markComplete, {
@@ -984,6 +1135,7 @@ export const dispatch = action({
         hasManualEdits: Boolean(args.hasManualEdits),
         errorCorrection: args.errorCorrection as ErrorCorrectionContext | undefined,
         referenceImageUrls,
+        openRouterModel: resolvedOpenRouterModel,
       });
 
       if (!followUp.ok) {

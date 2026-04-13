@@ -169,6 +169,12 @@ export default defineSchema({
     // AI provider keys (user's own keys)
     geminiApiKey: v.optional(v.string()),
     anthropicApiKey: v.optional(v.string()),
+    // OpenRouter is a multi-model aggregator. Users pick any model id they
+    // want (e.g. "z-ai/glm-5.1", "deepseek/deepseek-chat-v3:free"); we just
+    // forward it. Model id is not a secret — stored in plaintext alongside
+    // the encrypted key.
+    openRouterApiKey: v.optional(v.string()),
+    openRouterModel: v.optional(v.string()),
 
     // Auth
     tokenIdentifier: v.optional(v.string()),
@@ -267,7 +273,11 @@ export default defineSchema({
     category: v.optional(categoryValidator),
     style: v.optional(v.string()),
     referenceImageId: v.optional(v.id("_storage")),
-    provider: v.union(v.literal("gemini"), v.literal("claude")),
+    provider: v.union(
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openrouter"),
+    ),
 
     status: v.union(
       v.literal("generating"),

@@ -1,8 +1,12 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAuthorizedUser, isDemoModeEnabled } from "./lib/authz";
 import { encryptApiKey, decryptApiKey, keyHint } from "./lib/keyStorage";
+import {
+  normalizeOptionalString,
+  resolveOpenRouterModel,
+} from "../shared/aiProviderConfig";
 
 /**
  * Strips every sensitive key from a user doc and replaces each one with a
@@ -18,6 +22,7 @@ function toClientUser<T extends Record<string, unknown>>(user: T | null) {
     modalApiKey,
     geminiApiKey,
     anthropicApiKey,
+    openRouterApiKey,
     tokenIdentifier: _tokenIdentifier,
     ...safeUser
   } = user;
@@ -29,11 +34,13 @@ function toClientUser<T extends Record<string, unknown>>(user: T | null) {
     hasModalApiKey: Boolean(modalApiKey),
     hasGeminiApiKey: Boolean(geminiApiKey),
     hasAnthropicApiKey: Boolean(anthropicApiKey),
+    hasOpenRouterApiKey: Boolean(openRouterApiKey),
     // Masked hints for Settings UI ("••••" or "••••ABCD" depending on
     // whether the value was encrypted at rest).
     modalApiKeyHint: keyHint(modalApiKey as string | undefined),
     geminiApiKeyHint: keyHint(geminiApiKey as string | undefined),
     anthropicApiKeyHint: keyHint(anthropicApiKey as string | undefined),
+    openRouterApiKeyHint: keyHint(openRouterApiKey as string | undefined),
   };
 }
 
@@ -137,6 +144,9 @@ export const getApiKeys = internalQuery({
       modalApiKey: await decryptApiKey(user.modalApiKey),
       geminiApiKey: await decryptApiKey(user.geminiApiKey),
       anthropicApiKey: await decryptApiKey(user.anthropicApiKey),
+      openRouterApiKey: await decryptApiKey(user.openRouterApiKey),
+      // Model id is stored in plaintext — not a secret.
+      openRouterModel: user.openRouterModel ?? undefined,
     };
   },
 });
@@ -168,21 +178,28 @@ export const updateApiKeys = mutation({
     modalApiKey: v.optional(v.string()),
     geminiApiKey: v.optional(v.string()),
     anthropicApiKey: v.optional(v.string()),
+    openRouterApiKey: v.optional(v.string()),
+    // Model id is plaintext and can be updated independently of the key.
+    openRouterModel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId, ...keys } = args;
+    const { userId, openRouterModel, ...keys } = args;
     await requireAuthorizedUser(ctx, userId);
 
     const updates: Record<string, string | undefined> = {};
     for (const [field, value] of Object.entries(keys)) {
       if (value === undefined) continue;
-      if (value === "") {
+      const normalizedValue = normalizeOptionalString(value);
+      if (!normalizedValue) {
         // Explicit clear.
         updates[field] = undefined;
         continue;
       }
       // All BYOK keys we accept here are secrets — encrypt at rest.
-      updates[field] = await encryptApiKey(value);
+      updates[field] = await encryptApiKey(normalizedValue);
+    }
+    if (openRouterModel !== undefined) {
+      updates.openRouterModel = normalizeOptionalString(openRouterModel);
     }
     await ctx.db.patch(userId, updates);
   },
@@ -253,5 +270,68 @@ export const getPublicProfile = query({
       totalVotes,
       presets: publishedPresets,
     };
+  },
+});
+
+/**
+ * One-off internal mutation to seed a user's OpenRouter credentials. This is
+ * internal so it can only be invoked via `npx convex run`, never from a
+ * client. Looks up the user by email, creates a minimal row if none exists
+ * (so the demo account is usable even when ENABLE_DEMO_MODE is false), and
+ * patches the encrypted key + plaintext model id.
+ *
+ * Usage:
+ *   npx convex run --prod users:seedOpenRouterCredentials \
+ *     '{"email":"demo@motionkit.dev","apiKey":"sk-or-v1-...","model":"z-ai/glm-5.1"}'
+ */
+// seed-force-rebuild-2026-04-11T15-58
+export const seedOpenRouterCredentials = internalMutation({
+  args: {
+    email: v.string(),
+    apiKey: v.string(),
+    model: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const normalizedApiKey = normalizeOptionalString(args.apiKey);
+    const normalizedModel = resolveOpenRouterModel(args.model);
+
+    if (!normalizedApiKey) {
+      throw new Error("OpenRouter API key cannot be blank");
+    }
+
+    if (!normalizedModel) {
+      throw new Error("OpenRouter model id cannot be blank");
+    }
+
+    const encrypted = await encryptApiKey(normalizedApiKey);
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        openRouterApiKey: encrypted,
+        openRouterModel: normalizedModel,
+      });
+      return { ok: true, userId: existing._id, created: false };
+    }
+
+    const userId = await ctx.db.insert("users", {
+      name: args.email.split("@")[0],
+      email: args.email,
+      avatarUrl: undefined,
+      role: "user",
+      plan: "free",
+      renderCredits: 10,
+      dailyGenerations: 0,
+      tokenIdentifier: `seed:${args.email}`,
+      isPublicProfile: false,
+      bio: "Seeded account for OpenRouter testing",
+      openRouterApiKey: encrypted,
+      openRouterModel: normalizedModel,
+    });
+    return { ok: true, userId, created: true };
   },
 });

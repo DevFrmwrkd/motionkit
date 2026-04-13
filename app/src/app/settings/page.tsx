@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { normalizeOptionalString } from "../../../../shared/aiProviderConfig";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,9 +58,12 @@ export default function SettingsPage() {
               hasModalKey={Boolean(user.hasModalApiKey)}
               hasGeminiKey={Boolean(user.hasGeminiApiKey)}
               hasAnthropicKey={Boolean(user.hasAnthropicApiKey)}
+              hasOpenRouterKey={Boolean(user.hasOpenRouterApiKey)}
               modalHint={user.modalApiKeyHint ?? null}
               geminiHint={user.geminiApiKeyHint ?? null}
               anthropicHint={user.anthropicApiKeyHint ?? null}
+              openRouterHint={user.openRouterApiKeyHint ?? null}
+              openRouterModel={user.openRouterModel ?? ""}
             />
           </TabsContent>
 
@@ -158,17 +162,23 @@ function ApiKeysTab({
   hasModalKey,
   hasGeminiKey,
   hasAnthropicKey,
+  hasOpenRouterKey,
   modalHint,
   geminiHint,
   anthropicHint,
+  openRouterHint,
+  openRouterModel: initialOpenRouterModel,
 }: {
   userId: Id<"users">;
   hasModalKey: boolean;
   hasGeminiKey: boolean;
   hasAnthropicKey: boolean;
+  hasOpenRouterKey: boolean;
   modalHint: string | null;
   geminiHint: string | null;
   anthropicHint: string | null;
+  openRouterHint: string | null;
+  openRouterModel: string;
 }) {
   // Fields start empty and the server NEVER sends the real key values here.
   // Leaving a field blank = "keep whatever is stored". Typing = "replace it".
@@ -176,12 +186,30 @@ function ApiKeysTab({
   const [modalApiKey, setModalApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
+  const [openRouterApiKey, setOpenRouterApiKey] = useState("");
+  // Model id is NOT a secret — we ARE allowed to round-trip it from the
+  // server and let the user edit it in place.
+  const [openRouterModel, setOpenRouterModel] = useState(
+    () => normalizeOptionalString(initialOpenRouterModel) ?? ""
+  );
+  const [savedOpenRouterModel, setSavedOpenRouterModel] = useState(
+    () => normalizeOptionalString(initialOpenRouterModel) ?? ""
+  );
   const [saving, setSaving] = useState(false);
   const updateApiKeys = useMutation(api.users.updateApiKeys);
+
+  useEffect(() => {
+    const normalizedModel = normalizeOptionalString(initialOpenRouterModel) ?? "";
+    setOpenRouterModel(normalizedModel);
+    setSavedOpenRouterModel(normalizedModel);
+  }, [initialOpenRouterModel]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const normalizedOpenRouterModel =
+        normalizeOptionalString(openRouterModel) ?? "";
+
       // Only send fields the user actually typed into. Empty string means
       // "don't touch" on the save path.
       await updateApiKeys({
@@ -189,10 +217,18 @@ function ApiKeysTab({
         ...(modalApiKey ? { modalApiKey } : {}),
         ...(geminiApiKey ? { geminiApiKey } : {}),
         ...(anthropicApiKey ? { anthropicApiKey } : {}),
+        ...(openRouterApiKey ? { openRouterApiKey } : {}),
+        // Model id: send whenever it changed (including "" to clear it).
+        ...(normalizedOpenRouterModel !== savedOpenRouterModel
+          ? { openRouterModel: normalizedOpenRouterModel }
+          : {}),
       });
       setModalApiKey("");
       setGeminiApiKey("");
       setAnthropicApiKey("");
+      setOpenRouterApiKey("");
+      setOpenRouterModel(normalizedOpenRouterModel);
+      setSavedOpenRouterModel(normalizedOpenRouterModel);
       toast.success("API keys updated");
     } catch {
       toast.error("Failed to update API keys");
@@ -202,7 +238,11 @@ function ApiKeysTab({
   };
 
   const handleRemove = async (
-    field: "modalApiKey" | "geminiApiKey" | "anthropicApiKey"
+    field:
+      | "modalApiKey"
+      | "geminiApiKey"
+      | "anthropicApiKey"
+      | "openRouterApiKey"
   ) => {
     try {
       await updateApiKeys({ userId, [field]: "" });
@@ -352,6 +392,84 @@ function ApiKeysTab({
               <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:text-amber-400">
                 console.anthropic.com
               </a>
+            </p>
+          </div>
+
+          {/* OpenRouter — user-supplied key + freeform model id */}
+          <div className="space-y-1.5 pt-2 border-t border-border/60">
+            <Label className="text-sm text-muted-foreground flex items-center justify-between pt-3">
+              <span>OpenRouter API Key</span>
+              {hasOpenRouterKey && (
+                <span className="text-[10px] text-emerald-400">
+                  Saved · {openRouterHint ?? "••••"}
+                </span>
+              )}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={openRouterApiKey}
+                onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                placeholder={
+                  hasOpenRouterKey
+                    ? "Enter new key to replace"
+                    : "sk-or-v1-..."
+                }
+                className="bg-muted border-zinc-700 flex-1"
+                autoComplete="off"
+              />
+              {hasOpenRouterKey && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleRemove("openRouterApiKey")}
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+            <Label className="text-sm text-muted-foreground pt-2 block">
+              Default model
+            </Label>
+            <Input
+              type="text"
+              value={openRouterModel}
+              onChange={(e) => setOpenRouterModel(e.target.value)}
+              placeholder="z-ai/glm-5.1"
+              className="bg-muted border-zinc-700 font-mono text-xs"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="text-xs text-muted-foreground flex items-start gap-1">
+              <Info className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>
+                OpenRouter proxies hundreds of models behind one key. Paste
+                any model id from{" "}
+                <a
+                  href="https://openrouter.ai/models"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-500 hover:text-amber-400"
+                >
+                  openrouter.ai/models
+                </a>{" "}
+                — e.g. <code className="text-amber-400">z-ai/glm-5.1</code>,{" "}
+                <code className="text-amber-400">
+                  deepseek/deepseek-chat-v3:free
+                </code>
+                . Get your key at{" "}
+                <a
+                  href="https://openrouter.ai/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-500 hover:text-amber-400"
+                >
+                  openrouter.ai/keys
+                </a>
+                .
+              </span>
             </p>
           </div>
         </CardContent>
