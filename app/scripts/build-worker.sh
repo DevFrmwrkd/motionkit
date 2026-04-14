@@ -80,10 +80,12 @@ prepare_build_env() {
   build_env_created="true"
 
   if [[ -n "${build_env_backup:-}" ]]; then
-    grep -E '^NEXT_PUBLIC_[A-Z0-9_]*=' "$build_env_backup" | grep -v '^NEXT_PUBLIC_CONVEX_URL=' >> "$env_file" || true
+    grep -E '^NEXT_PUBLIC_[A-Z0-9_]*=' "$build_env_backup" >> "$env_file" || true
   fi
 
+  # Allow shell env to override file value
   if [[ -n "${NEXT_PUBLIC_CONVEX_URL:-}" ]]; then
+    sed -i '' '/^NEXT_PUBLIC_CONVEX_URL=/d' "$env_file"
     printf 'NEXT_PUBLIC_CONVEX_URL=%s\n' "$NEXT_PUBLIC_CONVEX_URL" >> "$env_file"
   fi
 }
