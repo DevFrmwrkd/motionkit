@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
@@ -112,51 +113,64 @@ export function NavMain() {
                 );
               }
 
-              const isGroupActive = pathname.startsWith(item.url);
-
-              return (
-                <Collapsible
-                  key={item.url}
-                  defaultOpen={isGroupActive}
-                  className="group/collapsible"
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger
-                      render={
-                        <SidebarMenuButton
-                          tooltip={item.title}
-                          isActive={isGroupActive}
-                        />
-                      }
-                    >
-                      <Icon className="size-4" />
-                      <span>{item.title}</span>
-                      <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items.map((sub) => {
-                          const isSubActive = pathname === sub.url;
-                          return (
-                            <SidebarMenuSubItem key={sub.url}>
-                              <SidebarMenuSubButton
-                                render={<Link href={sub.url} />}
-                                isActive={isSubActive}
-                              >
-                                <span>{sub.title}</span>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          );
-                        })}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              );
+              return <NavCollapsible key={item.url} item={item} pathname={pathname} />;
             })}
           </SidebarMenu>
         </SidebarGroup>
       ))}
     </>
+  );
+}
+
+function NavCollapsible({ item, pathname }: { item: NavItem; pathname: string }) {
+  const Icon = item.icon;
+  const isGroupActive = pathname.startsWith(item.url);
+  const [isOpen, setIsOpen] = React.useState(isGroupActive);
+
+  // Keep it open if we navigate into this section's path
+  React.useEffect(() => {
+    if (pathname.startsWith(item.url)) {
+      setIsOpen(true);
+    }
+  }, [pathname, item.url]);
+
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger
+          render={
+            <SidebarMenuButton
+              tooltip={item.title}
+              isActive={isGroupActive}
+            />
+          }
+        >
+          <Icon className="size-4" />
+          <span>{item.title}</span>
+          <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.items?.map((sub) => {
+              const isSubActive = pathname === sub.url;
+              return (
+                <SidebarMenuSubItem key={sub.url}>
+                  <SidebarMenuSubButton
+                    render={<Link href={sub.url} />}
+                    isActive={isSubActive}
+                  >
+                    <span>{sub.title}</span>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
   );
 }

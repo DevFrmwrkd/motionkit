@@ -23,9 +23,75 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { Player } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { compileAndExecute } from "../lib/preset-runtime/sandbox";
 import type { PresetExport } from "../lib/types";
+
+/**
+ * Early safety patches — executed before any user code runs.
+ * 
+ * 1. Patches React.createElement to convert script/template tags to Fragment
+ * 2. Wraps console.error to suppress the script tag warning from React itself
+ */
+function applySafetyPatches() {
+  // Patch 1: Block script/template element creation
+  const dangerousTags = new Set([
+    "script",
+    "template",
+  ]);
+
+  const _originalCreateElement = React.createElement;
+
+  React.createElement = function (this: any, type: any, ...args: any[]) {
+    let typeStr = "";
+
+    // Extract the tag name from type
+    if (typeof type === "string") {
+      typeStr = type.toLowerCase().trim();
+    } else if (type && typeof type === "object" && "$$typeof" in type) {
+      // React component object (Fragment, Suspense, etc.) — safe
+      return _originalCreateElement.apply(this, [type, ...args]);
+    }
+
+    // Block dangerous tags (script, template only). Replace with Fragment —
+    // replacing with "template" triggers the same React warning we're trying
+    // to avoid, since <template> is on React's own danger list.
+    if (dangerousTags.has(typeStr)) {
+      return _originalCreateElement.call(this, React.Fragment, null);
+    }
+
+    return _originalCreateElement.apply(this, [type, ...args]);
+  } as typeof React.createElement;
+
+  // Mark as patched to avoid double-patching
+  (React as any)._runtimePatched = true;
+
+  // Patch 2: Suppress React's script tag warning, since we're already blocking it
+  const _originalError = console.error;
+  const _originalWarn = console.warn;
+
+  // React's exact phrasing has drifted across versions ("rendering a
+  // component" vs "rendering React component"). Match on the stable prefix.
+  const scriptWarning = "Encountered a script tag while rendering";
+
+  console.error = function (...args) {
+    const message = String(args[0]);
+    // Suppress the script tag warning since our patch above prevents it from happening anyway
+    if (!message.includes(scriptWarning)) {
+      return _originalError.apply(console, args as any);
+    }
+  };
+
+  console.warn = function (...args) {
+    const message = String(args[0]);
+    // Also suppress from warnings in case React reports it there
+    if (!message.includes(scriptWarning)) {
+      return _originalWarn.apply(console, args as any);
+    }
+  };
+}
+
+applySafetyPatches();
 
 type HostMessage =
   | {
@@ -35,11 +101,19 @@ type HostMessage =
       metaJson: string;
       inputProps: Record<string, unknown>;
     }
-  | { type: "props"; inputProps: Record<string, unknown> };
+  | { type: "props"; inputProps: Record<string, unknown> }
+  | { type: "play" }
+  | { type: "pause" }
+  | { type: "seek"; frame: number };
 
 type GuestMessage =
   | { type: "ready" }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "frameupdate"; frame: number }
+  | { type: "seeked"; frame: number }
+  | { type: "play" }
+  | { type: "pause" }
+  | { type: "ended" };
 
 function postToParent(msg: GuestMessage) {
   try {
@@ -98,6 +172,39 @@ function StatusView({
   );
 }
 
+// Shared ref the message handler uses to drive the player from host commands.
+const playerRef: { current: PlayerRef | null } = { current: null };
+
+function attachPlayerListeners(player: PlayerRef) {
+  const handleFrameUpdate = (e: { detail: { frame: number } }) => {
+    postToParent({ type: "frameupdate", frame: e.detail.frame });
+  };
+  const handleSeeked = (e: { detail: { frame: number } }) => {
+    postToParent({ type: "seeked", frame: e.detail.frame });
+  };
+  const handlePlay = () => postToParent({ type: "play" });
+  const handlePause = () => postToParent({ type: "pause" });
+  const handleEnded = () => postToParent({ type: "ended" });
+
+  player.addEventListener("frameupdate", handleFrameUpdate);
+  player.addEventListener("seeked", handleSeeked);
+  player.addEventListener("play", handlePlay);
+  player.addEventListener("pause", handlePause);
+  player.addEventListener("ended", handleEnded);
+}
+
+function handlePlayerRef(instance: PlayerRef | null) {
+  if (instance && instance !== playerRef.current) {
+    playerRef.current = instance;
+    attachPlayerListeners(instance);
+    // Emit initial state so the parent timeline reflects the current frame
+    // immediately after (re)mount, instead of waiting for the first tick.
+    postToParent({ type: "frameupdate", frame: instance.getCurrentFrame() });
+  } else if (!instance) {
+    playerRef.current = null;
+  }
+}
+
 function RuntimeView({ state }: { state: RuntimeState }) {
   if (state.error) {
     return <StatusView color="#f87171">{state.error}</StatusView>;
@@ -109,6 +216,7 @@ function RuntimeView({ state }: { state: RuntimeState }) {
   return (
     <div style={containerStyle}>
       <Player
+        ref={handlePlayerRef}
         component={state.preset.component}
         inputProps={merged}
         durationInFrames={state.preset.meta.durationInFrames}
@@ -164,6 +272,19 @@ window.addEventListener("message", (event) => {
   if (data.type === "props") {
     state = { ...state, inputProps: data.inputProps ?? {} };
     render();
+    return;
+  }
+
+  if (data.type === "play") {
+    playerRef.current?.play();
+    return;
+  }
+  if (data.type === "pause") {
+    playerRef.current?.pause();
+    return;
+  }
+  if (data.type === "seek") {
+    playerRef.current?.seekTo(data.frame);
     return;
   }
 });

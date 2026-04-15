@@ -130,18 +130,18 @@ export function preprocessSource(source: string): string {
 
   // Multi-line `import … from "…";` — handle wrapping imports too.
   code = code.replace(
-    /^import\s+(?:[\s\S]*?)from\s+['"][^'"]+['"];?\s*$/gm,
+    /^\s*import\s+(?:[\s\S]*?)from\s+['"][^'"]+['"];?\s*$/gm,
     ""
   );
 
   // Bare side-effect imports: `import "./foo.css";`
-  code = code.replace(/^import\s+['"][^'"]+['"];?\s*$/gm, "");
+  code = code.replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, "");
 
   // `export default X` → `const __DefaultExport__ = X`
-  code = code.replace(/export\s+default\s+/g, "const __DefaultExport__ = ");
+  code = code.replace(/^\s*export\s+default\s+/gm, "const __DefaultExport__ = ");    
 
   // Any remaining `export ` keyword, dropped.
-  code = code.replace(/export\s+/g, "");
+  code = code.replace(/^\s*export\s+/gm, "");
 
   return code;
 }
@@ -308,12 +308,43 @@ export const COMPONENT_BINDING_NAMES = [
 /**
  * Build the wrapper that resolves the component from the transpiled code.
  * Used by client and server execution paths so the lookup order is identical.
+ *
+ * Note: We also patch React.createElement to prevent <script> and <template> tags from being
+ * created, which would trigger a React warning even though they're run in a
+ * sandboxed iframe. This handles cases where user code accidentally or
+ * intentionally tries to render HTML content with scripts.
  */
 export function buildComponentResolverSource(transpiledCode: string): string {
   const checks = COMPONENT_BINDING_NAMES.map(
     (name) => `if (typeof ${name} !== 'undefined') return ${name};`
   ).join("\n      ");
   return `
+      // Patch React.createElement to block dangerous tags silently.
+      // This must happen BEFORE the transpiled code runs to catch all cases.
+      if (React && React.createElement && !React._elementPatched) {
+        const _originalCreateElement = React.createElement;
+        const dangerousTags = new Set(['script', 'template']);
+        
+        React.createElement = function(type, ...args) {
+          // Handle both string type names and component objects
+          let typeStr = '';
+          if (typeof type === 'string') {
+            typeStr = type.toLowerCase().trim();
+          } else if (type && type.$$typeof) {
+            // React element type - skip dangerous tag check for components
+            return _originalCreateElement.apply(this, [type, ...args]);
+          }
+          
+          // Block dangerous HTML tags
+          if (dangerousTags.has(typeStr)) {
+            return _originalCreateElement(React.Fragment, null);
+          }
+          
+          return _originalCreateElement.apply(this, [type, ...args]);
+        };
+        React._elementPatched = true;
+      }
+
       ${transpiledCode}
 
       // Resolve the component from common naming patterns

@@ -20,7 +20,9 @@
  * itself owns.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { Ref } from "react";
+import type { PlayerRef } from "@remotion/player";
 import { Loader2 } from "lucide-react";
 
 interface SandboxedPresetPlayerProps {
@@ -33,11 +35,25 @@ interface SandboxedPresetPlayerProps {
   aspectRatio?: number;
   /** Called whenever the sandbox reports or clears a compile/runtime error. */
   onErrorChange?: (error: string | null) => void;
+  /**
+   * Parent-facing handle that behaves like a Remotion `PlayerRef`. The sandbox
+   * Player lives inside a null-origin iframe we can't reach directly, so we
+   * shim the subset of the API the workstation timeline uses (getCurrentFrame,
+   * isPlaying, play/pause/seekTo, add/removeEventListener) on top of a
+   * postMessage transport. Enough for timeline scrubbing and play-state sync;
+   * not a full PlayerRef (no volume, no fullscreen, no in-out points).
+   */
+  playerRef?: Ref<PlayerRef | null>;
 }
 
 type GuestMessage =
   | { type: "ready" }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "frameupdate"; frame: number }
+  | { type: "seeked"; frame: number }
+  | { type: "play" }
+  | { type: "pause" }
+  | { type: "ended" };
 
 export function SandboxedPresetPlayer({
   code,
@@ -47,10 +63,63 @@ export function SandboxedPresetPlayer({
   className,
   aspectRatio = 16 / 9,
   onErrorChange,
+  playerRef,
 }: SandboxedPresetPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Local shadow of the iframe player's state. Kept in refs (not state) so
+  // getCurrentFrame/isPlaying return synchronously without causing renders.
+  const currentFrameRef = useRef(0);
+  const isPlayingRef = useRef(false);
+
+  // Event listeners registered via the adapter's addEventListener. We only
+  // need the set the workstation timeline subscribes to.
+  type ListenerMap = {
+    frameupdate: Set<(e: { detail: { frame: number } }) => void>;
+    seeked: Set<(e: { detail: { frame: number } }) => void>;
+    play: Set<() => void>;
+    pause: Set<() => void>;
+    ended: Set<() => void>;
+  };
+  const listenersRef = useRef<ListenerMap>({
+    frameupdate: new Set(),
+    seeked: new Set(),
+    play: new Set(),
+    pause: new Set(),
+    ended: new Set(),
+  });
+
+  const postToIframe = (msg: unknown) => {
+    iframeRef.current?.contentWindow?.postMessage(msg, "*");
+  };
+
+  // Build the PlayerRef-shaped adapter. Cast through `unknown` because we
+  // intentionally implement only the methods the workstation uses.
+  useImperativeHandle(
+    playerRef,
+    () => {
+      const adapter = {
+        getCurrentFrame: () => currentFrameRef.current,
+        isPlaying: () => isPlayingRef.current,
+        play: () => postToIframe({ type: "play" }),
+        pause: () => postToIframe({ type: "pause" }),
+        seekTo: (frame: number) => postToIframe({ type: "seek", frame }),
+        addEventListener: (event: keyof ListenerMap, handler: unknown) => {
+          const set = listenersRef.current[event];
+          if (set) (set as Set<unknown>).add(handler);
+        },
+        removeEventListener: (event: keyof ListenerMap, handler: unknown) => {
+          const set = listenersRef.current[event];
+          if (set) (set as Set<unknown>).delete(handler);
+        },
+      };
+      return adapter as unknown as PlayerRef;
+    },
+    // Only needs to run once — the adapter's behavior is ref-driven.
+    []
+  );
 
   // Listen for messages from the sandbox.
   useEffect(() => {
@@ -69,6 +138,25 @@ export function SandboxedPresetPlayer({
       } else if (data.type === "error") {
         setError(data.error);
         onErrorChange?.(data.error);
+      } else if (data.type === "frameupdate") {
+        currentFrameRef.current = data.frame;
+        for (const l of listenersRef.current.frameupdate) {
+          l({ detail: { frame: data.frame } });
+        }
+      } else if (data.type === "seeked") {
+        currentFrameRef.current = data.frame;
+        for (const l of listenersRef.current.seeked) {
+          l({ detail: { frame: data.frame } });
+        }
+      } else if (data.type === "play") {
+        isPlayingRef.current = true;
+        for (const l of listenersRef.current.play) l();
+      } else if (data.type === "pause") {
+        isPlayingRef.current = false;
+        for (const l of listenersRef.current.pause) l();
+      } else if (data.type === "ended") {
+        isPlayingRef.current = false;
+        for (const l of listenersRef.current.ended) l();
       }
     }
 
@@ -136,9 +224,9 @@ export function SandboxedPresetPlayer({
     >
       <iframe
         ref={iframeRef}
-        // Next/Cloudflare normalizes away trailing `.html`, so we point at
-        // the extension-less path to skip a 307 redirect round-trip.
-        src="/sandbox/preset"
+        // Locally, we must include .html so the Dev Server serves the raw file
+        // instead of hitting the 404 router and injecting dev-mode scripts.
+        src="/sandbox/preset.html"
         title="Preset preview (sandboxed)"
         // allow-scripts WITHOUT allow-same-origin gives this frame a null
         // origin. It cannot read any of our app state.

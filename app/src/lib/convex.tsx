@@ -2,6 +2,13 @@
 
 import { ReactNode, type ComponentType, useEffect, useState } from "react";
 
+const CONVEX_URL =
+  process.env.NEXT_PUBLIC_CONVEX_URL;
+
+if (typeof window !== "undefined") {
+  console.log("[convex] CONVEX_URL =", CONVEX_URL);
+}
+
 type ConvexRuntime = {
   ConvexAuthProvider: ComponentType<{
     client: unknown;
@@ -25,7 +32,7 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
         }
 
         clientToClose = new convexModule.ConvexReactClient(
-          process.env.NEXT_PUBLIC_CONVEX_URL as string
+          CONVEX_URL as string
         );
 
         setRuntime({
