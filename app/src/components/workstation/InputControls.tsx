@@ -140,13 +140,13 @@ export function InputControls({
         defaultValue="controls"
         className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
-        <TabsList className="mx-4 mt-3 shrink-0 bg-card border border-border">
-          <TabsTrigger value="controls" className="text-xs gap-1">
+        <TabsList className="mx-4 mt-3 shrink-0 bg-card border border-border h-max gap-0">
+          <TabsTrigger value="controls" className="text-[11px] py-1 px-2 gap-1">
             <Sliders className="w-3 h-3" />
             Controls
           </TabsTrigger>
           {sourceCode && (
-            <TabsTrigger value="code" className="text-xs gap-1">
+            <TabsTrigger value="code" className="text-[11px] py-1 px-2 gap-1">
               <Code2 className="w-3 h-3" />
               Code
             </TabsTrigger>
@@ -154,8 +154,8 @@ export function InputControls({
         </TabsList>
 
         {/* Controls tab */}
-        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col">
-          <ScrollArea className="flex-1">
+        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="px-4 py-4 space-y-6">
               {/* Parameters */}
               <section>
@@ -219,7 +219,7 @@ export function InputControls({
 
         {/* Code tab — view/edit toggled via segmented control */}
         {sourceCode && (
-          <TabsContent value="code" className="flex-1 min-h-0 flex flex-col">
+          <TabsContent value="code" className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between gap-2">
               <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
                 <button
@@ -259,14 +259,14 @@ export function InputControls({
             </div>
 
             {codeMode === "view" ? (
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 min-h-0">
                 <div className="px-4 pb-4">
                   <CodePreview code={sourceCode} />
                 </div>
               </ScrollArea>
             ) : (
               <>
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0">
                   <div className="px-4 pb-4">
                     <p className="text-xs text-muted-foreground mb-3">
                       Edit the component code. Save to update the preview.

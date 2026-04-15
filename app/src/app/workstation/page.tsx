@@ -12,6 +12,7 @@ import { AddToProjectDialog } from "@/components/workstation/dialogs/AddToProjec
 import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
 import { ForkButton } from "@/components/preset/ForkButton";
 import { VersionHistory } from "@/components/preset/VersionHistory";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { toast } from "sonner";
 import { useAction, useQuery, useMutation } from "convex/react";
@@ -37,16 +38,31 @@ import { Button } from "@/components/ui/button";
 
 export default function WorkstationPage() {
   return (
-    <Suspense
+    <ErrorBoundary
       fallback={
-        <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          Loading workstation...
+        <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background">
+          <div className="text-center p-8 max-w-md">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              Workstation error
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              There was a problem loading the workstation. Please refresh the page.
+            </p>
+          </div>
         </div>
       }
     >
-      <WorkstationContent />
-    </Suspense>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Loading workstation...
+          </div>
+        }
+      >
+        <WorkstationContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -62,6 +78,14 @@ function WorkstationContent() {
   );
   const renderJobs = useQuery(
     api.renderJobs.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const savedPresets = useQuery(
+    api.savedPresets.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const collections = useQuery(
+    api.collections.listByUser,
     user ? { userId: user._id as Id<"users"> } : "skip"
   );
   const urlPresetId = searchParams.get("presetId");
@@ -91,7 +115,7 @@ function WorkstationContent() {
   return (
     <div className="flex h-[calc(100svh-3.5rem)] overflow-hidden bg-background text-foreground font-sans">
       {leftPanelOpen && (
-        <div className="w-[280px] shrink-0 border-r border-border bg-background flex flex-col z-10">
+        <div className="w-[280px] shrink-0 border-r border-border bg-background flex flex-col h-full z-10 min-h-0">
           {presets === undefined ? (
             <div className="p-4 text-muted-foreground text-sm flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading...
@@ -104,7 +128,31 @@ function WorkstationContent() {
                 category: preset.category,
                 description: preset.description || "",
                 tags: preset.tags || [],
+                authorId: preset.authorId,
+                parentPresetId: preset.parentPresetId,
+                forkedFrom: preset.forkedFrom,
               }))}
+              savedVariants={
+                savedPresets
+                  ? savedPresets.map((sv) => ({
+                      _id: sv._id,
+                      name: sv.name,
+                      presetId: sv.presetId,
+                      presetName: "",
+                      authorName: "",
+                    }))
+                  : []
+              }
+              collections={
+                collections
+                  ? collections.map((col) => ({
+                      _id: col._id,
+                      name: col.name,
+                      description: col.description,
+                      presetCount: col.presetIds.length,
+                    }))
+                  : []
+              }
               activePresetId={effectivePresetId ?? undefined}
               onSelectPreset={handleSelectPreset}
             />
