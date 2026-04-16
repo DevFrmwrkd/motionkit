@@ -2,12 +2,22 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Download, GitFork, Eye, Crown } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
 import { ForkButton } from "@/components/preset/ForkButton";
+import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import type { Id } from "@convex/_generated/dataModel";
+
+/**
+ * Delay before a hovered card mounts the live preview iframe. Too short
+ * and every casual mouse-over spins up a sandbox; too long and the
+ * preview feels unresponsive. 180ms matches the "deliberate intent"
+ * threshold used elsewhere in the app.
+ */
+const HOVER_PREVIEW_DELAY_MS = 180;
 
 // ── Category visual maps ────────────────────────────────────────────
 
@@ -131,6 +141,15 @@ interface PresetCardProps {
     thumbnailUrl?: string;
     isPremium?: boolean;
     priceCents?: number;
+    // Composition fields needed for the hover preview. All optional so
+    // cards keep rendering even when the marketplace query excludes
+    // them or a preset predates the field's existence.
+    sourceCode?: string;
+    inputSchema?: string;
+    fps?: number;
+    width?: number;
+    height?: number;
+    durationInFrames?: number;
   };
   currentUserId?: string | null;
   currentVote: number;
@@ -155,9 +174,95 @@ export function PresetCard({
   const isPremium =
     preset.isPremium || (preset.priceCents !== undefined && preset.priceCents > 0);
 
+  // ── Live preview on hover ──────────────────────────────────────────
+  // Requires the preset to carry its own source, schema, and dimensions.
+  // Presets without all three (legacy seed data, partial uploads) get
+  // the static gradient thumbnail only — same UX as before.
+  const canPreview = Boolean(
+    preset.sourceCode &&
+      preset.inputSchema &&
+      preset.fps &&
+      preset.width &&
+      preset.height &&
+      preset.durationInFrames
+  );
+
+  const [isPreviewMounted, setIsPreviewMounted] = useState(false);
+  const hoverTimerRef = useRef<number | null>(null);
+
+  // Derive default input props from the schema so the preview shows the
+  // creator's intended state out of the box. Errors in the schema JSON
+  // are swallowed — the live preview just won't mount.
+  const schemaJson = preset.inputSchema ?? "{}";
+  const defaultInputProps = useMemo<Record<string, unknown>>(() => {
+    try {
+      const parsed = JSON.parse(schemaJson) as Record<
+        string,
+        { default?: unknown }
+      >;
+      const out: Record<string, unknown> = {};
+      for (const [key, field] of Object.entries(parsed)) {
+        if (field && typeof field === "object" && "default" in field) {
+          out[key] = field.default;
+        }
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  }, [schemaJson]);
+
+  const metaJson = useMemo(
+    () =>
+      JSON.stringify({
+        name: preset.name,
+        category: preset.category,
+        fps: preset.fps ?? 30,
+        width: preset.width ?? 1920,
+        height: preset.height ?? 1080,
+        durationInFrames: preset.durationInFrames ?? 150,
+      }),
+    [
+      preset.name,
+      preset.category,
+      preset.fps,
+      preset.width,
+      preset.height,
+      preset.durationInFrames,
+    ]
+  );
+
+  function handleMouseEnter() {
+    if (!canPreview) return;
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+    }
+    hoverTimerRef.current = window.setTimeout(() => {
+      setIsPreviewMounted(true);
+    }, HOVER_PREVIEW_DELAY_MS);
+  }
+
+  function handleMouseLeave() {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setIsPreviewMounted(false);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current !== null) {
+        window.clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div 
+    <div
       onClick={() => router.push(`/workstation?presetId=${preset._id}`)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className="block h-full cursor-pointer group"
     >
       <Card
@@ -193,11 +298,48 @@ export function PresetCard({
             />
           </div>
 
-          {/* Hover overlay — play preview + remix CTA */}
-          <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/50 backdrop-blur-sm">
-            <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-amber-500/20 transition-transform duration-200 group-hover:scale-100 scale-90">
-              <Play className="w-5 h-5 ml-0.5" />
+          {/* Live sandboxed preview — mounted only while the card is
+              actively hovered (180ms debounce). Sits above the gradient
+              so a loading sandbox falls back to the static thumbnail. */}
+          {isPreviewMounted && preset.sourceCode ? (
+            <div
+              className="absolute inset-0 z-[1] pointer-events-none animate-in fade-in duration-200"
+              // pointer-events-none on the wrapper so clicks fall through
+              // to the card's onClick → navigate to workstation.
+            >
+              <SandboxedPresetPlayer
+                code={preset.sourceCode}
+                schemaJson={schemaJson}
+                metaJson={metaJson}
+                inputProps={defaultInputProps}
+                aspectRatio={
+                  (preset.width ?? 1920) / (preset.height ?? 1080)
+                }
+                className="w-full h-full"
+              />
             </div>
+          ) : null}
+
+          {/* Hover CTA overlay — Play icon on static cards, Remix button
+              always. When the live preview is playing the Play icon is
+              redundant (the preview IS the play), so it's hidden. */}
+          <div
+            className={[
+              "absolute inset-0 z-[2] flex items-center justify-center gap-3",
+              "opacity-0 group-hover:opacity-100 transition-all duration-300",
+              // Dim the preview slightly on hover so the Remix CTA stays
+              // readable over any content; lighter dim when preview is
+              // live, heavier when showing the static gradient.
+              isPreviewMounted
+                ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
+                : "bg-black/50 backdrop-blur-sm",
+            ].join(" ")}
+          >
+            {!isPreviewMounted && (
+              <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-amber-500/20 transition-transform duration-200 group-hover:scale-100 scale-90">
+                <Play className="w-5 h-5 ml-0.5" />
+              </div>
+            )}
             <ForkButton
               presetId={preset._id as Id<"presets">}
               userId={(currentUserId as Id<"users"> | null) ?? null}
@@ -205,7 +347,13 @@ export function PresetCard({
               size="sm"
               label="Remix"
               stopPropagation
-              className="bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5 transition-transform duration-200 group-hover:scale-100 scale-90"
+              className={[
+                "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5",
+                "transition-transform duration-200 group-hover:scale-100 scale-90",
+                // When the preview plays, park the Remix CTA at the
+                // bottom so it doesn't block the motion.
+                isPreviewMounted ? "absolute bottom-3 right-3" : "",
+              ].join(" ")}
             />
           </div>
 
