@@ -205,11 +205,14 @@ export function SandboxedPresetPlayer({
     );
   }, [isReady, inputProps]);
 
-  // Reset ready state if the iframe gets remounted.
+  // Clear stale errors when the iframe (re)loads. We used to also reset
+  // `isReady` to false here to "force re-send after HMR", but iframe.onLoad
+  // fires AFTER the bundle's own "ready" postMessage on most browsers —
+  // which meant the parent set isReady=true, then immediately reset it to
+  // false, and the "load" payload was never sent. The preview sat on
+  // "Waiting for preset…" forever. A fresh mount already gives us a fresh
+  // sandboxSrc URL and fresh ready message, so we don't need to reset.
   const handleLoad = () => {
-    // The iframe's own useEffect fires a ready message on mount; we flip
-    // isReady to false here to force re-send after HMR or remount.
-    setIsReady(false);
     setError(null);
     onErrorChange?.(null);
   };
