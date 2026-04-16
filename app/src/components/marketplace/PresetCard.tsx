@@ -5,19 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Download, GitFork, Eye, Crown } from "lucide-react";
+import { Download, GitFork, Eye, Crown } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
 import { ForkButton } from "@/components/preset/ForkButton";
 import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import type { Id } from "@convex/_generated/dataModel";
-
-/**
- * Delay before a hovered card mounts the live preview iframe. Too short
- * and every casual mouse-over spins up a sandbox; too long and the
- * preview feels unresponsive. 180ms matches the "deliberate intent"
- * threshold used elsewhere in the app.
- */
-const HOVER_PREVIEW_DELAY_MS = 180;
 
 // ── Category visual maps ────────────────────────────────────────────
 
@@ -189,12 +181,13 @@ export function PresetCard({
   // of cards for free.
   const hasVideoPreview = Boolean(preset.previewVideoUrl);
 
-  // ── Live preview on hover (fallback) ───────────────────────────────
-  // Presets without a rendered preview yet fall back to the in-browser
-  // Remotion sandbox on hover. Once the preset accrues a render via the
-  // workstation OR the publish pipeline's preview generator, it
-  // promotes to the video path above.
-  const canHoverPreview =
+  // ── Live sandbox preview (fallback, always playing) ────────────────
+  // Presets without a rendered MP4 play their composition continuously
+  // via the Remotion sandbox iframe. To keep memory + network sane on
+  // large grids, we only mount the sandbox once the card has actually
+  // scrolled into view (IntersectionObserver) — off-screen cards stay
+  // on the static gradient until they become visible.
+  const canSandboxPreview =
     !hasVideoPreview &&
     Boolean(
       preset.sourceCode &&
@@ -205,8 +198,8 @@ export function PresetCard({
         preset.durationInFrames
     );
 
-  const [isPreviewMounted, setIsPreviewMounted] = useState(false);
-  const hoverTimerRef = useRef<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   // Derive default input props from the schema so the preview shows the
   // creator's intended state out of the box. Errors in the schema JSON
@@ -250,37 +243,41 @@ export function PresetCard({
     ]
   );
 
-  function handleMouseEnter() {
-    if (!canHoverPreview) return;
-    if (hoverTimerRef.current !== null) {
-      window.clearTimeout(hoverTimerRef.current);
-    }
-    hoverTimerRef.current = window.setTimeout(() => {
-      setIsPreviewMounted(true);
-    }, HOVER_PREVIEW_DELAY_MS);
-  }
-
-  function handleMouseLeave() {
-    if (hoverTimerRef.current !== null) {
-      window.clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    setIsPreviewMounted(false);
-  }
-
+  // Mount the sandbox only when the card is in (or near) the viewport.
+  // 200px rootMargin warms cards about to scroll into view so the play
+  // feels seamless; cards that never become visible never pay the
+  // iframe cost. SSR-safe: isVisible stays false until the effect runs.
   useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current !== null) {
-        window.clearTimeout(hoverTimerRef.current);
-      }
-    };
-  }, []);
+    if (!canSandboxPreview) return;
+    const node = cardRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      // Legacy browser: just mount everything.
+      setIsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: "200px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canSandboxPreview]);
+
+  const isSandboxMounted = canSandboxPreview && isVisible;
 
   return (
     <div
+      ref={cardRef}
       onClick={() => router.push(`/workstation?presetId=${preset._id}`)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       className="block h-full cursor-pointer group"
     >
       <Card
@@ -332,11 +329,11 @@ export function PresetCard({
             />
           ) : null}
 
-          {/* Fallback: live sandboxed preview on hover. Only mounts when
-              the preset has no rendered MP4 yet AND all composition
-              fields are present on the row. Never runs once a preview
-              MP4 has been generated. */}
-          {!hasVideoPreview && isPreviewMounted && preset.sourceCode ? (
+          {/* Fallback: live sandbox preview, mounted as soon as the card
+              is near the viewport. Plays continuously (autoPlay + loop
+              are set inside the sandbox runtime). Never runs once the
+              preset has a rendered MP4. */}
+          {isSandboxMounted && preset.sourceCode ? (
             <div
               className="absolute inset-0 z-[1] pointer-events-none animate-in fade-in duration-200"
               // pointer-events-none on the wrapper so clicks fall through
@@ -355,43 +352,21 @@ export function PresetCard({
             </div>
           ) : null}
 
-          {/* Hover CTA overlay. Play icon only appears on truly static
-              (no motion) cards — if the card is already showing content
-              in motion (video OR live sandbox), the Play icon would be
-              redundant. Remix CTA is always available. */}
-          {(() => {
-            const isPlayingContent = hasVideoPreview || isPreviewMounted;
-            return (
-              <div
-                className={[
-                  "absolute inset-0 z-[2] flex items-center justify-center gap-3",
-                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
-                  isPlayingContent
-                    ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
-                    : "bg-black/50 backdrop-blur-sm",
-                ].join(" ")}
-              >
-                {!isPlayingContent && (
-                  <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-amber-500/20 transition-transform duration-200 group-hover:scale-100 scale-90">
-                    <Play className="w-5 h-5 ml-0.5" />
-                  </div>
-                )}
-                <ForkButton
-                  presetId={preset._id as Id<"presets">}
-                  userId={(currentUserId as Id<"users"> | null) ?? null}
-                  variant="default"
-                  size="sm"
-                  label="Remix"
-                  stopPropagation
-                  className={[
-                    "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5",
-                    "transition-transform duration-200 group-hover:scale-100 scale-90",
-                    isPlayingContent ? "absolute bottom-3 right-3" : "",
-                  ].join(" ")}
-                />
-              </div>
-            );
-          })()}
+          {/* Hover overlay — Remix CTA only, parked bottom-right. The
+              card is (almost) always in motion now, so the Play-icon
+              prompt would be dishonest; the Remix action is the only
+              thing worth offering on top. */}
+          <div className="absolute inset-0 z-[2] opacity-0 group-hover:opacity-100 transition-all duration-200 bg-gradient-to-t from-black/60 via-transparent to-transparent">
+            <ForkButton
+              presetId={preset._id as Id<"presets">}
+              userId={(currentUserId as Id<"users"> | null) ?? null}
+              variant="default"
+              size="sm"
+              label="Remix"
+              stopPropagation
+              className="absolute bottom-3 right-3 bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5"
+            />
+          </div>
 
           {/* Badges — top row */}
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">

@@ -100,6 +100,34 @@ export const getInternal = internalQuery({
   },
 });
 
+/**
+ * Internal — returns the most recent successful render for a preset,
+ * or null. Used by the marketplace-preview seeder to skip presets that
+ * already have a preview on file so re-runs are idempotent.
+ */
+export const findLatestDoneForPreset = internalQuery({
+  args: { presetId: v.id("presets") },
+  handler: async (ctx, args) => {
+    const jobs = await ctx.db
+      .query("renderJobs")
+      .withIndex("by_status", (q) => q.eq("status", "done"))
+      .collect();
+    let best: { _id: Id<"renderJobs">; outputUrl?: string; completedAt?: number } | null =
+      null;
+    for (const j of jobs) {
+      if (j.presetId !== args.presetId) continue;
+      if (!j.outputUrl) continue;
+      if (
+        !best ||
+        (j.completedAt ?? 0) > (best.completedAt ?? 0)
+      ) {
+        best = j;
+      }
+    }
+    return best;
+  },
+});
+
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {

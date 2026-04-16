@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { categoryValidator, statusValidator } from "./lib/validators";
 import type { Doc } from "./_generated/dataModel";
@@ -102,6 +102,18 @@ export const list = query({
         matchesListFilters(preset, args)
       )
     );
+  },
+});
+
+/**
+ * Internal — used by the one-shot marketplace-preview seeder action
+ * to enumerate every preset for back-fill. Never called from the
+ * client.
+ */
+export const listAllForSeed = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("presets").collect();
   },
 });
 

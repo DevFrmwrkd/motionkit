@@ -12,6 +12,7 @@ import type * as actions_generatePreset from "../actions/generatePreset.js";
 import type * as actions_lib_renderDispatch from "../actions/lib/renderDispatch.js";
 import type * as actions_renderWithLambda from "../actions/renderWithLambda.js";
 import type * as actions_renderWithWorker from "../actions/renderWithWorker.js";
+import type * as actions_seedMarketplacePreviews from "../actions/seedMarketplacePreviews.js";
 import type * as actions_validateAndTestRender from "../actions/validateAndTestRender.js";
 import type * as admin from "../admin.js";
 import type * as aiGeneration from "../aiGeneration.js";
@@ -42,6 +43,7 @@ import type * as lib_renderableCompositions from "../lib/renderableCompositions.
 import type * as lib_signing from "../lib/signing.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as licenses from "../licenses.js";
+import type * as motionkitSeed from "../motionkitSeed.js";
 import type * as presetEvents from "../presetEvents.js";
 import type * as presetReview from "../presetReview.js";
 import type * as presets from "../presets.js";
@@ -63,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "actions/lib/renderDispatch": typeof actions_lib_renderDispatch;
   "actions/renderWithLambda": typeof actions_renderWithLambda;
   "actions/renderWithWorker": typeof actions_renderWithWorker;
+  "actions/seedMarketplacePreviews": typeof actions_seedMarketplacePreviews;
   "actions/validateAndTestRender": typeof actions_validateAndTestRender;
   admin: typeof admin;
   aiGeneration: typeof aiGeneration;
@@ -93,6 +96,7 @@ declare const fullApi: ApiFromModules<{
   "lib/signing": typeof lib_signing;
   "lib/validators": typeof lib_validators;
   licenses: typeof licenses;
+  motionkitSeed: typeof motionkitSeed;
   presetEvents: typeof presetEvents;
   presetReview: typeof presetReview;
   presets: typeof presets;
