@@ -33,7 +33,14 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     try {
-      await signIn("google", { redirectTo: window.location.origin + "/dashboard" });
+      // Must match Convex SITE_URL exactly. Use NEXT_PUBLIC_SITE_URL when set
+      // so prod (e.g. www.remotion-kit.com) stays canonical even when the user
+      // lands on the apex (remotion-kit.com); fall back to the current origin
+      // for localhost / preview deploys.
+      const base =
+        process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+        window.location.origin;
+      await signIn("google", { redirectTo: `${base}/dashboard` });
     } catch {
       setSigningIn(false);
     }
