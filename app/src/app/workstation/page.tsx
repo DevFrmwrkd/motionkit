@@ -14,6 +14,7 @@ import { ForkButton } from "@/components/preset/ForkButton";
 import { VersionHistory } from "@/components/preset/VersionHistory";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useSavedVariants } from "@/hooks/useSavedVariants";
 import { toast } from "sonner";
 import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -294,6 +295,7 @@ function ActivePresetWorkspace({
   const router = useRouter();
   const createRenderJob = useMutation(api.renderJobs.create);
   const updatePreset = useMutation(api.presets.update);
+  const createSavedVariant = useMutation(api.savedPresets.create);
   const dispatchRender = useAction(api.actions.renderWithLambda.dispatchRender);
   const parentPresetId = activePreset?.parentPresetId ?? activePreset?.forkedFrom ?? null;
   const parentPreset = useQuery(
@@ -304,6 +306,13 @@ function ActivePresetWorkspace({
         : { id: parentPresetId }
       : "skip"
   );
+  
+  // Saved variants for this preset
+  const variants = useSavedVariants(
+    activePreset?._id as Id<"presets"> | null,
+    user?._id as Id<"users"> | null
+  );
+  
   const [userProps, setUserProps] = useState<Record<string, unknown>>({});
   const [editedCode, setEditedCode] = useState<string | null>(null);
   const [ignoreSavedVariantProps, setIgnoreSavedVariantProps] = useState(false);
@@ -677,6 +686,31 @@ function ActivePresetWorkspace({
     router.replace(`/workstation?savedPresetId=${savedPresetId}`);
   };
 
+  const handleSaveNewVariant = async (variantName: string) => {
+    if (!user || !activePreset) {
+      toast.error("Sign in and select a preset to save a variant");
+      return;
+    }
+
+    try {
+      const savedVariantId = await createSavedVariant({
+        userId: user._id as Id<"users">,
+        presetId: activePreset._id as Id<"presets">,
+        name: variantName,
+        customProps: JSON.stringify(userProps),
+      });
+
+      // Switch to the newly saved variant
+      handleSavedVariant(savedVariantId);
+    } catch (err) {
+      throw err instanceof Error ? err : new Error("Failed to save variant");
+    }
+  };
+
+  const handleSelectVariant = (variant: Doc<"savedPresets">) => {
+    handleSavedVariant(variant._id);
+  };
+
   return (
     <>
       {isResizing && (
@@ -884,6 +918,10 @@ function ActivePresetWorkspace({
                 sourceCode={displayCode}
                 canEditCode={isOwner}
                 onSaveCode={isOwner ? handleSaveCode : undefined}
+                variants={variants}
+                currentVariantId={urlSavedPresetId ?? undefined}
+                onSelectVariant={handleSelectVariant}
+                onSaveNewVariant={handleSaveNewVariant}
               />
             </div>
           </div>

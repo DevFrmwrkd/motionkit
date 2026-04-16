@@ -7,23 +7,6 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P1-6 — Loading + error states
-
-**Problem.** Several flows silently hang. Marketplace search shows nothing while loading. Sandboxed preset player has no error boundary — a broken preset can freeze the workstation. Compile error tracking exists in schema but user feedback is generic.
-
-**Files to touch.**
-- `app/src/app/marketplace/page.tsx` (lines ~63-68) — show skeleton cards or dimmed overlay when `searchResults === undefined`
-- `app/src/components/preset/SandboxedPresetPlayer.tsx` — wrap in try/catch + ErrorBoundary, show compile errors inline
-- `app/src/components/workstation/RenderQueue.tsx` — verify all job states (queued/running/error/done) have clear UI
-- Any `useQuery` call that powers a primary view should handle `undefined` (loading) and `null` (empty) cases distinctly
-
-**Acceptance.**
-- No silent hangs anywhere in the golden path.
-- Broken presets show a helpful error card, not a blank screen or frozen player.
-- Search results show skeleton shimmer while loading.
-- Empty states have helpful copy + a CTA ("No forks yet — browse the marketplace →").
-
----
 
 ## P1-7 — Saved Variants drawer in workstation
 
@@ -191,3 +174,23 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/5
 - Before/after screenshots in the PR.
 
 **Constraint.** Do not install a new design system. Use existing Shadcn/UI + Tailwind + the amber/violet/zinc palette.
+
+## P1-6 — Loading + error states
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/6
+
+**Problem.** Several flows silently hang. Marketplace search shows nothing while loading. Sandboxed preset player has no error boundary — a broken preset can freeze the workstation. Compile error tracking exists in schema but user feedback is generic.
+
+**Files to touch.**
+- `app/src/app/marketplace/page.tsx` (lines ~63-68) — show skeleton cards or dimmed overlay when `searchResults === undefined`
+- `app/src/components/preset/SandboxedPresetPlayer.tsx` — wrap in try/catch + ErrorBoundary, show compile errors inline
+- `app/src/components/workstation/RenderQueue.tsx` — verify all job states (queued/running/error/done) have clear UI
+- Any `useQuery` call that powers a primary view should handle `undefined` (loading) and `null` (empty) cases distinctly
+
+**Acceptance.**
+- No silent hangs anywhere in the golden path.
+- Broken presets show a helpful error card, not a blank screen or frozen player.
+- Search results show skeleton shimmer while loading.
+- Empty states have helpful copy + a CTA ("No forks yet — browse the marketplace →").
+
+---
