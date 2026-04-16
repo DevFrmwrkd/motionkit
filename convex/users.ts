@@ -6,6 +6,7 @@ import { encryptApiKey, decryptApiKey, keyHint } from "./lib/keyStorage";
 import {
   normalizeOptionalString,
   resolveOpenRouterModel,
+  validateOpenRouterModelId,
 } from "../shared/aiProviderConfig";
 
 /**
@@ -199,7 +200,14 @@ export const updateApiKeys = mutation({
       updates[field] = await encryptApiKey(normalizedValue);
     }
     if (openRouterModel !== undefined) {
-      updates.openRouterModel = normalizeOptionalString(openRouterModel);
+      const normalizedModel = normalizeOptionalString(openRouterModel);
+      if (!normalizedModel) {
+        // Explicit clear.
+        updates.openRouterModel = undefined;
+      } else {
+        // Throws on malformed id — caught by Convex and surfaced to client.
+        updates.openRouterModel = validateOpenRouterModelId(normalizedModel);
+      }
     }
     await ctx.db.patch(userId, updates);
   },
