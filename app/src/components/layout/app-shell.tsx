@@ -17,7 +17,11 @@ const BARE_ROUTES = ["/", "/login", "/signup"];
 // the app shell (sidebar + top bar). Visitors see navigation and can
 // browse without being forced to /login first — auth is only required
 // when they hit a write path (remix, publish, render, save).
-const PUBLIC_SHELL_PREFIXES = ["/marketplace", "/p/"];
+//
+// /create is public because guests get the Straico free-tier flow
+// (convex/aiGenerationStraico.ts) with a 5/day cap. Save & publish on
+// that page still require sign-in and are gated at the button level.
+const PUBLIC_SHELL_PREFIXES = ["/marketplace", "/p/", "/create"];
 
 function isBareRoute(pathname: string) {
   return BARE_ROUTES.includes(pathname);

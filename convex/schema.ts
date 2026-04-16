@@ -294,6 +294,7 @@ export default defineSchema({
       v.literal("gemini"),
       v.literal("claude"),
       v.literal("openrouter"),
+      v.literal("straico"),
     ),
 
     status: v.union(
@@ -502,6 +503,26 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_name", ["userId", "name"]),
+
+  /**
+   * Per-guest (anonymous) daily quota for Straico generations. Keyed by a
+   * client-generated UUID stored in localStorage. Logged-in users use
+   * users.dailyGenerations / users.lastGenerationDate instead — this table
+   * only exists because presets can be generated without an account and the
+   * free Straico tier still needs a 5/day per-visitor cap.
+   *
+   * Trivially defeatable by clearing localStorage; the enforcement is "good
+   * enough for the free tier" rather than a strong rate-limit guarantee.
+   * Users who want a proper limit should sign in.
+   */
+  guestStraicoQuota: defineTable({
+    clientId: v.string(),
+    date: v.string(),
+    count: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_client", ["clientId"])
+    .index("by_client_date", ["clientId", "date"]),
 
   /**
    * Per-preset comment threads with category (feedback | bug | feature-

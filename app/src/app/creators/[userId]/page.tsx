@@ -51,14 +51,15 @@ export default function CreatorProfilePage({
 }) {
   const { userId } = use(params);
   const { user } = useCurrentUser();
-  const profile = useQuery(api.users.getPublicProfile, {
-    userId: userId as Id<"users">,
-  });
+  // The route param is now a "slug" — it can be either a real Convex user
+  // id OR an author-name slug (e.g. "claude", "motionkit") for seeded
+  // built-in presets that never got a users row. The query handles both.
+  const profile = useQuery(api.users.getCreatorBySlug, { slug: userId });
   const castVote = useMutation(api.votes.castVote);
   const presetIds = (profile?.presets ?? []).map((p) => p._id as Id<"presets">);
   const userVotesRaw = useQuery(
     api.votes.getUserVotesForPresets,
-    user && presetIds.length > 0
+    user && presetIds.length > 0 && !profile?.synthetic
       ? { userId: user._id as Id<"users">, presetIds }
       : "skip"
   );

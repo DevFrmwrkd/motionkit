@@ -246,7 +246,8 @@ export const getPublicProfile = query({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user) return null;
-    if (user.isPublicProfile !== true) return null;
+
+    const isPublic = user.isPublicProfile === true;
 
     const presets = await ctx.db
       .query("presets")
@@ -265,18 +266,138 @@ export const getPublicProfile = query({
       0
     );
 
+    // Ghost / AI-test accounts never flipped `isPublicProfile` on, but their
+    // published presets still point back to a creator page. Fall back to a
+    // generic AI-tester profile so visitors don't hit a dead "Profile not
+    // available" screen. Real users who opted in keep their own details.
+    const AI_TESTER_BIO = "I'm just an AI tester, not a real profile.";
+
     return {
       _id: user._id,
-      name: user.name,
-      avatarUrl: user.avatarUrl ?? user.image,
-      bio: user.bio,
-      website: user.website,
-      socialLinks: user.socialLinks,
+      name: isPublic ? user.name : "AI Tester",
+      avatarUrl: isPublic ? (user.avatarUrl ?? user.image) : undefined,
+      bio: isPublic ? user.bio : AI_TESTER_BIO,
+      website: isPublic ? user.website : undefined,
+      socialLinks: isPublic ? user.socialLinks : undefined,
       role: user.role,
       presetCount: publishedPresets.length,
       totalDownloads,
       totalVotes,
       presets: publishedPresets,
+    };
+  },
+});
+
+/**
+ * Slug-based creator lookup. The `/creators/[slug]` route historically only
+ * accepted a Convex user id, which meant built-in / seeded presets (authored
+ * by "Claude", "MotionKit", "Gemini", …) had no creator page — the id column
+ * is empty on those rows. This query lets us resolve either a real user id
+ * OR an author-name slug ("claude", "motionkit", …) to a public-facing
+ * profile. Author-slug profiles are synthetic: we don't mint a users row,
+ * we just aggregate every public preset that shares the author string.
+ */
+export const getCreatorBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const slug = args.slug.trim();
+    if (!slug) return null;
+
+    const AI_TESTER_BIO = "I'm just an AI tester, not a real profile.";
+
+    // Path 1 — real user id. `normalizeId` safely returns null for strings
+    // that aren't valid user ids, avoiding a throw from `db.get`.
+    const userId = ctx.db.normalizeId("users", slug);
+    if (userId) {
+      const user = await ctx.db.get(userId);
+      if (user) {
+        const isPublic = user.isPublicProfile === true;
+        const presets = await ctx.db
+          .query("presets")
+          .withIndex("by_author", (q) => q.eq("authorId", userId))
+          .collect();
+        const publishedPresets = presets.filter(
+          (p) => p.status === "published" && p.isPublic === true
+        );
+        const totalDownloads = publishedPresets.reduce(
+          (sum, p) => sum + (p.downloads ?? 0),
+          0
+        );
+        const totalVotes = publishedPresets.reduce(
+          (sum, p) => sum + (p.voteScore ?? 0),
+          0
+        );
+        return {
+          _id: user._id as string,
+          slug,
+          synthetic: false as const,
+          name: isPublic ? (user.name ?? "AI Tester") : "AI Tester",
+          avatarUrl: isPublic ? (user.avatarUrl ?? user.image) : undefined,
+          bio: isPublic ? user.bio : AI_TESTER_BIO,
+          website: isPublic ? user.website : undefined,
+          socialLinks: isPublic ? user.socialLinks : undefined,
+          role: user.role,
+          presetCount: publishedPresets.length,
+          totalDownloads,
+          totalVotes,
+          presets: publishedPresets,
+        };
+      }
+    }
+
+    // Path 2 — author-name slug. Find every public preset whose stringified
+    // `author` field slugifies to the same value. Used for seeded presets
+    // ("Claude", "MotionKit", "Gemini") that have no user row.
+    const slugify = (name: string) =>
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    const normalizedTarget = slugify(slug);
+    if (!normalizedTarget) return null;
+
+    const allPublic = await ctx.db
+      .query("presets")
+      .withIndex("by_public_status", (q) =>
+        q.eq("isPublic", true).eq("status", "published")
+      )
+      .collect();
+
+    const matching = allPublic.filter(
+      (p) =>
+        typeof p.author === "string" &&
+        !p.authorId &&
+        slugify(p.author) === normalizedTarget
+    );
+
+    if (matching.length === 0) return null;
+
+    const displayName = matching[0].author ?? slug;
+    const totalDownloads = matching.reduce(
+      (sum, p) => sum + (p.downloads ?? 0),
+      0
+    );
+    const totalVotes = matching.reduce(
+      (sum, p) => sum + (p.voteScore ?? 0),
+      0
+    );
+
+    return {
+      _id: normalizedTarget,
+      slug: normalizedTarget,
+      synthetic: true as const,
+      name: displayName,
+      avatarUrl: undefined,
+      bio: AI_TESTER_BIO,
+      website: undefined,
+      socialLinks: undefined,
+      role: undefined,
+      presetCount: matching.length,
+      totalDownloads,
+      totalVotes,
+      presets: matching,
     };
   },
 });

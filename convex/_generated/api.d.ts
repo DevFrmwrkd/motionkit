@@ -17,6 +17,8 @@ import type * as actions_seedMarketplacePreviews from "../actions/seedMarketplac
 import type * as actions_validateAndTestRender from "../actions/validateAndTestRender.js";
 import type * as admin from "../admin.js";
 import type * as aiGeneration from "../aiGeneration.js";
+import type * as aiGenerationStraico from "../aiGenerationStraico.js";
+import type * as aiGenerationStraicoQuota from "../aiGenerationStraicoQuota.js";
 import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
@@ -27,6 +29,7 @@ import type * as http from "../http.js";
 import type * as lib_ai_providers_claude from "../lib/ai_providers/claude.js";
 import type * as lib_ai_providers_gemini from "../lib/ai_providers/gemini.js";
 import type * as lib_ai_providers_openrouter from "../lib/ai_providers/openrouter.js";
+import type * as lib_ai_providers_straico from "../lib/ai_providers/straico.js";
 import type * as lib_ai_providers_types from "../lib/ai_providers/types.js";
 import type * as lib_ai_skills_base from "../lib/ai_skills/base.js";
 import type * as lib_ai_skills_chart from "../lib/ai_skills/chart.js";
@@ -72,6 +75,8 @@ declare const fullApi: ApiFromModules<{
   "actions/validateAndTestRender": typeof actions_validateAndTestRender;
   admin: typeof admin;
   aiGeneration: typeof aiGeneration;
+  aiGenerationStraico: typeof aiGenerationStraico;
+  aiGenerationStraicoQuota: typeof aiGenerationStraicoQuota;
   analytics: typeof analytics;
   auth: typeof auth;
   billing: typeof billing;
@@ -82,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai_providers/claude": typeof lib_ai_providers_claude;
   "lib/ai_providers/gemini": typeof lib_ai_providers_gemini;
   "lib/ai_providers/openrouter": typeof lib_ai_providers_openrouter;
+  "lib/ai_providers/straico": typeof lib_ai_providers_straico;
   "lib/ai_providers/types": typeof lib_ai_providers_types;
   "lib/ai_skills/base": typeof lib_ai_skills_base;
   "lib/ai_skills/chart": typeof lib_ai_skills_chart;

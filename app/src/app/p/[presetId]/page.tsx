@@ -189,16 +189,31 @@ export default function PresetDetailsPage({
                     </h1>
                     <p className="mt-1 text-sm text-zinc-300">
                       By{" "}
-                      {preset.authorId ? (
-                        <Link
-                          href={`/creators/${preset.authorId}`}
-                          className="font-medium hover:text-amber-400 transition-colors"
-                        >
-                          {preset.author ?? "Unknown"}
-                        </Link>
-                      ) : (
-                        <span>{preset.author ?? "Unknown"}</span>
-                      )}
+                      {(() => {
+                        // Built-in / seeded presets don't have a Convex
+                        // `authorId`, so fall back to a name-slug that the
+                        // creator page will resolve via getCreatorBySlug.
+                        const slug =
+                          preset.authorId ??
+                          (preset.author
+                            ? preset.author
+                                .trim()
+                                .toLowerCase()
+                                .replace(/[^a-z0-9]+/g, "-")
+                                .replace(/^-+|-+$/g, "")
+                            : "");
+                        if (slug) {
+                          return (
+                            <Link
+                              href={`/creators/${slug}`}
+                              className="font-medium hover:text-amber-400 transition-colors"
+                            >
+                              {preset.author ?? "Unknown"}
+                            </Link>
+                          );
+                        }
+                        return <span>{preset.author ?? "Unknown"}</span>;
+                      })()}
                     </p>
                   </div>
                 </div>
