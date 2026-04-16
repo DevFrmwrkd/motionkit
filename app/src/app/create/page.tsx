@@ -7,6 +7,11 @@ import type { Id } from "@convex/_generated/dataModel";
 import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import { SchemaForm } from "@/components/preset/SchemaForm";
 import { ReferenceImageUpload } from "@/components/ai/ReferenceImageUpload";
+import {
+  CustomFieldsBuilder,
+  serializeCustomFields,
+  type CustomField,
+} from "@/components/create/CustomFieldsBuilder";
 import { CodePreview } from "@/components/ai/CodePreview";
 import type {
   AssistantMetadata,
@@ -168,6 +173,10 @@ function CreateWorkstation({
   // system prompt server-side so the user can nudge tone/constraints without
   // editing the generator itself.
   const [customSystemPrompt, setCustomSystemPrompt] = useState("");
+  // Structured schema the user wants the generated preset to expose.
+  // Separate from the prose prompt so visual intent and required knobs
+  // don't get tangled in a single free-text message.
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
   // OpenRouter supports any model id the user pastes in. This overrides the
   // model saved in Settings for a single generation — leave empty to use the
   // default from Settings.
@@ -513,8 +522,13 @@ function CreateWorkstation({
       return;
     }
 
+    const fieldsBlock = serializeCustomFields(customFields);
+    const promptWithSchema = fieldsBlock
+      ? `${prompt.trim()}\n${fieldsBlock}`
+      : prompt;
+
     const success = await runGenerationRequest({
-      promptText: prompt,
+      promptText: promptWithSchema,
     });
 
     if (success) {
@@ -524,6 +538,7 @@ function CreateWorkstation({
     missingProviderReason,
     markAsAiGenerated,
     prompt,
+    customFields,
     runGenerationRequest,
   ]);
 
@@ -771,7 +786,7 @@ function CreateWorkstation({
                 </div>
               )}
 
-              {/* Prompt */}
+              {/* Prompt — prose description of the visual intent */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
                   Describe it
@@ -781,6 +796,23 @@ function CreateWorkstation({
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   className="min-h-[90px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
+                  disabled={isGenerating}
+                />
+              </div>
+
+              {/* Custom input fields — structured schema contract */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                  <span>Custom input fields</span>
+                  {customFields.filter((f) => f.name.trim()).length > 0 && (
+                    <span className="text-[10px] text-amber-400/80">
+                      {customFields.filter((f) => f.name.trim()).length} declared
+                    </span>
+                  )}
+                </label>
+                <CustomFieldsBuilder
+                  fields={customFields}
+                  onChange={setCustomFields}
                   disabled={isGenerating}
                 />
               </div>

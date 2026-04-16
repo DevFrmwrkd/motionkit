@@ -27,7 +27,12 @@ import type { SchemaField } from "@/lib/types";
 // exfiltrate BYOK keys and session state.
 import { isRenderableBundle } from "@/lib/renderableCompositions";
 import type { Doc, Id } from "@convex/_generated/dataModel";
-import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
+import {
+  EXPORT_FORMATS,
+  getExportFormatById,
+  type ExportFormatId,
+} from "@/lib/export-formats";
+import { applyBrandKitToValues } from "../../../../shared/brandKit";
 import {
   GitFork,
   Loader2,
@@ -74,7 +79,10 @@ function WorkstationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useCurrentUser();
-  const presets = useQuery(api.presets.list, user ? { viewerId: user._id as Id<"users"> } : {});
+  const presets = useQuery(
+    api.presets.listWorkstation,
+    user ? { viewerId: user._id as Id<"users"> } : "skip"
+  );
   const urlSavedPresetId = searchParams.get("savedPresetId");
   const savedPreset = useQuery(
     api.savedPresets.get,
@@ -93,6 +101,11 @@ function WorkstationContent() {
     user ? { userId: user._id as Id<"users"> } : "skip"
   );
   const urlPresetId = searchParams.get("presetId");
+  const urlProjectId = searchParams.get("projectId");
+  const activeProject = useQuery(
+    api.projects.get,
+    urlProjectId ? { id: urlProjectId as Id<"projects"> } : "skip"
+  );
   const fallbackPresetId = useMemo(() => {
     if (!presets || presets.length === 0) {
       return null;
@@ -231,6 +244,7 @@ function WorkstationContent() {
       <ActivePresetWorkspace
         key={workspaceKey}
         activePreset={activePreset}
+        activeProject={activeProject ?? null}
         savedPreset={savedPreset ?? null}
         user={user}
         renderJobs={renderJobs ?? []}
@@ -263,6 +277,7 @@ function canResolvePreset(preset: Doc<"presets">) {
 
 interface ActivePresetWorkspaceProps {
   activePreset: Doc<"presets"> | null;
+  activeProject: Doc<"projects"> | null;
   savedPreset: Doc<"savedPresets"> | null;
   user: Doc<"users"> | null;
   renderJobs: Doc<"renderJobs">[];
@@ -279,6 +294,7 @@ interface ActivePresetWorkspaceProps {
 
 function ActivePresetWorkspace({
   activePreset,
+  activeProject,
   savedPreset,
   user,
   renderJobs,
@@ -319,6 +335,11 @@ function ActivePresetWorkspace({
   const [selectedFormats, setSelectedFormats] = useState<ExportFormatId[]>([
     "16:9",
   ]);
+  // The aspect ratio actively shown in the preview stage. Decoupled from
+  // `selectedFormats` (which drives render dispatch) so the user can preview
+  // one ratio while batch-rendering several. Clicking any export chip also
+  // switches the preview to that chip (see `handleToggleFormat`).
+  const [previewFormatId, setPreviewFormatId] = useState<ExportFormatId>("16:9");
   const [playerInstance, setPlayerInstance] = useState<PlayerRef | null>(null);
   const [timelineFrame, setTimelineFrame] = useState(0);
   const [timelinePlaying, setTimelinePlaying] = useState(false);
@@ -402,9 +423,23 @@ function ActivePresetWorkspace({
     [defaultProps, ignoreSavedVariantProps, savedVariantProps]
   );
 
+  // When the workstation is opened inside a project (projectId= in URL),
+  // overlay that project's brand kit on top of baseProps so any schema
+  // field matching a brand alias (primaryColor, fontHeading, logoUrl, …)
+  // auto-fills from the brand. User edits still win — they're layered on
+  // top via userProps below.
+  const brandedBaseProps = useMemo(() => {
+    if (!activeProject?.brandKit) return baseProps;
+    return applyBrandKitToValues(
+      currentSchema,
+      activeProject.brandKit,
+      baseProps
+    );
+  }, [activeProject, baseProps, currentSchema]);
+
   const inputProps = useMemo(
-    () => ({ ...baseProps, ...userProps }),
-    [baseProps, userProps]
+    () => ({ ...brandedBaseProps, ...userProps }),
+    [brandedBaseProps, userProps]
   );
 
   const currentMeta = activePreset
@@ -416,6 +451,20 @@ function ActivePresetWorkspace({
         durationInFrames: activePreset.durationInFrames,
       }
     : null;
+
+  // Preview meta overrides width/height with the chosen export format so the
+  // stage reflects what will actually be rendered. Falls back to the preset's
+  // native dimensions if no format override is applicable.
+  const previewMeta = useMemo(() => {
+    if (!currentMeta) return null;
+    const format = getExportFormatById(previewFormatId);
+    if (!format) return currentMeta;
+    return {
+      ...currentMeta,
+      width: format.width,
+      height: format.height,
+    };
+  }, [currentMeta, previewFormatId]);
 
   const isRendering = useMemo(() => {
     if (!activePreset) {
@@ -534,6 +583,10 @@ function ActivePresetWorkspace({
   }, []);
 
   const handleToggleFormat = useCallback((formatId: ExportFormatId) => {
+    // Always swap preview to the clicked format so "click = see it" feels
+    // immediate, whether the user is enabling or disabling that format in
+    // the render batch.
+    setPreviewFormatId(formatId);
     setSelectedFormats((current) => {
       if (current.includes(formatId)) {
         return current.length === 1
@@ -858,7 +911,7 @@ function ActivePresetWorkspace({
                 sourceCode={sandboxSource}
                 schemaJson={activePreset?.inputSchema ?? null}
                 inputProps={inputProps}
-                meta={currentMeta}
+                meta={previewMeta}
                 renderJobs={renderJobs}
                 isLoadingJobs={isLoadingJobs}
                 playerRef={handlePlayerRef}
@@ -918,6 +971,7 @@ function ActivePresetWorkspace({
                 onRender={handleRender}
                 isRendering={isRendering}
                 selectedFormats={selectedFormats}
+                previewFormatId={previewFormatId}
                 onToggleFormat={handleToggleFormat}
                 onApplyBrandKit={handleApplyBrandKit}
                 sourceCode={displayCode}
@@ -927,6 +981,17 @@ function ActivePresetWorkspace({
                 currentVariantId={urlSavedPresetId ?? undefined}
                 onSelectVariant={handleSelectVariant}
                 onSaveNewVariant={handleSaveNewVariant}
+                preset={activePreset}
+                isOwner={isOwner}
+                userId={(user?._id as Id<"users"> | undefined) ?? null}
+                hasAnthropicKey={Boolean(
+                  (user as { hasAnthropicApiKey?: boolean } | null)
+                    ?.hasAnthropicApiKey
+                )}
+                hasGeminiKey={Boolean(
+                  (user as { hasGeminiApiKey?: boolean } | null)
+                    ?.hasGeminiApiKey
+                )}
               />
             </div>
           </div>

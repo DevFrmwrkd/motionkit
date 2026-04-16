@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { BrandKitEditor } from "@/components/project/BrandKitEditor";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -142,6 +143,11 @@ export default function ProjectsPage() {
             />
           </div>
 
+          <BrandKitEditor
+            projectId={activeProject._id as Id<"projects">}
+            initial={activeProject.brandKit ?? undefined}
+          />
+
           {activeProject.presetEntries.length === 0 ? (
             <EmptyState
               icon={Film}
@@ -189,8 +195,8 @@ export default function ProjectsPage() {
                         </div>
                         <Link
                           href={entry.savedPresetId
-                            ? `/workstation?savedPresetId=${entry.savedPresetId}`
-                            : `/workstation?presetId=${entry.presetId}`}
+                            ? `/workstation?savedPresetId=${entry.savedPresetId}&projectId=${activeProject._id}`
+                            : `/workstation?presetId=${entry.presetId}&projectId=${activeProject._id}`}
                         >
                           <Button
                             variant="outline"

@@ -948,32 +948,30 @@ export const dispatch = action({
       const provider = args.provider;
       let apiKey: string | null | undefined;
       let resolvedOpenRouterModel: string | undefined;
+      // BYOK-only: no platform env fallback. MotionKit is free and cannot
+      // subsidize third-party inference. See convex/actions/generatePreset.ts
+      // for the matching policy on the dispatch action.
       if (provider === "gemini") {
-        apiKey = userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY;
+        apiKey = userKeys?.geminiApiKey ?? null;
       } else if (provider === "claude") {
-        apiKey = userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+        apiKey = userKeys?.anthropicApiKey ?? null;
       } else {
-        // openrouter: prefer the user's BYOK key, but fall back to a shared
-        // server-side key (OPENROUTER_API_KEY) if the deployment ships one.
-        // That makes OpenRouter usable out-of-the-box for test accounts
-        // without forcing every user to paste credentials first.
-        apiKey =
-          userKeys?.openRouterApiKey || process.env.OPENROUTER_API_KEY || null;
+        apiKey = userKeys?.openRouterApiKey ?? null;
         resolvedOpenRouterModel = resolveOpenRouterModel(
           args.openRouterModelOverride,
           userKeys?.openRouterModel,
-          process.env.OPENROUTER_DEFAULT_MODEL
+          undefined
         );
       }
 
       if (!apiKey) {
         const keyName =
           provider === "gemini"
-            ? "Google API key"
+            ? "Google Gemini API key"
             : provider === "claude"
-              ? "Anthropic API key"
+              ? "Anthropic (Claude) API key"
               : "OpenRouter API key";
-        const error = `No ${keyName} found. Add it in Settings → API Keys.`;
+        const error = `BYOK required: add your ${keyName} in Settings → API Keys. MotionKit is free and does not subsidize model inference.`;
         await markGenerationFailed(ctx, generationId, error);
         return {
           ok: false,

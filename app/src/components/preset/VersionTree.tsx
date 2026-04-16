@@ -100,7 +100,7 @@ export function VersionBadge({ preset }: { preset: { parentPresetId?: string; ro
   return (
     <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
       <GitFork className="w-2.5 h-2.5 mr-0.5" />
-      Fork
+      Remix
     </Badge>
   );
 }

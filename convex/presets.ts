@@ -106,6 +106,33 @@ export const list = query({
 });
 
 /**
+ * Workstation-scoped list: ONLY presets the viewer owns (originals they
+ * authored + forks they cloned from the marketplace). Explicitly does NOT
+ * return other users' published presets — those belong to the Marketplace
+ * surface, not the personal Workstation. Saved variants live in their own
+ * table and are fetched separately.
+ */
+export const listWorkstation = query({
+  args: {
+    viewerId: v.id("users"),
+    category: v.optional(categoryValidator),
+    status: v.optional(statusValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthorizedUser(ctx, args.viewerId);
+
+    const owned = await ctx.db
+      .query("presets")
+      .withIndex("by_author", (q) => q.eq("authorId", args.viewerId))
+      .collect();
+
+    return sortNewestFirst(
+      owned.filter((preset) => matchesListFilters(preset, args))
+    );
+  },
+});
+
+/**
  * Internal — used by the one-shot marketplace-preview seeder action
  * to enumerate every preset for back-fill. Never called from the
  * client.
@@ -474,8 +501,14 @@ export const clonePreset = mutation({
     const rootId = source.rootPresetId ?? args.sourcePresetId;
     const monetization = getPresetPricing(source);
 
+    // Inherit the source name as-is. The remix lineage (parentPresetId /
+    // rootPresetId + version tree) is the source of truth for "this is a
+    // fork" — the UI badges it and links back to the original. Appending
+    // "(clone)" just produced pileups like "Foo (clone) (clone)" on
+    // repeat remixes and read as a git/GitHub artifact rather than a
+    // creative starting point. Users can rename from the controls panel.
     const newPresetId = await ctx.db.insert("presets", {
-      name: `${source.name} (clone)`,
+      name: source.name,
       description: source.description,
       category: source.category,
       tags: [...source.tags],

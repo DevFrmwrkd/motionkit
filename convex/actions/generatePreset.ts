@@ -11,11 +11,15 @@ import { requireAuthUserIdFromAction } from "../lib/authz";
 /**
  * Dispatches an AI generation request.
  *
- * Key resolution order:
- *  1. User's own API key (stored in their profile)
- *  2. Platform key (env var — used as demo fallback)
+ * Keys are BYOK-only. There is no platform fallback: MotionKit is a free
+ * app and cannot subsidize third-party model inference for every visitor.
+ * If the caller hasn't stored a provider key in their profile, the action
+ * throws a friendly error that points them at Settings → API Keys, and
+ * the UI surfaces that as a modal/toast rather than a silent failure.
  *
- * Users should set their own keys in Settings → API Keys.
+ * (Previously an env-var fallback silently served generations even when
+ * the user had never added a key — which made it look like the AI was
+ * "free" and masked the BYOK requirement.)
  */
 /**
  * Heuristic auto-detection: pick a category from the user's prompt when the
@@ -150,23 +154,21 @@ export const dispatchGeneration = action({
         referenceImageUrl,
       };
 
-      // 7. Resolve API key: user's own key first, platform key as fallback
+      // 7. Resolve API key — BYOK only, no platform fallback.
       let result;
       if (args.provider === "gemini") {
-        const apiKey =
-          userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY;
+        const apiKey = userKeys?.geminiApiKey;
         if (!apiKey) {
           throw new Error(
-            "No Gemini API key found. Add your Google API key in Settings → API Keys."
+            "BYOK required: add your Google Gemini API key in Settings → API Keys. MotionKit is free and does not subsidize model inference."
           );
         }
         result = await generateWithGemini({ apiKey }, request);
       } else {
-        const apiKey =
-          userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+        const apiKey = userKeys?.anthropicApiKey;
         if (!apiKey) {
           throw new Error(
-            "No Claude API key found. Add your Anthropic API key in Settings → API Keys."
+            "BYOK required: add your Anthropic (Claude) API key in Settings → API Keys. MotionKit is free and does not subsidize model inference."
           );
         }
         result = await generateWithClaude({ apiKey }, request);

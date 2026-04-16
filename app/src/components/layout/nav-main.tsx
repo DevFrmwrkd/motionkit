@@ -8,9 +8,6 @@ import {
   Sparkles,
   Store,
   Play,
-  Code,
-  LayoutDashboard,
-  BarChart3,
   Settings,
 } from "lucide-react";
 import {
@@ -38,49 +35,23 @@ type NavItem = {
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
-    label: "Main",
+    label: "",
     items: [
-      { title: "Create", url: "/create", icon: Sparkles },
       { title: "Marketplace", url: "/marketplace", icon: Store },
-      { title: "Workstation", url: "/workstation", icon: Play },
-      { title: "Import", url: "/import", icon: Code },
-    ],
-  },
-  {
-    label: "Dashboard",
-    items: [
       {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: LayoutDashboard,
+        title: "Workstation",
+        url: "/workstation",
+        icon: Play,
         items: [
-          { title: "Overview", url: "/dashboard" },
+          { title: "All Saved", url: "/workstation" },
           { title: "Projects", url: "/dashboard/projects" },
           { title: "Collections", url: "/dashboard/collections" },
           { title: "Render History", url: "/dashboard/history" },
         ],
       },
+      { title: "Create", url: "/create", icon: Sparkles },
+      { title: "Settings", url: "/settings", icon: Settings },
     ],
-  },
-  {
-    label: "Creator",
-    items: [
-      {
-        title: "Creator Studio",
-        url: "/creator",
-        icon: BarChart3,
-        items: [
-          { title: "Overview", url: "/creator" },
-          { title: "Publish", url: "/creator/upload" },
-          { title: "Analytics", url: "/creator/analytics" },
-          { title: "Earnings", url: "/creator/earnings" },
-        ],
-      },
-    ],
-  },
-  {
-    label: "Settings",
-    items: [{ title: "Settings", url: "/settings", icon: Settings }],
   },
 ];
 
@@ -90,8 +61,10 @@ export function NavMain() {
   return (
     <>
       {NAV_GROUPS.map((group) => (
-        <SidebarGroup key={group.label}>
-          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+        <SidebarGroup key={group.label || "main"}>
+          {group.label ? (
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          ) : null}
           <SidebarMenu>
             {group.items.map((item) => {
               const Icon = item.icon;

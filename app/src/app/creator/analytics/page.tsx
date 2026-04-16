@@ -72,7 +72,7 @@ export default function CreatorAnalytics() {
         </Card>
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Forks</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Remixes</CardTitle>
             <GitFork className="size-4 text-amber-500" />
           </CardHeader>
           <CardContent>

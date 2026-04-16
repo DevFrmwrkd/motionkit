@@ -412,7 +412,7 @@ export function PresetCard({
               {preset.parentPresetId && (
                 <Badge className="text-[10px] bg-zinc-950/70 text-zinc-300 border-zinc-700/50 backdrop-blur-md pointer-events-auto">
                   <GitFork className="size-2.5 mr-1" />
-                  Fork
+                  Remix
                 </Badge>
               )}
               {isPremium && (

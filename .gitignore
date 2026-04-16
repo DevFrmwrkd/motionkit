@@ -58,3 +58,17 @@ skills
 AGENTS.md
 CLAUDE.md
 .vercel
+
+# Memory compiler runtime state (daily logs, compiled knowledge, caches)
+.memory-compiler/.venv/
+.memory-compiler/daily/
+.memory-compiler/knowledge/
+.memory-compiler/reports/
+.memory-compiler/scripts/state.json
+.memory-compiler/scripts/last-flush.json
+.memory-compiler/scripts/flush.log
+.memory-compiler/scripts/compile.log
+.memory-compiler/scripts/session-flush-*
+.memory-compiler/scripts/flush-context-*
+.memory-compiler/__pycache__/
+.memory-compiler/**/__pycache__/

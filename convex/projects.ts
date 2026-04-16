@@ -8,6 +8,20 @@ const presetEntryValidator = v.object({
   order: v.number(),
 });
 
+// Matches the projects.brandKit column in schema.ts — kept in sync by
+// hand. If you add a brand token there, add it here too.
+const brandKitValidator = v.object({
+  brandName: v.optional(v.string()),
+  primaryColor: v.optional(v.string()),
+  secondaryColor: v.optional(v.string()),
+  accentColor: v.optional(v.string()),
+  backgroundColor: v.optional(v.string()),
+  textColor: v.optional(v.string()),
+  fontHeading: v.optional(v.string()),
+  fontBody: v.optional(v.string()),
+  logoUrl: v.optional(v.string()),
+});
+
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -119,6 +133,49 @@ export const updatePresetEntries = mutation({
     await ctx.db.patch(args.projectId, {
       presetEntries: args.presetEntries,
     });
+  },
+});
+
+/**
+ * Update a project's brand kit. Passing a field as `undefined` leaves it
+ * unchanged; pass `null`-style empty strings to clear a token.
+ *
+ * The brand kit is the opinionated "this project belongs to Brand X"
+ * container: when a preset is opened with a projectId in scope, the
+ * workstation can auto-apply these tokens to any schema field whose key
+ * matches (primaryColor, fontHeading, etc.).
+ */
+export const updateBrandKit = mutation({
+  args: {
+    projectId: v.id("projects"),
+    brandKit: brandKitValidator,
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    await requireAuthorizedUser(ctx, project.userId);
+
+    await ctx.db.patch(args.projectId, { brandKit: args.brandKit });
+  },
+});
+
+export const updateDetails = mutation({
+  args: {
+    projectId: v.id("projects"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    await requireAuthorizedUser(ctx, project.userId);
+
+    const updates: Record<string, unknown> = {};
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.description !== undefined) updates.description = args.description;
+    if (Object.keys(updates).length === 0) return;
+
+    await ctx.db.patch(args.projectId, updates);
   },
 });
 

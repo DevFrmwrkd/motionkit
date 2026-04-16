@@ -11,7 +11,8 @@ import {
   BrandKitPicker,
   type MockBrandKit,
 } from "@/components/workstation/BrandKitPicker";
-import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
+import { AIRemixPanel } from "@/components/workstation/AIRemixPanel";
+import { PublishPanel } from "@/components/workstation/PublishPanel";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
   RotateCcw,
@@ -22,6 +23,8 @@ import {
   Check,
   Eye,
   Pencil,
+  Sparkles,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PresetSchema } from "@/lib/types";
@@ -36,6 +39,8 @@ interface InputControlsProps {
   onRender: () => void;
   isRendering: boolean;
   selectedFormats: ExportFormatId[];
+  /** Which format the preview stage is currently showing. */
+  previewFormatId?: ExportFormatId;
   onToggleFormat: (formatId: ExportFormatId) => void;
   onApplyBrandKit?: (kit: MockBrandKit) => void;
   sourceCode?: string | null;
@@ -46,6 +51,12 @@ interface InputControlsProps {
   currentVariantId?: string;
   onSelectVariant?: (variant: Doc<"savedPresets">) => void;
   onSaveNewVariant?: (name: string) => Promise<void>;
+  /** AI Remix + Publish — optional so the panel still works standalone. */
+  preset?: Doc<"presets"> | null;
+  isOwner?: boolean;
+  userId?: Id<"users"> | null;
+  hasAnthropicKey?: boolean;
+  hasGeminiKey?: boolean;
 }
 
 /**
@@ -68,6 +79,7 @@ export function InputControls({
   onRender,
   isRendering,
   selectedFormats,
+  previewFormatId,
   onToggleFormat,
   onApplyBrandKit,
   sourceCode,
@@ -77,7 +89,11 @@ export function InputControls({
   currentVariantId,
   onSelectVariant,
   onSaveNewVariant,
-
+  preset = null,
+  isOwner = false,
+  userId = null,
+  hasAnthropicKey = false,
+  hasGeminiKey = false,
 }: InputControlsProps) {
   const [editableCode, setEditableCode] = useState(sourceCode ?? "");
   const [codeChanged, setCodeChanged] = useState(false);
@@ -175,6 +191,18 @@ export function InputControls({
               Code
             </TabsTrigger>
           )}
+          {preset && (
+            <TabsTrigger value="remix" className="text-[10px] py-1 px-2 gap-1 h-7">
+              <Sparkles className="w-3 h-3" />
+              AI Remix
+            </TabsTrigger>
+          )}
+          {preset && isOwner && (
+            <TabsTrigger value="publish" className="text-[10px] py-1 px-2 gap-1 h-7">
+              <Upload className="w-3 h-3" />
+              Publish
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Controls tab */}
@@ -211,24 +239,38 @@ export function InputControls({
               <section className="pb-1">
                 <SectionLabel
                   title="Export Formats"
-                  description="Pick one or more aspect ratios to render."
+                  description="Pick one or more aspect ratios to render. Click any chip to preview it."
                 />
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
                   {EXPORT_FORMATS.map((format) => {
                     const isSelected = selectedFormats.includes(format.id);
+                    const isPreviewing = previewFormatId === format.id;
                     return (
                       <button
                         key={format.id}
                         type="button"
                         onClick={() => onToggleFormat(format.id)}
                         aria-pressed={isSelected}
-                        className={`rounded border px-2 py-1.5 text-left transition-colors ${
+                        className={`relative rounded border px-2 py-1.5 text-left transition-colors ${
                           isSelected
                             ? "border-amber-500/60 bg-amber-500/10 text-foreground"
                             : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
+                        } ${
+                          isPreviewing
+                            ? "ring-2 ring-violet-500/70 ring-offset-1 ring-offset-background"
+                            : ""
                         }`}
                       >
-                        <div className="text-[11px] font-semibold">{format.id}</div>
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="text-[11px] font-semibold">
+                            {format.id}
+                          </div>
+                          {isPreviewing && (
+                            <span className="text-[8px] font-semibold uppercase tracking-wider text-violet-400">
+                              Preview
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[9px] opacity-80">
                           {format.label} · {format.width}×{format.height}
                         </div>
@@ -327,6 +369,33 @@ export function InputControls({
                 )}
               </>
             )}
+          </TabsContent>
+        )}
+
+        {/* AI Remix tab — chat against the current preset's source. */}
+        {preset && (
+          <TabsContent
+            value="remix"
+            className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          >
+            <AIRemixPanel
+              presetId={preset._id as Id<"presets">}
+              sourceCode={sourceCode ?? null}
+              isOwner={isOwner}
+              userId={userId}
+              hasAnthropicKey={hasAnthropicKey}
+              hasGeminiKey={hasGeminiKey}
+            />
+          </TabsContent>
+        )}
+
+        {/* Publish tab — owner-only, edits marketplace metadata. */}
+        {preset && isOwner && (
+          <TabsContent
+            value="publish"
+            className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          >
+            <PublishPanel preset={preset} isOwner={isOwner} />
           </TabsContent>
         )}
       </Tabs>

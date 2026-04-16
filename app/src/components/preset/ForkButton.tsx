@@ -54,7 +54,7 @@ export function ForkButton({
       toast.success("Remixed to your library", {
         description: "Your fork is ready to edit.",
         action: {
-          label: "Open Fork →",
+          label: "Open Remix →",
           onClick: () => {
             router.push(`/workstation?presetId=${newPresetId}`);
           },

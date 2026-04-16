@@ -195,7 +195,7 @@ export function PresetLibrary({
     const originBadge = isFork ? (
       <Badge variant="secondary" className="text-[9px] shrink-0 gap-0.5">
         <Copy className="w-2.5 h-2.5" />
-        Forked
+        Remix
       </Badge>
     ) : null;
 
@@ -281,7 +281,7 @@ export function PresetLibrary({
             )}
           </TabsTrigger>
           <TabsTrigger value="forks" className="text-[10px] py-[2px] px-1.5">
-            Forks
+            Remixes
             {forks.length > 0 && (
               <span className="ml-1 text-[8px] text-muted-foreground opacity-70">
                 {forks.length}
@@ -339,10 +339,10 @@ export function PresetLibrary({
               )}
               {forksData.filtered.length === 0 &&
                 renderEmptyState(
-                  search ? "No matches" : "No forks yet",
+                  search ? "No matches" : "No remixes yet",
                   search
                     ? "Try a different search."
-                    : "Fork a preset from the marketplace."
+                    : "Remix a preset from the Marketplace to build your own version."
                 )}
             </div>
           </ScrollArea>

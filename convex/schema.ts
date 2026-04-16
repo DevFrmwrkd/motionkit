@@ -263,6 +263,23 @@ export default defineSchema({
         order: v.number(),
       })
     ),
+    // Per-project brand container. When set, opening this project in the
+    // workstation auto-applies these tokens to any preset whose schema
+    // exposes a matching named field (e.g. `primaryColor`, `headingFont`).
+    // Unset fields fall through to the preset's own defaults.
+    brandKit: v.optional(
+      v.object({
+        brandName: v.optional(v.string()),
+        primaryColor: v.optional(v.string()),
+        secondaryColor: v.optional(v.string()),
+        accentColor: v.optional(v.string()),
+        backgroundColor: v.optional(v.string()),
+        textColor: v.optional(v.string()),
+        fontHeading: v.optional(v.string()),
+        fontBody: v.optional(v.string()),
+        logoUrl: v.optional(v.string()),
+      })
+    ),
   }).index("by_user", ["userId"]),
 
   // ─── AI Generation ──────────────────────────────────────────
