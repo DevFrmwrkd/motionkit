@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../"),
+  webpack(config) {
+    config.resolve.alias["@convex"] = path.join(__dirname, "../convex");
+    return config;
+  },
   outputFileTracingIncludes: {
     "/*": [
       "node_modules/@swc/helpers/**/*",
