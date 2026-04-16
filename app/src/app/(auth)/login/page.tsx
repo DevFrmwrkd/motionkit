@@ -33,7 +33,7 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
     try {
-      await signIn("google", { redirectTo: "/dashboard" });
+      await signIn("google", { redirectTo: window.location.origin + "/dashboard" });
     } catch {
       setSigningIn(false);
     }
