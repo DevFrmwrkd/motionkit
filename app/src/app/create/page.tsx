@@ -691,97 +691,37 @@ function CreateWorkstation({
         <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] h-full overflow-hidden">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
-              {/* Header */}
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <h2 className="text-sm font-semibold text-foreground">
-                  AI Generator
-                </h2>
+              {/* Header — provider status inline, no giant banner card */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    AI Generator
+                  </h2>
+                </div>
+                <ProviderStatusChip
+                  provider={provider}
+                  hasGeminiKey={hasOwnGeminiKey}
+                  hasAnthropicKey={hasAnthropicKey}
+                  hasOpenRouterKey={hasOpenRouterKey}
+                  openRouterModel={configuredOpenRouterModel}
+                />
               </div>
 
-              {/* BYOK info banner */}
-              {provider === "gemini" ? (
-                hasOwnGeminiKey ? (
-                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-[11px] leading-relaxed">
-                    <div className="flex items-start gap-1.5">
-                      <Key className="w-3 h-3 mt-0.5 text-emerald-400 shrink-0" />
-                      <div className="text-emerald-300/90">
-                        Using your personal <span className="font-semibold">Gemini 3.0</span> key.
-                        Your usage counts against your own quota.
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
-                    <div className="flex items-start gap-1.5">
-                      <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
-                      <div className="space-y-1 text-muted-foreground">
-                        <div>
-                          Default model: <span className="text-amber-400 font-semibold">Gemini 3.0</span>.
-                          Free tier ≈ 20 charts/day.
-                        </div>
-                        <Link
-                          href="/settings"
-                          className="inline-block text-amber-400 hover:text-amber-300 font-medium"
-                        >
-                          Add your own key →
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                )
-              ) : provider === "claude" ? (
-                hasAnthropicKey ? (
-                  <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-2.5 text-[11px] leading-relaxed">
-                    <div className="flex items-start gap-1.5">
-                      <Key className="w-3 h-3 mt-0.5 text-violet-400 shrink-0" />
-                      <div className="text-violet-200/90">
-                        Claude is ready with your personal Anthropic key.
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
-                    <div className="flex items-start gap-1.5">
-                      <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
-                      <div className="space-y-1 text-muted-foreground">
-                        <div>Claude requires your Anthropic API key before generation can start.</div>
-                        <Link
-                          href="/settings"
-                          className="inline-block text-amber-400 hover:text-amber-300 font-medium"
-                        >
-                          Add Anthropic key →
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                )
-              ) : hasOpenRouterKey && configuredOpenRouterModel ? (
-                <div className="rounded-md border border-sky-500/30 bg-sky-500/5 p-2.5 text-[11px] leading-relaxed">
-                  <div className="flex items-start gap-1.5">
-                    <Key className="w-3 h-3 mt-0.5 text-sky-400 shrink-0" />
-                    <div className="text-sky-200/90">
-                      OpenRouter is ready with <code className="font-mono text-sky-100">{configuredOpenRouterModel}</code>.
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed">
-                  <div className="flex items-start gap-1.5">
-                    <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
-                    <div className="space-y-1 text-muted-foreground">
-                      <div>
-                        {!hasOpenRouterKey
-                          ? "OpenRouter needs your API key before generation can start."
-                          : "OpenRouter needs a model id. Save one in Settings or use the override below."}
-                      </div>
-                      <Link
-                        href="/settings"
-                        className="inline-block text-amber-400 hover:text-amber-300 font-medium"
-                      >
-                        Open provider settings →
-                      </Link>
-                    </div>
+              {/* Only surface a banner when the active provider is blocked.
+                  BYOK-only: no "free tier" language, no competing marketing
+                  variants. Missing key = one amber row with a Settings link. */}
+              {missingProviderReason && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 text-[11px] leading-relaxed flex items-start gap-1.5">
+                  <Info className="w-3 h-3 mt-0.5 text-amber-400 shrink-0" />
+                  <div className="flex-1 text-muted-foreground">
+                    <span>{missingProviderReason}</span>{" "}
+                    <Link
+                      href="/settings"
+                      className="text-amber-400 hover:text-amber-300 font-medium whitespace-nowrap"
+                    >
+                      Settings →
+                    </Link>
                   </div>
                 </div>
               )}
@@ -817,75 +757,53 @@ function CreateWorkstation({
                 />
               </div>
 
-              {/* Visual Type — Auto by default */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
-                  <span>Visual type</span>
-                  {category === "auto" && (
-                    <span className="text-[10px] text-amber-400/80">auto</span>
-                  )}
-                </label>
-                <Select
-                  value={category}
-                  onValueChange={(v) => setCategory(v as Category)}
-                  disabled={isGenerating}
-                >
-                  <SelectTrigger className="bg-accent border-border text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        <span className="flex items-center gap-2">
+              {/* Type + Style on one row — the dropdowns already display
+                  "Auto" as their value, so no need for duplicate "auto"
+                  chips beside the labels. */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5 min-w-0">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Type
+                  </label>
+                  <Select
+                    value={category}
+                    onValueChange={(v) => setCategory(v as Category)}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger className="bg-accent border-border text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
                           {cat.label}
-                          {"hint" in cat && cat.hint && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {cat.hint}
-                            </span>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Style — Auto by default, otherwise matches styleHelpers config */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
-                  <span>Style</span>
-                  {style === "auto" && (
-                    <span className="text-[10px] text-amber-400/80">auto</span>
-                  )}
-                </label>
-                <Select
-                  value={style}
-                  onValueChange={(v) => setStyle(v as Style)}
-                  disabled={isGenerating}
-                >
-                  <SelectTrigger className="bg-accent border-border text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STYLES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        <span className="flex items-center gap-2">
+                <div className="space-y-1.5 min-w-0">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Style
+                  </label>
+                  <Select
+                    value={style}
+                    onValueChange={(v) => setStyle(v as Style)}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger className="bg-accent border-border text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STYLES.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
                           {s.label}
-                          {"hint" in s && s.hint && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {s.hint}
-                            </span>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground leading-snug">
-                  Matches the reference style config — colors, fonts, and motion
-                  feel are loaded from <code className="text-amber-400/80">styleHelpers</code>{" "}
-                  so generations stay consistent.
-                </p>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Advanced (collapsed by default — keeps the form clean) */}
@@ -1465,6 +1383,53 @@ function ErrorState({
         Try Again
       </Button>
     </div>
+  );
+}
+
+/**
+ * Small inline chip that replaces the old full-width BYOK banner. Shows
+ * the active provider + key state in one line so the form doesn't lead
+ * with a giant info card the user has to scroll past on every visit.
+ */
+function ProviderStatusChip({
+  provider,
+  hasGeminiKey,
+  hasAnthropicKey,
+  hasOpenRouterKey,
+  openRouterModel,
+}: {
+  provider: Provider;
+  hasGeminiKey: boolean;
+  hasAnthropicKey: boolean;
+  hasOpenRouterKey: boolean;
+  openRouterModel: string | undefined;
+}) {
+  const hasKey =
+    provider === "gemini"
+      ? hasGeminiKey
+      : provider === "claude"
+        ? hasAnthropicKey
+        : hasOpenRouterKey && Boolean(openRouterModel);
+
+  const label =
+    provider === "gemini" ? "Gemini" : provider === "claude" ? "Claude" : "OpenRouter";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 h-5 text-[10px] font-medium ${
+        hasKey
+          ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+          : "border-amber-500/30 bg-amber-500/5 text-amber-400"
+      }`}
+      title={hasKey ? "Provider key set" : "Add key in Settings"}
+    >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          hasKey ? "bg-emerald-400" : "bg-amber-400"
+        }`}
+      />
+      {label}
+    </span>
   );
 }
 
