@@ -24,6 +24,7 @@ import type {
 } from "@/lib/types";
 import { detectPromptSkills } from "@/lib/ai-skill-detector";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { GuestCreateWorkstation } from "./GuestCreateWorkstation";
 import { useAutoCorrection } from "@/hooks/useAutoCorrection";
 import { useConversationState } from "@/hooks/useConversationState";
 import { generatePresetThumbnail } from "@/lib/thumbnail";
@@ -117,15 +118,23 @@ type GenerationDispatchResult =
 // ---------------------------------------------------------------------------
 
 export default function CreatePage() {
-  const { user } = useCurrentUser();
+  const { user, isLoading } = useCurrentUser();
 
-  if (!user) {
+  // Wait out the initial auth resolve so we don't flash the guest UI for a
+  // logged-in user (or vice versa).
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mr-2" />
         Loading...
       </div>
     );
+  }
+
+  // Anonymous visitors get the Straico free-tier flow. Save/publish require
+  // sign-in and are gated in the guest component itself.
+  if (!user) {
+    return <GuestCreateWorkstation />;
   }
 
   return (
@@ -1084,7 +1093,7 @@ function CreateWorkstation({
         {/* CENTER COLUMN - Live Preview                                     */}
         {/* ================================================================ */}
         <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative h-full overflow-hidden">
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 overflow-hidden">
+          <div className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-hidden">
             {/* IDLE state */}
             {localStatus === "idle" && !activeGeneration && (
               <EmptyState />
@@ -1111,49 +1120,52 @@ function CreateWorkstation({
               />
             )}
 
-            {/* SUCCESS — sandboxed live preview. Fills the available
-                stage area while preserving the preset's native aspect
-                ratio. The aspect-ratio box shrinks to whichever bound
-                (width or height) hits 100% first, so a 16:9 chart on a
-                tall screen shows letterboxed top/bottom rather than
-                capped at a tiny fixed max-width. */}
+            {/* SUCCESS — sandboxed live preview. Uses the exact
+                workstation PlayerStage sizing pattern: aspect-ratio
+                box + w-full h-auto + max-width/max-height 100% + flex
+                shrink + margin auto. Grows to hit the first bound
+                (width or height), preserves aspect, letterboxes when
+                the stage is taller or wider than the composition. */}
             {hasPreview && parsedPreset && activeGeneration?.generatedCode && (
-              <div className="w-full h-full min-h-0 flex flex-col items-center justify-center gap-3">
-                <div
-                  style={{
-                    aspectRatio: String(
-                      parsedPreset.meta.width / parsedPreset.meta.height
-                    ),
-                    maxHeight: "100%",
-                    maxWidth: "100%",
-                  }}
-                  className="rounded-lg overflow-hidden border border-border shadow-2xl bg-black flex"
-                >
-                  <SandboxedPresetPlayer
-                    code={activeGeneration.generatedCode}
-                    schemaJson={activeGeneration.generatedSchema!}
-                    metaJson={activeGeneration.generatedMeta!}
-                    inputProps={inputProps}
-                    aspectRatio={parsedPreset.meta.width / parsedPreset.meta.height}
-                    className="w-full h-full"
-                    onErrorChange={setPreviewError}
-                  />
-                </div>
-
-                {/* Frame info below preview */}
-                <div className="shrink-0 flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Film className="w-3 h-3" />
-                    {parsedPreset.meta.durationInFrames} frames
-                  </span>
-                  <span>{parsedPreset.meta.fps} fps</span>
-                  <span>
-                    {parsedPreset.meta.width} x {parsedPreset.meta.height}
-                  </span>
-                </div>
+              <div
+                style={{
+                  aspectRatio: String(
+                    parsedPreset.meta.width / parsedPreset.meta.height
+                  ),
+                  maxHeight: "100%",
+                  maxWidth: "100%",
+                  margin: "auto",
+                }}
+                className="relative rounded-lg overflow-hidden border border-border shadow-2xl bg-black w-full h-auto object-contain flex shrink"
+              >
+                <SandboxedPresetPlayer
+                  code={activeGeneration.generatedCode}
+                  schemaJson={activeGeneration.generatedSchema!}
+                  metaJson={activeGeneration.generatedMeta!}
+                  inputProps={inputProps}
+                  aspectRatio={parsedPreset.meta.width / parsedPreset.meta.height}
+                  className="w-full h-full"
+                  onErrorChange={setPreviewError}
+                />
               </div>
             )}
           </div>
+
+          {/* Frame info strip — lives outside the stage row so the
+              aspect-box can claim the full flex-1 hero without fighting
+              with a second flex child for vertical space. */}
+          {hasPreview && parsedPreset && (
+            <div className="shrink-0 flex items-center justify-center gap-4 text-xs text-muted-foreground pb-3">
+              <span className="flex items-center gap-1">
+                <Film className="w-3 h-3" />
+                {parsedPreset.meta.durationInFrames} frames
+              </span>
+              <span>{parsedPreset.meta.fps} fps</span>
+              <span>
+                {parsedPreset.meta.width} x {parsedPreset.meta.height}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ================================================================ */}

@@ -20,7 +20,7 @@
  * itself owns.
  */
 
-import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { PlayerRef } from "@remotion/player";
 import { AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
@@ -68,6 +68,13 @@ export function SandboxedPresetPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-mount cache-bust for the static sandbox HTML. Without this, Next
+  // serves preset.html + bundle.js with default caching and browsers hold
+  // on to the old runtime across rebuilds.
+  const sandboxSrc = useMemo(
+    () => `/sandbox/preset.html?v=${Date.now()}`,
+    []
+  );
 
   // Local shadow of the iframe player's state. Kept in refs (not state) so
   // getCurrentFrame/isPlaying return synchronously without causing renders.
@@ -226,7 +233,12 @@ export function SandboxedPresetPlayer({
         ref={iframeRef}
         // Locally, we must include .html so the Dev Server serves the raw file
         // instead of hitting the 404 router and injecting dev-mode scripts.
-        src="/sandbox/preset.html"
+        //
+        // preset.html itself cache-busts bundle.js via Date.now() when no
+        // ?v= is provided, so every iframe mount gets the latest runtime.
+        // In production we can pass a deploy-hash here to get stable
+        // per-deploy caching instead of cache-miss-on-every-mount.
+        src={sandboxSrc}
         title="Preset preview (sandboxed)"
         // allow-scripts WITHOUT allow-same-origin gives this frame a null
         // origin. It cannot read any of our app state.

@@ -163,4 +163,18 @@
   *:hover {
     scrollbar-color: oklch(0.405 0 0 / 60%) transparent;
   }
+
+  /* Always show up/down spin buttons on number inputs. Chrome/Safari
+     hide them unless the field is hovered/focused, which made the JSON
+     row-editor's numeric cells look like plain text fields. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    opacity: 1;
+    -webkit-appearance: auto;
+    appearance: auto;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: number-input;
+  }
 }

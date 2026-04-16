@@ -23,6 +23,16 @@
       pulling ws/node:https into the worker bundle and crashing on every
       request to this route.
     -->
-    <script src="./bundle.js"></script>
+    <script>
+      // Cache-bust bundle.js using the query param passed to preset.html.
+      // Without this, browsers hold onto the old bundle across rebuilds
+      // (it's a static file with no fingerprint in its name).
+      (function () {
+        var v = new URLSearchParams(location.search).get("v") || Date.now();
+        var s = document.createElement("script");
+        s.src = "./bundle.js?v=" + encodeURIComponent(v);
+        document.body.appendChild(s);
+      })();
+    </script>
   </body>
 </html>
