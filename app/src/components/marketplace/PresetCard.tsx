@@ -42,6 +42,7 @@ interface PresetCardProps {
     description?: string;
     category: string;
     author?: string;
+    authorId?: string;
     downloads?: number;
     voteScore?: number;
     viewCount?: number;
@@ -147,9 +148,19 @@ export function PresetCard({
           <div className="mt-auto pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
             <span>
               By{" "}
-              <span className="text-muted-foreground font-medium">
-                {preset.author ?? "Unknown"}
-              </span>
+              {preset.authorId ? (
+                <Link
+                  href={`/creators/${preset.authorId}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-medium text-muted-foreground hover:text-amber-400 transition-colors"
+                >
+                  {preset.author ?? "Unknown"}
+                </Link>
+              ) : (
+                <span className="text-muted-foreground font-medium">
+                  {preset.author ?? "Unknown"}
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
