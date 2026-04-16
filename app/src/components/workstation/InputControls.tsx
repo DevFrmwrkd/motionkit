@@ -121,8 +121,8 @@ export function InputControls({
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header — the preset name is already shown in the workspace bar, so
           this header just anchors the panel and exposes a reset shortcut. */}
-      <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between px-3 h-9 border-b border-border shrink-0">
+        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
           Controls
         </h2>
         <button
@@ -131,7 +131,7 @@ export function InputControls({
           title="Reset to defaults"
           aria-label="Reset to defaults"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -140,13 +140,13 @@ export function InputControls({
         defaultValue="controls"
         className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
-        <TabsList className="mx-4 mt-3 shrink-0 bg-card border border-border h-max gap-0">
-          <TabsTrigger value="controls" className="text-[11px] py-1 px-2 gap-1">
+        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-max gap-0">
+          <TabsTrigger value="controls" className="text-[10px] py-1 px-2 gap-1 h-7">
             <Sliders className="w-3 h-3" />
             Controls
           </TabsTrigger>
           {sourceCode && (
-            <TabsTrigger value="code" className="text-[11px] py-1 px-2 gap-1">
+            <TabsTrigger value="code" className="text-[10px] py-1 px-2 gap-1 h-7">
               <Code2 className="w-3 h-3" />
               Code
             </TabsTrigger>
@@ -156,14 +156,14 @@ export function InputControls({
         {/* Controls tab */}
         <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1 min-h-0">
-            <div className="px-4 py-4 space-y-6">
+            <div className="px-3 py-3 space-y-4">
               {/* Parameters */}
               <section>
                 <SectionLabel
                   title="Parameters"
                   description="Tweak the preset inputs in real time."
                 />
-                <div className="mt-3">
+                <div className="mt-2">
                   <SchemaForm
                     schema={schema}
                     values={values}
@@ -178,18 +178,18 @@ export function InputControls({
                   title="Brand Kit"
                   description="Apply a saved palette, font, and copy in one click."
                 />
-                <div className="mt-3">
+                <div className="mt-2">
                   <BrandKitPicker onApplyKit={onApplyBrandKit} />
                 </div>
               </section>
 
               {/* Export formats */}
-              <section className="pb-2">
+              <section className="pb-1">
                 <SectionLabel
                   title="Export Formats"
                   description="Pick one or more aspect ratios to render."
                 />
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
                   {EXPORT_FORMATS.map((format) => {
                     const isSelected = selectedFormats.includes(format.id);
                     return (
@@ -198,14 +198,14 @@ export function InputControls({
                         type="button"
                         onClick={() => onToggleFormat(format.id)}
                         aria-pressed={isSelected}
-                        className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                        className={`rounded border px-2 py-1.5 text-left transition-colors ${
                           isSelected
                             ? "border-amber-500/60 bg-amber-500/10 text-foreground"
                             : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                         }`}
                       >
-                        <div className="text-xs font-semibold">{format.id}</div>
-                        <div className="text-[10px] opacity-80">
+                        <div className="text-[11px] font-semibold">{format.id}</div>
+                        <div className="text-[9px] opacity-80">
                           {format.label} · {format.width}×{format.height}
                         </div>
                       </button>
@@ -220,7 +220,7 @@ export function InputControls({
         {/* Code tab — view/edit toggled via segmented control */}
         {sourceCode && (
           <TabsContent value="code" className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between gap-2">
+            <div className="px-3 pt-3 pb-2 shrink-0 flex items-center justify-between gap-2">
               <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
                 <button
                   type="button"
@@ -260,7 +260,7 @@ export function InputControls({
 
             {codeMode === "view" ? (
               <ScrollArea className="flex-1 min-h-0">
-                <div className="px-4 pb-4">
+                <div className="px-3 pb-4">
                   <CodePreview code={sourceCode} />
                 </div>
               </ScrollArea>
@@ -308,7 +308,7 @@ export function InputControls({
       </Tabs>
 
       {/* Render button — always visible at bottom */}
-      <div className="relative z-10 bg-background p-4 border-t border-border shrink-0">
+      <div className="relative z-10 bg-background p-3 border-t border-border shrink-0">
         <Button
           onClick={onRender}
           disabled={isRendering}

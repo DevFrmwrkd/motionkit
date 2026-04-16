@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { History, ChevronDown } from "lucide-react";
 import { VersionTree } from "@/components/preset/VersionTree";
@@ -19,12 +19,17 @@ interface VersionHistoryProps {
  */
 export function VersionHistory({
   presetId,
-  defaultOpen = false,
+  defaultOpen = true,
 }: VersionHistoryProps) {
   const [open, setOpen] = useState(defaultOpen);
 
+  // Close version history when switching to a different preset
+  useEffect(() => {
+    setOpen(false);
+  }, [presetId]);
+
   return (
-    <div className="border-b border-border bg-card/30 shrink-0">
+    <div className="border-b border-border bg-card/30 shrink-0 min-h-0">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -44,7 +49,10 @@ export function VersionHistory({
         />
       </button>
       {open && (
-        <div className="px-4 pb-4 pt-1 max-h-[260px] overflow-y-auto">
+        <div
+          className="px-3 pr-3 pb-2 pt-1 min-h-[96px] max-h-[clamp(96px,18vh,160px)] overflow-y-scroll overscroll-contain custom-scrollbar"
+          style={{ scrollbarGutter: "stable" }}
+        >
           <VersionTree presetId={presetId} />
         </div>
       )}

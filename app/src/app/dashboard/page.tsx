@@ -145,7 +145,7 @@ export default function DashboardPage() {
             <Card
               key={stat.label}
               className={[
-                "transition-all duration-300 hover:translate-y-[-2px] shadow-sm hover:shadow-lg bg-zinc-950/50 backdrop-blur-sm",
+                "transition-all duration-300 hover:-translate-y-1 shadow-sm hover:shadow-xl bg-zinc-950/50 backdrop-blur-sm relative z-0 hover:z-10",
                 colors.ring,
                 colors.shadow,
               ].join(" ")}
