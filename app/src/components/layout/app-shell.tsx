@@ -8,7 +8,26 @@ import { AppSidebar } from "./app-sidebar";
 import { AppBreadcrumb } from "./app-breadcrumb";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
-const PUBLIC_ROUTES = ["/", "/login", "/signup"];
+// Routes that render with NO chrome at all (no sidebar, no header). The
+// landing page, login, and signup are intentionally bare because they
+// own their own layout.
+const BARE_ROUTES = ["/", "/login", "/signup"];
+
+// Routes that are reachable without a session but still render inside
+// the app shell (sidebar + top bar). Visitors see navigation and can
+// browse without being forced to /login first — auth is only required
+// when they hit a write path (remix, publish, render, save).
+const PUBLIC_SHELL_PREFIXES = ["/marketplace", "/p/"];
+
+function isBareRoute(pathname: string) {
+  return BARE_ROUTES.includes(pathname);
+}
+
+function isPublicShellRoute(pathname: string) {
+  return PUBLIC_SHELL_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix)
+  );
+}
 
 // The preset sandbox used to live at /sandbox/preset as a Next.js route,
 // but Next's bundler kept dragging ws/node:https into every page handler,
@@ -18,13 +37,38 @@ const PUBLIC_ROUTES = ["/", "/login", "/signup"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = PUBLIC_ROUTES.includes(pathname);
 
-  if (isPublic) {
+  if (isBareRoute(pathname)) {
     return <>{children}</>;
   }
 
+  if (isPublicShellRoute(pathname)) {
+    return <PublicShell>{children}</PublicShell>;
+  }
+
   return <AuthenticatedShell>{children}</AuthenticatedShell>;
+}
+
+/**
+ * Shell used for publicly browsable routes (Marketplace, public preset
+ * detail pages). Renders the same sidebar + header chrome as the
+ * authenticated shell but skips the /login redirect, so signed-out
+ * visitors can browse before they sign up.
+ */
+function PublicShell({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 !h-4" />
+          <AppBreadcrumb />
+        </header>
+        <main className="flex-1 overflow-y-auto">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }
 
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
