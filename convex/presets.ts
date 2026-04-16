@@ -105,6 +105,56 @@ export const list = query({
   },
 });
 
+/**
+ * Batch-fetch a preview video URL for every passed preset id. The URL is
+ * the `outputUrl` of the most recent successful render job for that
+ * preset — already public R2-hosted MP4, already what the user would
+ * see if they hit Render themselves. No auth: these are marketplace
+ * browse URLs, identical privacy profile to the preset row they attach
+ * to.
+ *
+ * Usage: call once from the marketplace page with every visible preset
+ * id, then pass the URL down to each <PresetCard />. Cards use it to
+ * show an always-playing muted <video> in place of the live sandbox
+ * preview, which gives a Pinterest/Figma-style browse experience with
+ * CDN-native latency.
+ *
+ * When a preset has no successful render yet, the returned record
+ * simply omits it; the card falls back to the geometric gradient.
+ */
+export const getLatestPreviewsForPresets = query({
+  args: { presetIds: v.array(v.id("presets")) },
+  handler: async (ctx, args) => {
+    if (args.presetIds.length === 0) return {};
+    // The set keeps the O(done jobs) scan dominant and the per-preset
+    // match cheap. We index on status because there's no
+    // by_preset-or-by_status-done composite; the filter is explicit.
+    const allowedIds = new Set(args.presetIds as unknown as string[]);
+    const doneJobs = await ctx.db
+      .query("renderJobs")
+      .withIndex("by_status", (q) => q.eq("status", "done"))
+      .collect();
+
+    const latest = new Map<string, { url: string; at: number }>();
+    for (const job of doneJobs) {
+      if (!job.outputUrl) continue;
+      const presetId = job.presetId as unknown as string;
+      if (!allowedIds.has(presetId)) continue;
+      const at = job.completedAt ?? job._creationTime ?? 0;
+      const prev = latest.get(presetId);
+      if (!prev || at > prev.at) {
+        latest.set(presetId, { url: job.outputUrl, at });
+      }
+    }
+
+    const out: Record<string, string> = {};
+    for (const [id, val] of latest.entries()) {
+      out[id] = val.url;
+    }
+    return out;
+  },
+});
+
 export const listMarketplace = query({
   args: {
     category: v.optional(categoryValidator),

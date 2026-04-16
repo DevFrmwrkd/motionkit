@@ -139,11 +139,19 @@ interface PresetCardProps {
     cloneCount?: number;
     parentPresetId?: string;
     thumbnailUrl?: string;
+    /**
+     * Public MP4 URL of a rendered preview clip. When set, the card
+     * plays it continuously in place of the static gradient — the
+     * Pinterest / Figma Community pattern. Populated either by the
+     * creator's own render history (see getLatestPreviewsForPresets)
+     * or by a future publish-time preview generator.
+     */
+    previewVideoUrl?: string;
     isPremium?: boolean;
     priceCents?: number;
-    // Composition fields needed for the hover preview. All optional so
-    // cards keep rendering even when the marketplace query excludes
-    // them or a preset predates the field's existence.
+    // Composition fields needed for the live hover preview fallback.
+    // All optional so cards keep rendering even when the marketplace
+    // query excludes them or a preset predates the field's existence.
     sourceCode?: string;
     inputSchema?: string;
     fps?: number;
@@ -174,18 +182,28 @@ export function PresetCard({
   const isPremium =
     preset.isPremium || (preset.priceCents !== undefined && preset.priceCents > 0);
 
-  // ── Live preview on hover ──────────────────────────────────────────
-  // Requires the preset to carry its own source, schema, and dimensions.
-  // Presets without all three (legacy seed data, partial uploads) get
-  // the static gradient thumbnail only — same UX as before.
-  const canPreview = Boolean(
-    preset.sourceCode &&
-      preset.inputSchema &&
-      preset.fps &&
-      preset.width &&
-      preset.height &&
-      preset.durationInFrames
-  );
+  // ── Always-on video preview (primary) ──────────────────────────────
+  // When a rendered preview MP4 exists, show it continuously: muted,
+  // looping, playing inline from CDN. Native <video> = no iframe, no
+  // Remotion runtime, no per-card CPU spike; perf scales to hundreds
+  // of cards for free.
+  const hasVideoPreview = Boolean(preset.previewVideoUrl);
+
+  // ── Live preview on hover (fallback) ───────────────────────────────
+  // Presets without a rendered preview yet fall back to the in-browser
+  // Remotion sandbox on hover. Once the preset accrues a render via the
+  // workstation OR the publish pipeline's preview generator, it
+  // promotes to the video path above.
+  const canHoverPreview =
+    !hasVideoPreview &&
+    Boolean(
+      preset.sourceCode &&
+        preset.inputSchema &&
+        preset.fps &&
+        preset.width &&
+        preset.height &&
+        preset.durationInFrames
+    );
 
   const [isPreviewMounted, setIsPreviewMounted] = useState(false);
   const hoverTimerRef = useRef<number | null>(null);
@@ -233,7 +251,7 @@ export function PresetCard({
   );
 
   function handleMouseEnter() {
-    if (!canPreview) return;
+    if (!canHoverPreview) return;
     if (hoverTimerRef.current !== null) {
       window.clearTimeout(hoverTimerRef.current);
     }
@@ -298,10 +316,27 @@ export function PresetCard({
             />
           </div>
 
-          {/* Live sandboxed preview — mounted only while the card is
-              actively hovered (180ms debounce). Sits above the gradient
-              so a loading sandbox falls back to the static thumbnail. */}
-          {isPreviewMounted && preset.sourceCode ? (
+          {/* Primary preview — pre-rendered MP4, always playing. */}
+          {hasVideoPreview ? (
+            <video
+              key={preset.previewVideoUrl}
+              src={preset.previewVideoUrl}
+              poster={preset.thumbnailUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              // Let clicks fall through to the card's onClick.
+              className="absolute inset-0 w-full h-full object-cover z-[1] pointer-events-none"
+            />
+          ) : null}
+
+          {/* Fallback: live sandboxed preview on hover. Only mounts when
+              the preset has no rendered MP4 yet AND all composition
+              fields are present on the row. Never runs once a preview
+              MP4 has been generated. */}
+          {!hasVideoPreview && isPreviewMounted && preset.sourceCode ? (
             <div
               className="absolute inset-0 z-[1] pointer-events-none animate-in fade-in duration-200"
               // pointer-events-none on the wrapper so clicks fall through
@@ -320,42 +355,43 @@ export function PresetCard({
             </div>
           ) : null}
 
-          {/* Hover CTA overlay — Play icon on static cards, Remix button
-              always. When the live preview is playing the Play icon is
-              redundant (the preview IS the play), so it's hidden. */}
-          <div
-            className={[
-              "absolute inset-0 z-[2] flex items-center justify-center gap-3",
-              "opacity-0 group-hover:opacity-100 transition-all duration-300",
-              // Dim the preview slightly on hover so the Remix CTA stays
-              // readable over any content; lighter dim when preview is
-              // live, heavier when showing the static gradient.
-              isPreviewMounted
-                ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
-                : "bg-black/50 backdrop-blur-sm",
-            ].join(" ")}
-          >
-            {!isPreviewMounted && (
-              <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-amber-500/20 transition-transform duration-200 group-hover:scale-100 scale-90">
-                <Play className="w-5 h-5 ml-0.5" />
+          {/* Hover CTA overlay. Play icon only appears on truly static
+              (no motion) cards — if the card is already showing content
+              in motion (video OR live sandbox), the Play icon would be
+              redundant. Remix CTA is always available. */}
+          {(() => {
+            const isPlayingContent = hasVideoPreview || isPreviewMounted;
+            return (
+              <div
+                className={[
+                  "absolute inset-0 z-[2] flex items-center justify-center gap-3",
+                  "opacity-0 group-hover:opacity-100 transition-all duration-300",
+                  isPlayingContent
+                    ? "bg-gradient-to-t from-black/60 via-transparent to-transparent"
+                    : "bg-black/50 backdrop-blur-sm",
+                ].join(" ")}
+              >
+                {!isPlayingContent && (
+                  <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-amber-500/20 transition-transform duration-200 group-hover:scale-100 scale-90">
+                    <Play className="w-5 h-5 ml-0.5" />
+                  </div>
+                )}
+                <ForkButton
+                  presetId={preset._id as Id<"presets">}
+                  userId={(currentUserId as Id<"users"> | null) ?? null}
+                  variant="default"
+                  size="sm"
+                  label="Remix"
+                  stopPropagation
+                  className={[
+                    "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5",
+                    "transition-transform duration-200 group-hover:scale-100 scale-90",
+                    isPlayingContent ? "absolute bottom-3 right-3" : "",
+                  ].join(" ")}
+                />
               </div>
-            )}
-            <ForkButton
-              presetId={preset._id as Id<"presets">}
-              userId={(currentUserId as Id<"users"> | null) ?? null}
-              variant="default"
-              size="sm"
-              label="Remix"
-              stopPropagation
-              className={[
-                "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5",
-                "transition-transform duration-200 group-hover:scale-100 scale-90",
-                // When the preview plays, park the Remix CTA at the
-                // bottom so it doesn't block the motion.
-                isPreviewMounted ? "absolute bottom-3 right-3" : "",
-              ].join(" ")}
-            />
-          </div>
+            );
+          })()}
 
           {/* Badges — top row */}
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">

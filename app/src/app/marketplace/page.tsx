@@ -76,6 +76,14 @@ export default function MarketplacePage() {
       : "skip"
   );
 
+  // Latest successful-render URL per visible preset — powers the
+  // Pinterest-style always-playing video previews on each card. One
+  // batched query for the whole grid.
+  const previewUrls = useQuery(
+    api.presets.getLatestPreviewsForPresets,
+    presetIds.length > 0 ? { presetIds } : "skip"
+  );
+
   const castVote = useMutation(api.votes.castVote);
 
   const handleVote = useCallback(
@@ -176,7 +184,15 @@ export default function MarketplacePage() {
             {displayPresets.map((preset) => (
               <PresetCard
                 key={preset._id}
-                preset={preset}
+                preset={{
+                  ...preset,
+                  // Promote the batched preview URL onto the preset
+                  // object so the card's own prop surface stays flat
+                  // and doesn't need to know about the query.
+                  previewVideoUrl:
+                    preset.previewVideoUrl ??
+                    previewUrls?.[preset._id as string],
+                }}
                 currentUserId={user?._id ?? null}
                 currentVote={userVotes ? (userVotes[preset._id as string] ?? 0) : 0}
                 onVote={handleVote}
