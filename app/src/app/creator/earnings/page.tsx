@@ -10,7 +10,7 @@ import { formatCurrency, getCreatorMetrics } from "@/lib/creator-metrics";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Download, Loader2, Sparkles, Tag } from "lucide-react";
+import { AlertCircle, DollarSign, Download, Loader2, Sparkles, Tag } from "lucide-react";
 
 export default function CreatorEarnings() {
   const { user, isLoading } = useCurrentUser();
@@ -50,6 +50,18 @@ export default function CreatorEarnings() {
           Revenue is currently estimated from marketplace pricing and download counts. Payouts are not wired yet.
         </p>
       </div>
+
+      <Card className="border-amber-500/30 bg-amber-500/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-foreground mb-1">Coming in Phase 4–5</h3>
+            <p className="text-sm text-muted-foreground">
+              This page shows estimated metrics based on your preset pricing and downloads. Real payout infrastructure and payment processing will be implemented in upcoming phases. In the meantime, track your analytics and adjust your preset pricing in the Publish section.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Card className="border-amber-400 bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/20">
