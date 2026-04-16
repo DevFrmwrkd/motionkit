@@ -10,6 +10,15 @@ import ClaudeLowerThird from "./presets/ClaudeLowerThird";
 import ClaudeCallToAction from "./presets/ClaudeCallToAction";
 import ClaudeTextReveal from "./presets/ClaudeTextReveal";
 import ClaudeOutroCard from "./presets/ClaudeOutroCard";
+import LowerThird from "./presets/LowerThird";
+import NumberCounter from "./presets/NumberCounter";
+import BarChart from "./presets/BarChart";
+import AuroraBackground from "./presets/AuroraBackground";
+import ParticleField from "./presets/ParticleField";
+import KineticTypography from "./presets/KineticTypography";
+import GlitchText from "./presets/GlitchText";
+import MarqueeBanner from "./presets/MarqueeBanner";
+import ShimmerTitle from "./presets/ShimmerTitle";
 import type { PresetExport } from "../lib/types";
 import {
   RENDERABLE_COMPOSITION_IDS,
@@ -28,6 +37,15 @@ const presets: Record<RenderableCompositionId, PresetExport> = {
   ClaudeCallToAction,
   ClaudeTextReveal,
   ClaudeOutroCard,
+  LowerThird,
+  NumberCounter,
+  BarChart,
+  AuroraBackground,
+  ParticleField,
+  KineticTypography,
+  GlitchText,
+  MarqueeBanner,
+  ShimmerTitle,
 };
 
 const defaultPropsFor = (preset: PresetExport): Record<string, unknown> => {
