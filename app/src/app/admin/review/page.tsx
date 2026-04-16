@@ -4,6 +4,10 @@
  * Review queue page. Lists presets in pending-review + rejected +
  * test-rendering buckets, each with an inline approve/reject/archive
  * action bar. Clicking a row drills into the detail view.
+ *
+ * Reject / archive prompt the admin for a reason through an accessible
+ * in-app dialog (no `window.prompt` — breaks the dark theme, no
+ * character limit, not mobile-friendly, not copy-editable).
  */
 
 import Link from "next/link";
@@ -14,14 +18,45 @@ import type { Id } from "@convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+/**
+ * Matches the server-side cap on `reason` — see
+ * MAX_MODERATION_REASON_LENGTH in `convex/lib/moderation.ts`. Kept in sync
+ * manually; a longer string will be rejected by the mutation.
+ */
+const MAX_REASON_LENGTH = 1000;
+
+type ReasonDialogAction = "reject" | "archive";
+
+interface ReasonDialogState {
+  action: ReasonDialogAction;
+  presetId: Id<"presets">;
+  presetName: string;
+}
 
 export default function ReviewQueuePage() {
   const queue = useQuery(api.admin.reviewQueue, {});
   const approve = useMutation(api.presetReview.adminApprove);
   const reject = useMutation(api.presetReview.adminReject);
   const archive = useMutation(api.presetReview.adminArchive);
+
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reasonDialog, setReasonDialog] = useState<ReasonDialogState | null>(
+    null
+  );
+  const [reasonDraft, setReasonDraft] = useState("");
+  const [reasonSubmitting, setReasonSubmitting] = useState(false);
 
   async function doApprove(id: Id<"presets">) {
     setBusyId(id);
@@ -35,29 +70,43 @@ export default function ReviewQueuePage() {
     }
   }
 
-  async function doReject(id: Id<"presets">) {
-    const reason = prompt("Reason for rejection:");
-    if (!reason) return;
-    setBusyId(id);
-    try {
-      await reject({ presetId: id, reason });
-      toast.success("Rejected");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Reject failed");
-    } finally {
-      setBusyId(null);
-    }
+  function openReasonDialog(
+    action: ReasonDialogAction,
+    presetId: Id<"presets">,
+    presetName: string
+  ) {
+    setReasonDialog({ action, presetId, presetName });
+    setReasonDraft("");
   }
 
-  async function doArchive(id: Id<"presets">) {
-    const reason = prompt("Reason for archive (optional):") ?? undefined;
-    setBusyId(id);
+  async function submitReasonDialog() {
+    if (!reasonDialog) return;
+    const trimmed = reasonDraft.trim();
+    if (reasonDialog.action === "reject" && trimmed.length === 0) {
+      toast.error("Rejection requires a reason");
+      return;
+    }
+
+    setReasonSubmitting(true);
+    setBusyId(reasonDialog.presetId);
     try {
-      await archive({ presetId: id, reason });
-      toast.success("Archived");
+      if (reasonDialog.action === "reject") {
+        await reject({ presetId: reasonDialog.presetId, reason: trimmed });
+        toast.success("Rejected");
+      } else {
+        // Archive reason is optional — send undefined when blank so the
+        // server doesn't store an empty string.
+        await archive({
+          presetId: reasonDialog.presetId,
+          reason: trimmed.length > 0 ? trimmed : undefined,
+        });
+        toast.success("Archived");
+      }
+      setReasonDialog(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Archive failed");
+      toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
+      setReasonSubmitting(false);
       setBusyId(null);
     }
   }
@@ -82,8 +131,12 @@ export default function ReviewQueuePage() {
               preset={preset}
               busy={busyId === preset._id}
               onApprove={() => doApprove(preset._id)}
-              onReject={() => doReject(preset._id)}
-              onArchive={() => doArchive(preset._id)}
+              onReject={() =>
+                openReasonDialog("reject", preset._id, preset.name)
+              }
+              onArchive={() =>
+                openReasonDialog("archive", preset._id, preset.name)
+              }
             />
           ))
         )}
@@ -119,12 +172,101 @@ export default function ReviewQueuePage() {
               variant="rejected"
               onApprove={() => {}}
               onReject={() => {}}
-              onArchive={() => doArchive(preset._id)}
+              onArchive={() =>
+                openReasonDialog("archive", preset._id, preset.name)
+              }
               showApprove={false}
             />
           ))
         )}
       </Section>
+
+      <Dialog
+        open={reasonDialog !== null}
+        onOpenChange={(open) => {
+          if (!open && !reasonSubmitting) {
+            setReasonDialog(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {reasonDialog?.action === "reject" ? "Reject preset" : "Archive preset"}
+            </DialogTitle>
+            <DialogDescription>
+              {reasonDialog?.action === "reject"
+                ? "The creator will see this reason. Be specific — vague rejections cause re-submissions."
+                : "Optional note to accompany the archive action. Shown in the audit log."}
+              {reasonDialog ? (
+                <>
+                  {" "}
+                  <span className="text-zinc-300">{reasonDialog.presetName}</span>
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="moderation-reason">
+              {reasonDialog?.action === "reject" ? "Reason" : "Note"}
+            </Label>
+            <Textarea
+              id="moderation-reason"
+              autoFocus
+              value={reasonDraft}
+              onChange={(e) =>
+                setReasonDraft(e.target.value.slice(0, MAX_REASON_LENGTH))
+              }
+              placeholder={
+                reasonDialog?.action === "reject"
+                  ? "e.g. Preset fails to render text longer than 60 characters; please add an overflow guard."
+                  : "Optional. e.g. Archived per creator request 2026-04-12."
+              }
+              rows={5}
+            />
+            <div className="flex justify-between text-xs text-zinc-500">
+              <span>
+                {reasonDialog?.action === "reject"
+                  ? "Required"
+                  : "Optional"}
+              </span>
+              <span>
+                {reasonDraft.length} / {MAX_REASON_LENGTH}
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setReasonDialog(null)}
+              disabled={reasonSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitReasonDialog}
+              disabled={
+                reasonSubmitting ||
+                (reasonDialog?.action === "reject" &&
+                  reasonDraft.trim().length === 0)
+              }
+              className={
+                reasonDialog?.action === "reject"
+                  ? "bg-red-600 hover:bg-red-500"
+                  : undefined
+              }
+            >
+              {reasonSubmitting
+                ? "Working…"
+                : reasonDialog?.action === "reject"
+                  ? "Reject preset"
+                  : "Archive preset"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

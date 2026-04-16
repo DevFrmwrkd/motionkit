@@ -63,6 +63,7 @@ import {
   requireAdmin,
   canAccessPreset,
 } from "./lib/authz";
+import { normalizeReason } from "./lib/moderation";
 
 // ─── Transition table ───────────────────────────────────────
 
@@ -249,8 +250,17 @@ export const enqueueTestRenderInternal = internalMutation({
 /**
  * Scheduled: delete `compileErrors` rows older than `olderThanMs`. Driven
  * by `crons.ts` on a daily cadence. Iteration-bounded per call so a
- * runaway backlog can't stall the cron — at most `maxBatch` rows per
- * invocation, leftovers clear on the next run.
+ * runaway backlog can't stall the cron — at most `maxBatch` rows deleted
+ * per invocation, leftovers clear on the next run.
+ *
+ * Implementation notes:
+ *   - We scan via `.take(scanCap)` on the by_phase index so the mutation
+ *     cannot accidentally load millions of rows into memory via `.collect()`.
+ *   - Without a `by_createdAt` index we can't query old rows directly, but
+ *     the table is append-only so older rows land earlier in the physical
+ *     order — the top-N of the phase index skews old. If this still
+ *     underdeletes at scale, add a `by_createdAt` index and switch to
+ *     `.withIndex("by_createdAt", q => q.lt("createdAt", cutoff))`.
  */
 export const pruneCompileErrorsOlderThan = internalMutation({
   args: {
@@ -259,15 +269,15 @@ export const pruneCompileErrorsOlderThan = internalMutation({
   },
   handler: async (ctx, args) => {
     const cutoff = Date.now() - args.olderThanMs;
-    const batchCap = args.maxBatch ?? 1000;
-    const stale = await ctx.db
+    const batchCap = Math.min(args.maxBatch ?? 1000, 10_000);
+    // Scan a bounded window. We take 3× the delete cap so a phase with
+    // many fresh rows doesn't monopolise the window and starve deletions.
+    const scanCap = batchCap * 3;
+    const window = await ctx.db
       .query("compileErrors")
       .withIndex("by_phase")
-      .collect();
-    // Filter by createdAt in memory — we don't have a `by_createdAt` index
-    // on the table, and compileErrors is append-only so pagination is
-    // the only risk. The batchCap guards against that.
-    const victims = stale
+      .take(scanCap);
+    const victims = window
       .filter((row) => row.createdAt < cutoff)
       .slice(0, batchCap);
     let deleted = 0;
@@ -275,7 +285,11 @@ export const pruneCompileErrorsOlderThan = internalMutation({
       await ctx.db.delete(row._id);
       deleted += 1;
     }
-    return { deleted, hadMore: victims.length === batchCap };
+    return {
+      deleted,
+      scanned: window.length,
+      hadMore: window.length === scanCap && victims.length === batchCap,
+    };
   },
 });
 
@@ -353,21 +367,22 @@ export const adminApprove = mutation({
     const admin = await requireAdmin(ctx);
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");
+    const notes = normalizeReason(args.notes, { fieldName: "Approval notes" });
     await guardTransitionWithAudit(ctx, preset.reviewState, "approved", {
       actorId: admin._id,
       targetId: args.presetId,
-      reason: args.notes,
+      reason: notes,
     });
     await ctx.db.patch(args.presetId, {
       reviewState: "approved",
-      reviewNotes: args.notes,
+      reviewNotes: notes,
     });
     await ctx.db.insert("auditLog", {
       actorId: admin._id,
       action: "preset.approve",
       targetType: "preset",
       targetId: args.presetId,
-      reason: args.notes,
+      reason: notes,
       createdAt: Date.now(),
     });
   },
@@ -382,21 +397,25 @@ export const adminReject = mutation({
     const admin = await requireAdmin(ctx);
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");
+    const reason = normalizeReason(args.reason, {
+      required: true,
+      fieldName: "Rejection reason",
+    })!;
     await guardTransitionWithAudit(ctx, preset.reviewState, "rejected", {
       actorId: admin._id,
       targetId: args.presetId,
-      reason: args.reason,
+      reason,
     });
     await ctx.db.patch(args.presetId, {
       reviewState: "rejected",
-      rejectedReason: args.reason,
+      rejectedReason: reason,
     });
     await ctx.db.insert("auditLog", {
       actorId: admin._id,
       action: "preset.reject",
       targetType: "preset",
       targetId: args.presetId,
-      reason: args.reason,
+      reason,
       createdAt: Date.now(),
     });
   },
@@ -436,10 +455,11 @@ export const adminArchive = mutation({
     const admin = await requireAdmin(ctx);
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");
+    const reason = normalizeReason(args.reason, { fieldName: "Archive reason" });
     await guardTransitionWithAudit(ctx, preset.reviewState, "archived", {
       actorId: admin._id,
       targetId: args.presetId,
-      reason: args.reason,
+      reason,
     });
     await ctx.db.patch(args.presetId, {
       reviewState: "archived",
@@ -450,7 +470,7 @@ export const adminArchive = mutation({
       action: "preset.archive",
       targetType: "preset",
       targetId: args.presetId,
-      reason: args.reason,
+      reason,
       createdAt: Date.now(),
     });
   },

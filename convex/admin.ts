@@ -21,6 +21,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireAdmin } from "./lib/authz";
+import { normalizeReason } from "./lib/moderation";
 
 // ─── Review queue ───────────────────────────────────────────
 
@@ -195,18 +196,22 @@ export const forceUnlist = mutation({
     const admin = await requireAdmin(ctx);
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");
+    const reason = normalizeReason(args.reason, {
+      required: true,
+      fieldName: "Unlist reason",
+    })!;
     await ctx.db.patch(args.presetId, {
       status: "archived",
       reviewState: "archived",
       isPublic: false,
-      rejectedReason: args.reason,
+      rejectedReason: reason,
     });
     await ctx.db.insert("auditLog", {
       actorId: admin._id,
       action: "preset.unlist",
       targetType: "preset",
       targetId: args.presetId,
-      reason: args.reason,
+      reason,
       createdAt: Date.now(),
     });
   },
@@ -228,6 +233,10 @@ export const forceEditMetadata = mutation({
     const admin = await requireAdmin(ctx);
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");
+    const reason = normalizeReason(args.reason, {
+      required: true,
+      fieldName: "Force-edit reason",
+    })!;
     const updates: Record<string, unknown> = {};
     if (args.name !== undefined) updates.name = args.name;
     if (args.description !== undefined) updates.description = args.description;
@@ -241,7 +250,7 @@ export const forceEditMetadata = mutation({
       targetType: "preset",
       targetId: args.presetId,
       payload: JSON.stringify(updates),
-      reason: args.reason,
+      reason,
       createdAt: Date.now(),
     });
   },
@@ -269,16 +278,24 @@ export const setUserRole = mutation({
     }
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
+    const reason = normalizeReason(args.reason, {
+      fieldName: "Role-change reason",
+    });
 
-    // Last-admin lockout guard: if this change would remove the platform's
-    // final admin (either by demoting target OR by transitively leaving
-    // zero admins), refuse. Counts admins via a full table scan — fine at
-    // our scale, cheap to swap for an index later.
+    // Last-admin lockout guard: if this demotion would remove the platform's
+    // final admin, refuse. We cap the scan at 10_000 rows — if you have more
+    // users than that, add a `by_role` index on users and swap this for
+    // `.withIndex("by_role", q => q.eq("role", "admin")).first()` to find
+    // the cheapest proof of a second admin. Until then this is a bounded
+    // scan that short-circuits as soon as a second admin is found.
     const demoting = user.role === "admin" && args.role !== "admin";
     if (demoting) {
-      const allUsers = await ctx.db.query("users").collect();
-      const adminCount = allUsers.filter((u) => u.role === "admin").length;
-      if (adminCount <= 1) {
+      const SCAN_CAP = 10_000;
+      const candidates = await ctx.db.query("users").take(SCAN_CAP);
+      const otherAdminFound = candidates.some(
+        (u) => u._id !== user._id && u.role === "admin"
+      );
+      if (!otherAdminFound) {
         throw new Error(
           "Cannot demote the last admin — promote another user first"
         );
@@ -292,7 +309,7 @@ export const setUserRole = mutation({
       targetType: "user",
       targetId: args.userId,
       payload: JSON.stringify({ from: user.role ?? "user", to: args.role }),
-      reason: args.reason,
+      reason,
       createdAt: Date.now(),
     });
   },
