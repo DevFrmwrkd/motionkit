@@ -5,40 +5,7 @@ This is Steven's working punch list. Each item is scoped to be ~1 PR, has concre
 Inspiration for everything below: https://neuform.ai/
 
 
----
 
-
-## P1-7 — Saved Variants drawer in workstation
-
-**Problem.** Saved variants (customized versions of a preset's input values, without forking the code) are only accessible via URL params `?savedPresetId=...`. No UI to browse them while working. The `savedPresets` Convex table exists and has the data.
-
-**Files to touch.**
-- `app/src/components/workstation/InputControls.tsx` — add a "Variants" dropdown or drawer
-- `convex/savedPresets.ts` — query "variants for this preset + this user"
-- `app/src/hooks/` — possibly new `useSavedVariants(presetId)` hook
-
-**Acceptance.**
-- When viewing a preset in the workstation, a "Variants" control lets you switch between saved variants without reloading.
-- "Save as new variant" button captures current form state.
-- Variants show their name and last-modified time.
-
----
-
-## P1-8 — Preset VersionHistory UI
-
-**Problem.** `app/src/components/preset/VersionHistory.tsx` exists but is mostly placeholder. `presetVersions` table exists in schema. No rollback, no diff view.
-
-**Files to touch.**
-- `app/src/components/preset/VersionHistory.tsx`
-- `convex/presets.ts` — query versions for a preset, add `revertToVersion` mutation
-- Workstation header — wire the "history" button to actually open the panel
-
-**Acceptance.**
-- Timeline of versions with timestamp + change summary.
-- "Revert to this version" button with confirmation dialog.
-- Optional: side-by-side diff of schema values between two versions.
-
----
 
 ## P2-9 — Small bugs and polish items
 
@@ -192,5 +159,44 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/6
 - Broken presets show a helpful error card, not a blank screen or frozen player.
 - Search results show skeleton shimmer while loading.
 - Empty states have helpful copy + a CTA ("No forks yet — browse the marketplace →").
+
+---
+
+---
+
+
+## P1-7 — Saved Variants drawer in workstation
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
+
+**Problem.** Saved variants (customized versions of a preset's input values, without forking the code) are only accessible via URL params `?savedPresetId=...`. No UI to browse them while working. The `savedPresets` Convex table exists and has the data.
+
+**Files to touch.**
+- `app/src/components/workstation/InputControls.tsx` — add a "Variants" dropdown or drawer
+- `convex/savedPresets.ts` — query "variants for this preset + this user"
+- `app/src/hooks/` — possibly new `useSavedVariants(presetId)` hook
+
+**Acceptance.**
+- When viewing a preset in the workstation, a "Variants" control lets you switch between saved variants without reloading.
+- "Save as new variant" button captures current form state.
+- Variants show their name and last-modified time.
+
+---
+
+
+
+## P1-8 — Preset VersionHistory UI
+
+**Problem.** `app/src/components/preset/VersionHistory.tsx` exists but is mostly placeholder. `presetVersions` table exists in schema. No rollback, no diff view.
+
+**Files to touch.**
+- `app/src/components/preset/VersionHistory.tsx`
+- `convex/presets.ts` — query versions for a preset, add `revertToVersion` mutation
+- Workstation header — wire the "history" button to actually open the panel
+
+**Acceptance.**
+- Timeline of versions with timestamp + change summary.
+- "Revert to this version" button with confirmation dialog.
+- Optional: side-by-side diff of schema values between two versions.
 
 ---

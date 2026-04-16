@@ -900,7 +900,12 @@ function ActivePresetWorkspace({
 
             <div className="flex-1 border-l border-border bg-background flex flex-col z-10 min-h-0 overflow-hidden">
               {activePreset ? (
-                <VersionHistory presetId={activePreset._id as Id<"presets">} />
+                <VersionHistory
+                  presetId={activePreset._id as Id<"presets">}
+                  currentVersionId={activePreset.currentVersionId as Id<"presetVersions"> | undefined}
+                  userId={user?._id as Id<"users"> | undefined}
+                  isOwner={isOwner}
+                />
               ) : null}
               <InputControls
                 key={`${urlSavedPresetId ?? activePreset?._id ?? "empty"}:${
