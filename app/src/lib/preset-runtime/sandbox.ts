@@ -163,7 +163,6 @@ export const DENIED_GLOBALS = [
   "caches",
   "crypto",
   "postMessage",
-  "eval",
   "Function",
   "process",
   "require",
@@ -172,9 +171,16 @@ export const DENIED_GLOBALS = [
   "Buffer",
   "__dirname",
   "__filename",
-  "import",
   "importScripts",
 ] as const;
+// NB: `import` and `eval` are intentionally NOT in this list. They can't be
+// used as parameter names — `import` is a reserved keyword, and `eval` is
+// forbidden as a formal parameter in strict mode. Adding either would cause
+// `new Function(..., '"use strict"; ...')` itself to throw a SyntaxError at
+// parse time ("Unexpected token 'import'"), breaking every preset before any
+// user code runs. `import` as a statement is already stripped by
+// `preprocessSource`; dynamic `import(...)` and `eval(...)` are blocked by
+// the null-origin iframe's CSP / lack of network capability.
 
 /**
  * Execute a previously-compiled preset inside the capability scope.
@@ -191,6 +197,7 @@ export function executeInSandbox(compileResult: CompileResult): SandboxResult {
   }
 
   const scope = buildCapabilityScope();
+  
   const scopeKeys = Object.keys(scope);
   const scopeValues = Object.values(scope);
 

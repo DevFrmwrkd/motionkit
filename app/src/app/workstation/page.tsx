@@ -12,7 +12,9 @@ import { AddToProjectDialog } from "@/components/workstation/dialogs/AddToProjec
 import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
 import { ForkButton } from "@/components/preset/ForkButton";
 import { VersionHistory } from "@/components/preset/VersionHistory";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useSavedVariants } from "@/hooks/useSavedVariants";
 import { toast } from "sonner";
 import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -27,26 +29,44 @@ import { isRenderableBundle } from "@/lib/renderableCompositions";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
+  GitFork,
   Loader2,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
 } from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function WorkstationPage() {
   return (
-    <Suspense
+    <ErrorBoundary
       fallback={
-        <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" />
-          Loading workstation...
+        <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background">
+          <div className="text-center p-8 max-w-md">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              Workstation error
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              There was a problem loading the workstation. Please refresh the page.
+            </p>
+          </div>
         </div>
       }
     >
-      <WorkstationContent />
-    </Suspense>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-[calc(100svh-3.5rem)] bg-background text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Loading workstation...
+          </div>
+        }
+      >
+        <WorkstationContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -62,6 +82,14 @@ function WorkstationContent() {
   );
   const renderJobs = useQuery(
     api.renderJobs.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const savedPresets = useQuery(
+    api.savedPresets.listByUser,
+    user ? { userId: user._id as Id<"users"> } : "skip"
+  );
+  const collections = useQuery(
+    api.collections.listByUser,
     user ? { userId: user._id as Id<"users"> } : "skip"
   );
   const urlPresetId = searchParams.get("presetId");
@@ -84,15 +112,79 @@ function WorkstationContent() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
-  const handleSelectPreset = (id: string) => {
-    router.replace(`/workstation?presetId=${id}`);
-  };
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const [isResizing, setIsResizing] = useState(false);
+  const isResizingRef = useState({ current: false })[0];
+  // Re-sync ref to state for use in event listeners without re-attaching
+  useEffect(() => {
+    isResizingRef.current = isResizing;
+  }, [isResizing, isResizingRef]);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent | React.MouseEvent) => {
+      if (!isResizingRef.current) return;
+      // Calculate from window right edge to account for any layout clipping
+      const newWidth = Math.max(280, Math.min(500, window.innerWidth - e.clientX));
+
+      setRightPanelWidth(newWidth);
+    },
+    [isResizingRef]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseleave", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseleave", handleMouseUp);
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
+  const handleSelectPreset = useCallback(
+    (presetId: string, savedPresetId?: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("presetId", presetId);
+      if (savedPresetId) {
+        params.set("savedPresetId", savedPresetId);
+      } else {
+        params.delete("savedPresetId");
+      }
+      router.push(`/workstation?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
 
   return (
-    <div className="flex h-[calc(100svh-3.5rem)] overflow-hidden bg-background text-foreground font-sans">
+    <div
+      className={`flex h-[calc(100vh-64px)] w-full overflow-hidden bg-background relative ${
+        isResizing ? "select-none" : ""
+      }`}
+    >
+      {/* Global overlay during resize to catch all mouse events even over iframes */}
+      {isResizing && (
+        <div
+          className="fixed inset-0 z-[9999] cursor-col-resize pointer-events-auto"
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        />
+      )}
       {leftPanelOpen && (
-        <div className="w-[280px] shrink-0 border-r border-border bg-background flex flex-col z-10">
-          {presets === undefined ? (
+        <div className="w-80 shrink-0 border-r border-border bg-background flex flex-col z-10 min-h-0">
+          {!presets ? (
             <div className="p-4 text-muted-foreground text-sm flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading...
             </div>
@@ -104,7 +196,31 @@ function WorkstationContent() {
                 category: preset.category,
                 description: preset.description || "",
                 tags: preset.tags || [],
+                authorId: preset.authorId,
+                parentPresetId: preset.parentPresetId,
+                forkedFrom: preset.forkedFrom,
               }))}
+              savedVariants={
+                savedPresets
+                  ? savedPresets.map((sv) => ({
+                      _id: sv._id,
+                      name: sv.name,
+                      presetId: sv.presetId,
+                      presetName: "",
+                      authorName: "",
+                    }))
+                  : []
+              }
+              collections={
+                collections
+                  ? collections.map((col) => ({
+                      _id: col._id,
+                      name: col.name,
+                      description: col.description,
+                      presetCount: col.presetIds.length,
+                    }))
+                  : []
+              }
               activePresetId={effectivePresetId ?? undefined}
               onSelectPreset={handleSelectPreset}
             />
@@ -122,6 +238,9 @@ function WorkstationContent() {
         urlSavedPresetId={urlSavedPresetId}
         leftPanelOpen={leftPanelOpen}
         rightPanelOpen={rightPanelOpen}
+        rightPanelWidth={rightPanelWidth}
+        isResizing={isResizing}
+        startResizing={startResizing}
         onToggleLeftPanel={() => setLeftPanelOpen((open) => !open)}
         onToggleRightPanel={() => setRightPanelOpen((open) => !open)}
       />
@@ -151,6 +270,9 @@ interface ActivePresetWorkspaceProps {
   urlSavedPresetId: string | null;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
+  rightPanelWidth: number;
+  isResizing: boolean;
+  startResizing: (e: React.MouseEvent) => void;
   onToggleLeftPanel: () => void;
   onToggleRightPanel: () => void;
 }
@@ -164,13 +286,33 @@ function ActivePresetWorkspace({
   urlSavedPresetId,
   leftPanelOpen,
   rightPanelOpen,
+  rightPanelWidth,
+  isResizing,
+  startResizing,
   onToggleLeftPanel,
   onToggleRightPanel,
 }: ActivePresetWorkspaceProps) {
   const router = useRouter();
   const createRenderJob = useMutation(api.renderJobs.create);
   const updatePreset = useMutation(api.presets.update);
+  const createSavedVariant = useMutation(api.savedPresets.create);
   const dispatchRender = useAction(api.actions.renderWithLambda.dispatchRender);
+  const parentPresetId = activePreset?.parentPresetId ?? activePreset?.forkedFrom ?? null;
+  const parentPreset = useQuery(
+    api.presets.get,
+    parentPresetId
+      ? user
+        ? { id: parentPresetId, viewerId: user._id as Id<"users"> }
+        : { id: parentPresetId }
+      : "skip"
+  );
+  
+  // Saved variants for this preset
+  const variants = useSavedVariants(
+    activePreset?._id as Id<"presets"> | null,
+    user?._id as Id<"users"> | null
+  );
+  
   const [userProps, setUserProps] = useState<Record<string, unknown>>({});
   const [editedCode, setEditedCode] = useState<string | null>(null);
   const [ignoreSavedVariantProps, setIgnoreSavedVariantProps] = useState(false);
@@ -544,149 +686,252 @@ function ActivePresetWorkspace({
     router.replace(`/workstation?savedPresetId=${savedPresetId}`);
   };
 
+  const handleSaveNewVariant = async (variantName: string) => {
+    if (!user || !activePreset) {
+      toast.error("Sign in and select a preset to save a variant");
+      return;
+    }
+
+    try {
+      const savedVariantId = await createSavedVariant({
+        userId: user._id as Id<"users">,
+        presetId: activePreset._id as Id<"presets">,
+        name: variantName,
+        customProps: JSON.stringify(userProps),
+      });
+
+      // Switch to the newly saved variant
+      handleSavedVariant(savedVariantId);
+    } catch (err) {
+      throw err instanceof Error ? err : new Error("Failed to save variant");
+    }
+  };
+
+  const handleSelectVariant = (variant: Doc<"savedPresets">) => {
+    handleSavedVariant(variant._id);
+  };
+
   return (
     <>
-      <div className="flex-1 min-w-0 bg-background/40 flex flex-col">
-        {/* Workspace header — panel toggles on the edges, preset actions in
-            the middle. Replaces the absolute-overlay action cluster that used
-            to float over the video. */}
-        <div className="h-11 shrink-0 border-b border-border bg-background flex items-center justify-between px-3 gap-3">
-          <div className="flex items-center gap-1 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={onToggleLeftPanel}
-              aria-label={leftPanelOpen ? "Hide library" : "Show library"}
-              aria-pressed={!leftPanelOpen}
-            >
-              {leftPanelOpen ? (
-                <PanelLeftClose className="w-4 h-4" />
-              ) : (
-                <PanelLeftOpen className="w-4 h-4" />
-              )}
-            </Button>
-            {currentMeta?.name && (
-              <span className="ml-1 text-sm font-medium text-foreground truncate">
-                {currentMeta.name}
-              </span>
-            )}
-          </div>
-
-          {activePreset && user && (
-            <div className="flex items-center gap-2 shrink-0">
-              <AddToProjectDialog
-                userId={user._id as Id<"users">}
-                presetId={activePreset._id as Id<"presets">}
-                savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
-                triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5"
-              />
-              <SavePresetDialog
-                key={urlSavedPresetId ?? activePreset._id}
-                userId={user._id as Id<"users">}
-                presetId={activePreset._id as Id<"presets">}
-                presetName={activePreset.name}
-                customProps={inputProps}
-                triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5"
-                onSaved={handleSavedVariant}
-              />
-              <ForkButton
-                presetId={activePreset._id as Id<"presets">}
-                userId={(user._id as Id<"users">) ?? null}
-                onForked={handleForked}
-                className="border-border text-muted-foreground hover:bg-accent gap-1.5"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={onToggleRightPanel}
-                aria-label={
-                  rightPanelOpen ? "Hide controls" : "Show controls"
-                }
-                aria-pressed={!rightPanelOpen}
-              >
-                {rightPanelOpen ? (
-                  <PanelRightClose className="w-4 h-4" />
-                ) : (
-                  <PanelRightOpen className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-          )}
-
-          {(!activePreset || !user) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={onToggleRightPanel}
-              aria-label={
-                rightPanelOpen ? "Hide controls" : "Show controls"
-              }
-              aria-pressed={!rightPanelOpen}
-            >
-              {rightPanelOpen ? (
-                <PanelRightClose className="w-4 h-4" />
-              ) : (
-                <PanelRightOpen className="w-4 h-4" />
-              )}
-            </Button>
-          )}
-        </div>
-
-        {/* Pinned video stage — fills the available space aspect-aware. */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <PreviewPanel
-            trustedComponent={trustedPreset ? trustedPreset.component : null}
-            sourceCode={sandboxSource}
-            schemaJson={activePreset?.inputSchema ?? null}
-            inputProps={inputProps}
-            meta={currentMeta}
-            renderJobs={renderJobs}
-            isLoadingJobs={isLoadingJobs}
-            playerRef={handlePlayerRef}
-          />
-        </div>
-
-        <TimelinePanel
-          presetName={currentMeta?.name || null}
-          fps={currentMeta?.fps || 30}
-          durationInFrames={currentMeta?.durationInFrames || 150}
-          currentFrame={timelineFrame}
-          isPlaying={timelinePlaying}
-          isInteractive={Boolean(playerInstance)}
-          onPlayPause={handleTimelinePlayPause}
-          onSeek={handleTimelineSeek}
-          onJumpToStart={handleTimelineJumpToStart}
-          onJumpToEnd={handleTimelineJumpToEnd}
-        />
-      </div>
-
-      {rightPanelOpen && (
-        <div className="w-[360px] shrink-0 border-l border-border bg-background flex flex-col z-10 min-h-0">
-          {activePreset ? (
-            <VersionHistory presetId={activePreset._id as Id<"presets">} />
-          ) : null}
-          <InputControls
-            key={`${urlSavedPresetId ?? activePreset?._id ?? "empty"}:${
-              displayCode ?? "no-code"
-            }`}
-            schema={currentSchema}
-            values={inputProps}
-            onChange={handlePropChange}
-            onReset={handleReset}
-            onRender={handleRender}
-            isRendering={isRendering}
-            selectedFormats={selectedFormats}
-            onToggleFormat={handleToggleFormat}
-            onApplyBrandKit={handleApplyBrandKit}
-            sourceCode={displayCode}
-            canEditCode={isOwner}
-            onSaveCode={isOwner ? handleSaveCode : undefined}
-          />
-        </div>
+      {isResizing && (
+        <div className="fixed inset-0 z-[100] cursor-col-resize select-none pointer-events-auto" />
       )}
+      <div className={`flex flex-1 overflow-hidden ${isResizing ? "select-none" : ""}`}>
+        <div className="flex-1 min-w-0 bg-background/40 flex flex-col">
+          {/* Workspace header — panel toggles on the edges, preset actions in
+              the middle. Replaces the absolute-overlay action cluster that used
+              to float over the video. */}
+          <div className="h-11 shrink-0 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-between px-3 gap-3">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={[
+                    "h-8 w-8 transition-colors",
+                    leftPanelOpen
+                      ? "text-zinc-400 hover:text-zinc-100"
+                      : "text-zinc-600 hover:text-zinc-400",
+                  ].join(" ")}
+                  onClick={onToggleLeftPanel}
+                  aria-label={leftPanelOpen ? "Hide library" : "Show library"}
+                  aria-pressed={!leftPanelOpen}
+                >
+                  {leftPanelOpen ? (
+                    <PanelLeftClose className="w-4 h-4" />
+                  ) : (
+                    <PanelLeftOpen className="w-4 h-4" />
+                  )}
+                </Button>
+                {currentMeta?.name && (
+                  <span className="ml-0.5 text-sm font-medium text-zinc-100 truncate">
+                    {currentMeta.name}
+                  </span>
+                )}
+                {activePreset?.category && (
+                  <Badge variant="outline" className="ml-1.5 text-[10px] border-zinc-700 text-zinc-500 hidden sm:inline-flex">
+                    {activePreset.category}
+                  </Badge>
+                )}
+                {isRendering && (
+                  <Badge className="ml-1.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse">
+                    Rendering
+                  </Badge>
+                )}
+              </div>
+
+              {activePreset && user && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <AddToProjectDialog
+                    userId={user._id as Id<"users">}
+                    presetId={activePreset._id as Id<"presets">}
+                    savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
+                    triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
+                  />
+                  <SavePresetDialog
+                    key={urlSavedPresetId ?? activePreset._id}
+                    userId={user._id as Id<"users">}
+                    presetId={activePreset._id as Id<"presets">}
+                    presetName={activePreset.name}
+                    customProps={inputProps}
+                    triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
+                    onSaved={handleSavedVariant}
+                  />
+                  <ForkButton
+                    presetId={activePreset._id as Id<"presets">}
+                    userId={(user._id as Id<"users">) ?? null}
+                    onForked={handleForked}
+                    className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
+                  />
+                  <div className="w-px h-5 bg-zinc-800 mx-0.5" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={[
+                      "h-8 w-8 transition-colors",
+                      rightPanelOpen
+                        ? "text-zinc-400 hover:text-zinc-100"
+                        : "text-zinc-600 hover:text-zinc-400",
+                    ].join(" ")}
+                    onClick={onToggleRightPanel}
+                    aria-label={
+                      rightPanelOpen ? "Hide controls" : "Show controls"
+                    }
+                    aria-pressed={!rightPanelOpen}
+                  >
+                    {rightPanelOpen ? (
+                      <PanelRightClose className="w-4 h-4" />
+                    ) : (
+                      <PanelRightOpen className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {(!activePreset || !user) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={[
+                    "h-8 w-8 transition-colors",
+                    rightPanelOpen
+                      ? "text-zinc-400 hover:text-zinc-100"
+                      : "text-zinc-600 hover:text-zinc-400",
+                  ].join(" ")}
+                  onClick={onToggleRightPanel}
+                  aria-label={
+                    rightPanelOpen ? "Hide controls" : "Show controls"
+                  }
+                  aria-pressed={!rightPanelOpen}
+                >
+                  {rightPanelOpen ? (
+                    <PanelRightClose className="w-4 h-4" />
+                  ) : (
+                    <PanelRightOpen className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {parentPresetId && isOwner ? (
+              <div className="shrink-0 border-b border-violet-900/40 bg-violet-950/30 px-4 py-2 flex items-center gap-2 text-xs text-violet-200">
+                <GitFork className="w-3.5 h-3.5 shrink-0" />
+                <span className="min-w-0 truncate">
+                  You&apos;re remixing{" "}
+                  <span className="font-medium text-violet-100">
+                    @{parentPreset?.author ?? "creator"}
+                  </span>
+                  ’s preset — your changes are saved to your fork.
+                </span>
+                <Link
+                  href={`/p/${parentPresetId}`}
+                  className="ml-auto shrink-0 text-violet-200 hover:text-violet-50 underline underline-offset-2"
+                >
+                  View original
+                </Link>
+              </div>
+            ) : null}
+
+            {/* Pinned video stage — fills the available space aspect-aware. */}
+            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+              <PreviewPanel
+                trustedComponent={trustedPreset ? trustedPreset.component : null}
+                sourceCode={sandboxSource}
+                schemaJson={activePreset?.inputSchema ?? null}
+                inputProps={inputProps}
+                meta={currentMeta}
+                renderJobs={renderJobs}
+                isLoadingJobs={isLoadingJobs}
+                playerRef={handlePlayerRef}
+              />
+            </div>
+
+            <TimelinePanel
+              presetName={currentMeta?.name || null}
+              fps={currentMeta?.fps || 30}
+              durationInFrames={currentMeta?.durationInFrames || 150}
+              currentFrame={timelineFrame}
+              isPlaying={timelinePlaying}
+              isInteractive={Boolean(playerInstance)}
+              onPlayPause={handleTimelinePlayPause}
+              onSeek={handleTimelineSeek}
+              onJumpToStart={handleTimelineJumpToStart}
+              onJumpToEnd={handleTimelineJumpToEnd}
+            />
+        </div>
+
+        {rightPanelOpen && (
+          <div 
+            className="shrink-0 flex flex-col h-full overflow-hidden"
+            style={{ width: `${rightPanelWidth}px` }}
+          >
+            {/* Draggable handle positioned absolute relative to right panel to prevent blowout at 100% */}
+            <div
+              className={[
+                "absolute left-[-4px] top-0 bottom-0 w-2.5 cursor-col-resize z-50 group",
+                isResizing ? "bg-amber-500/80" : "bg-transparent",
+              ].join(" ")}
+              onMouseDown={startResizing}
+            >
+              {/* Wider hit-box for easier grabbing */}
+              <div className="absolute inset-y-0 -left-2 -right-2 bg-transparent" />
+              {/* Visual indicator line */}
+              <div className="absolute inset-y-0 left-[3px] w-px bg-border group-hover:bg-amber-500/50 transition-colors" />
+            </div>
+
+            <div className="flex-1 border-l border-border bg-background flex flex-col z-10 min-h-0 overflow-hidden">
+              {activePreset ? (
+                <VersionHistory
+                  presetId={activePreset._id as Id<"presets">}
+                  currentVersionId={activePreset.currentVersionId as Id<"presetVersions"> | undefined}
+                  userId={user?._id as Id<"users"> | undefined}
+                  isOwner={isOwner}
+                />
+              ) : null}
+              <InputControls
+                key={`${urlSavedPresetId ?? activePreset?._id ?? "empty"}:${
+                  displayCode ?? "no-code"
+                }`}
+                schema={currentSchema}
+                values={inputProps}
+                onChange={handlePropChange}
+                onReset={handleReset}
+                onRender={handleRender}
+                isRendering={isRendering}
+                selectedFormats={selectedFormats}
+                onToggleFormat={handleToggleFormat}
+                onApplyBrandKit={handleApplyBrandKit}
+                sourceCode={displayCode}
+                canEditCode={isOwner}
+                onSaveCode={isOwner ? handleSaveCode : undefined}
+                variants={variants}
+                currentVariantId={urlSavedPresetId ?? undefined}
+                onSelectVariant={handleSelectVariant}
+                onSaveNewVariant={handleSaveNewVariant}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

@@ -260,7 +260,7 @@ export const getPublicProfile = query({
     return {
       _id: user._id,
       name: user.name,
-      avatarUrl: user.avatarUrl,
+      avatarUrl: user.avatarUrl ?? user.image,
       bio: user.bio,
       website: user.website,
       socialLinks: user.socialLinks,

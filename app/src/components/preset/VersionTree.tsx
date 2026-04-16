@@ -38,7 +38,7 @@ export function VersionTree({ presetId }: VersionTreeProps) {
 
       {/* Forks */}
       {tree.versions.map((v) => (
-        <div key={v._id} className="ml-4 border-l border-border pl-3">
+        <div key={v._id} className="ml-3 border-l border-border pl-2.5">
           <VersionNode
             name={v.name}
             id={v._id}
@@ -68,23 +68,23 @@ function VersionNode({
   return (
     <Link
       href={`/workstation?presetId=${id}`}
-      className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${
+      className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] leading-tight transition-colors ${
         isActive
           ? "bg-amber-500/10 text-amber-400"
           : "text-muted-foreground hover:text-foreground hover:bg-accent"
       }`}
     >
-      <GitFork className="w-3 h-3 shrink-0" />
+      <GitFork className="w-2.5 h-2.5 shrink-0" />
       <span className="truncate flex-1">{name}</span>
       {isRoot && (
-        <Badge variant="outline" className="text-[9px] px-1 py-0 border-border">
+        <Badge variant="outline" className="text-[9px] px-1 py-0 border-border leading-none">
           Original
         </Badge>
       )}
       {cloneCount > 0 && (
         <span className="text-[10px] text-muted-foreground">{cloneCount} forks</span>
       )}
-      <ChevronRight className="w-3 h-3 opacity-50" />
+      <ChevronRight className="w-2.5 h-2.5 opacity-50" />
     </Link>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -13,6 +14,10 @@ interface ForkButtonProps {
   userId: Id<"users"> | null;
   onForked?: (newPresetId: Id<"presets">) => void;
   className?: string;
+  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
+  size?: "default" | "sm" | "lg" | "icon";
+  label?: ReactNode;
+  stopPropagation?: boolean;
 }
 
 export function ForkButton({
@@ -20,13 +25,23 @@ export function ForkButton({
   userId,
   onForked,
   className,
+  variant = "outline",
+  size = "sm",
+  label = "Remix",
+  stopPropagation = false,
 }: ForkButtonProps) {
+  const router = useRouter();
   const clonePreset = useMutation(api.presets.clonePreset);
   const [isForking, setIsForking] = useState(false);
 
-  const handleFork = async () => {
+  const handleFork = async (event: MouseEvent<HTMLButtonElement>) => {
+    if (stopPropagation) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     if (!userId) {
-      toast.error("Sign in to fork presets");
+      toast.error("Sign in to remix presets");
       return;
     }
 
@@ -36,10 +51,20 @@ export function ForkButton({
         sourcePresetId: presetId,
         userId,
       });
-      toast.success("Forked to your library");
+      toast.success("Remixed to your library", {
+        description: "Your fork is ready to edit.",
+        action: {
+          label: "Open Fork →",
+          onClick: () => {
+            router.push(`/workstation?presetId=${newPresetId}`);
+          },
+        },
+      });
       onForked?.(newPresetId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to fork preset");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remix preset"
+      );
     } finally {
       setIsForking(false);
     }
@@ -47,9 +72,9 @@ export function ForkButton({
 
   return (
     <Button
-      onClick={() => void handleFork()}
-      variant="outline"
-      size="sm"
+      onClick={(event) => void handleFork(event)}
+      variant={variant}
+      size={size}
       className={className}
       disabled={isForking}
     >
@@ -58,7 +83,7 @@ export function ForkButton({
       ) : (
         <GitFork className="w-3.5 h-3.5" />
       )}
-      Fork
+      {label}
     </Button>
   );
 }

@@ -43,3 +43,12 @@ temp/
 npm-debug.log*
 pnpm-debug.log*
 .vercel/
+
+/.agents
+/.claude
+/.kiro
+/.windsurfer
+skills
+
+AGENTS.md
+CLAUDE.md

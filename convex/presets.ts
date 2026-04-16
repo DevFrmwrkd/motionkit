@@ -500,3 +500,58 @@ export const listByUser = query({
     return sortNewestFirst(presets);
   },
 });
+
+export const getVersionsForPreset = query({
+  args: {
+    presetId: v.id("presets"),
+    viewerId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const preset = await ctx.db.get(args.presetId);
+    if (!preset) return null;
+    if (!canAccessPreset(preset, args.viewerId)) return null;
+
+    // Get all versions of this preset in reverse chronological order (newest first)
+    const versions = await ctx.db
+      .query("presetVersions")
+      .withIndex("by_preset", (q) => q.eq("presetId", args.presetId))
+      .collect();
+
+    return versions.sort((a, b) => b.versionNumber - a.versionNumber);
+  },
+});
+
+export const revertToVersion = mutation({
+  args: {
+    presetId: v.id("presets"),
+    versionId: v.id("presetVersions"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireSignedInUser(ctx);
+
+    const preset = await ctx.db.get(args.presetId);
+    if (!preset) throw new Error("Preset not found");
+
+    // Only the owner can revert
+    if (preset.authorId !== args.userId) {
+      throw new Error("Only the preset owner can revert versions");
+    }
+
+    const version = await ctx.db.get(args.versionId);
+    if (!version) throw new Error("Version not found");
+    if (version.presetId !== args.presetId) throw new Error("Version does not belong to this preset");
+
+    // Update the preset to point to this version
+    await ctx.db.patch(args.presetId, {
+      currentVersionId: args.versionId,
+      sourceCode: version.sourceCode,
+      inputSchema: version.inputSchema,
+      bundleUrl: version.bundleR2Key,
+      bundleHash: version.bundleHash,
+      bundleSignature: version.bundleSignature,
+    });
+
+    return preset;
+  },
+});

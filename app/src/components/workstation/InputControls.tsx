@@ -11,6 +11,7 @@ import {
   BrandKitPicker,
   type MockBrandKit,
 } from "@/components/workstation/BrandKitPicker";
+import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
   RotateCcw,
@@ -24,6 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PresetSchema } from "@/lib/types";
+import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { VariantsDropdown } from "@/components/workstation/VariantsDropdown";
 
 interface InputControlsProps {
   schema: PresetSchema | null;
@@ -38,16 +41,22 @@ interface InputControlsProps {
   sourceCode?: string | null;
   canEditCode?: boolean;
   onSaveCode?: (code: string) => Promise<void> | void;
+  /** Saved variants of the current preset */
+  variants?: Doc<"savedPresets">[] | undefined;
+  currentVariantId?: string;
+  onSelectVariant?: (variant: Doc<"savedPresets">) => void;
+  onSaveNewVariant?: (name: string) => Promise<void>;
 }
 
 /**
  * Right rail: schema controls, export formats, and optional code view/editor.
  *
  * Sections are presented in a clear hierarchy:
- *   1. Parameters — the primary task
- *   2. Brand Kit — optional polish layer
- *   3. Export Formats — picked before hitting render
- *   4. Code — view or edit the underlying preset source
+ *   1. Variants — switch between saved customizations (P1-7)
+ *   2. Parameters — the primary task
+ *   3. Brand Kit — optional polish layer
+ *   4. Export Formats — picked before hitting render
+ *   5. Code — view or edit the underlying preset source
  *
  * The render button is pinned to the bottom so it never scrolls away.
  */
@@ -64,10 +73,16 @@ export function InputControls({
   sourceCode,
   canEditCode = false,
   onSaveCode,
+  variants,
+  currentVariantId,
+  onSelectVariant,
+  onSaveNewVariant,
+
 }: InputControlsProps) {
   const [editableCode, setEditableCode] = useState(sourceCode ?? "");
   const [codeChanged, setCodeChanged] = useState(false);
   const [codeMode, setCodeMode] = useState<"view" | "edit">("view");
+
   // Track the last sourceCode we've seen so we can reset editor state when
   // the parent switches presets (or otherwise swaps the source). This uses
   // the "adjust state during render" pattern from React docs — it's the
@@ -118,20 +133,29 @@ export function InputControls({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Header — the preset name is already shown in the workspace bar, so
-          this header just anchors the panel and exposes a reset shortcut. */}
-      <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Controls
-        </h2>
+    <div className="flex flex-col flex-1 min-h-0 min-w-0">
+      {/* Header — variants dropdown on left, reset button on right */}
+      <div className="flex items-center justify-between px-3 h-9 border-b border-border shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 shrink-0">
+            Controls
+          </h2>
+          {onSelectVariant && onSaveNewVariant && (
+            <VariantsDropdown
+              variants={variants}
+              currentVariantId={currentVariantId}
+              onSelectVariant={onSelectVariant}
+              onSaveNewVariant={onSaveNewVariant}
+            />
+          )}
+        </div>
         <button
           onClick={onReset}
           className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
           title="Reset to defaults"
           aria-label="Reset to defaults"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -140,13 +164,13 @@ export function InputControls({
         defaultValue="controls"
         className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
-        <TabsList className="mx-4 mt-3 shrink-0 bg-card border border-border">
-          <TabsTrigger value="controls" className="text-xs gap-1">
+        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-max gap-0">
+          <TabsTrigger value="controls" className="text-[10px] py-1 px-2 gap-1 h-7">
             <Sliders className="w-3 h-3" />
             Controls
           </TabsTrigger>
           {sourceCode && (
-            <TabsTrigger value="code" className="text-xs gap-1">
+            <TabsTrigger value="code" className="text-[10px] py-1 px-2 gap-1 h-7">
               <Code2 className="w-3 h-3" />
               Code
             </TabsTrigger>
@@ -154,16 +178,16 @@ export function InputControls({
         </TabsList>
 
         {/* Controls tab */}
-        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col">
-          <ScrollArea className="flex-1">
-            <div className="px-4 py-4 space-y-6">
+        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="px-3 py-3 space-y-4">
               {/* Parameters */}
               <section>
                 <SectionLabel
                   title="Parameters"
                   description="Tweak the preset inputs in real time."
                 />
-                <div className="mt-3">
+                <div className="mt-2">
                   <SchemaForm
                     schema={schema}
                     values={values}
@@ -178,18 +202,18 @@ export function InputControls({
                   title="Brand Kit"
                   description="Apply a saved palette, font, and copy in one click."
                 />
-                <div className="mt-3">
+                <div className="mt-2">
                   <BrandKitPicker onApplyKit={onApplyBrandKit} />
                 </div>
               </section>
 
               {/* Export formats */}
-              <section className="pb-2">
+              <section className="pb-1">
                 <SectionLabel
                   title="Export Formats"
                   description="Pick one or more aspect ratios to render."
                 />
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
                   {EXPORT_FORMATS.map((format) => {
                     const isSelected = selectedFormats.includes(format.id);
                     return (
@@ -198,14 +222,14 @@ export function InputControls({
                         type="button"
                         onClick={() => onToggleFormat(format.id)}
                         aria-pressed={isSelected}
-                        className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                        className={`rounded border px-2 py-1.5 text-left transition-colors ${
                           isSelected
                             ? "border-amber-500/60 bg-amber-500/10 text-foreground"
                             : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground"
                         }`}
                       >
-                        <div className="text-xs font-semibold">{format.id}</div>
-                        <div className="text-[10px] opacity-80">
+                        <div className="text-[11px] font-semibold">{format.id}</div>
+                        <div className="text-[9px] opacity-80">
                           {format.label} · {format.width}×{format.height}
                         </div>
                       </button>
@@ -219,8 +243,8 @@ export function InputControls({
 
         {/* Code tab — view/edit toggled via segmented control */}
         {sourceCode && (
-          <TabsContent value="code" className="flex-1 min-h-0 flex flex-col">
-            <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between gap-2">
+          <TabsContent value="code" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="px-3 pt-3 pb-2 shrink-0 flex items-center justify-between gap-2">
               <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
                 <button
                   type="button"
@@ -259,14 +283,14 @@ export function InputControls({
             </div>
 
             {codeMode === "view" ? (
-              <ScrollArea className="flex-1">
-                <div className="px-4 pb-4">
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="px-3 pb-4">
                   <CodePreview code={sourceCode} />
                 </div>
               </ScrollArea>
             ) : (
               <>
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 min-h-0">
                   <div className="px-4 pb-4">
                     <p className="text-xs text-muted-foreground mb-3">
                       Edit the component code. Save to update the preview.
@@ -308,7 +332,7 @@ export function InputControls({
       </Tabs>
 
       {/* Render button — always visible at bottom */}
-      <div className="relative z-10 bg-background p-4 border-t border-border shrink-0">
+      <div className="relative z-10 bg-background p-3 border-t border-border shrink-0">
         <Button
           onClick={onRender}
           disabled={isRendering}

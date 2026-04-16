@@ -14,10 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Sparkles, Loader2 } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { PresetCardSkeleton } from "@/components/marketplace/PresetCardSkeleton";
 
 const CATEGORIES = [
   { value: "all", label: "All" },
@@ -109,11 +110,11 @@ export default function MarketplacePage() {
               placeholder="Search presets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-card border-border"
+              className="pl-10 bg-zinc-900/50 border-zinc-800 focus:border-amber-500/40 focus:ring-amber-500/10"
             />
           </div>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[180px] bg-card border-border">
+            <SelectTrigger className="w-[180px] bg-zinc-900/50 border-zinc-800">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -134,11 +135,12 @@ export default function MarketplacePage() {
                 setActiveCategory(cat.value);
                 setSearchQuery("");
               }}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={[
+                "px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
                 activeCategory === cat.value
-                  ? "bg-amber-500/20 text-amber-500 border border-amber-500/30"
-                  : "text-muted-foreground border border-border hover:border-zinc-700 hover:text-foreground"
-              }`}
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/40 shadow-sm shadow-amber-500/10"
+                  : "text-zinc-400 border border-zinc-800 hover:border-zinc-600 hover:text-zinc-200 hover:bg-zinc-800/50 hover:shadow-sm hover:shadow-zinc-900/50",
+              ].join(" ")}
             >
               {cat.label}
             </button>
@@ -147,8 +149,10 @@ export default function MarketplacePage() {
 
         {/* Grid */}
         {displayPresets === undefined ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+            {Array.from({ length: 15 }).map((_, i) => (
+              <PresetCardSkeleton key={i} />
+            ))}
           </div>
         ) : displayPresets.length === 0 ? (
           <EmptyState
@@ -168,7 +172,7 @@ export default function MarketplacePage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
             {displayPresets.map((preset) => (
               <PresetCard
                 key={preset._id}

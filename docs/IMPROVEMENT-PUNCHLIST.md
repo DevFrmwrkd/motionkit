@@ -6,7 +6,23 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P0-1 — Marketplace vs. "My Creations" separation
+## How to use this doc
+
+1. Pick the top unclaimed item.
+2. Read the files in "Files to touch" before writing any code.
+3. Open a draft PR with your branch + a link to the matching ClickUp task.
+4. Post before/after screenshots in the PR for any visual change.
+5. Update this doc when you finish — add a ✅ and the PR link next to the item.
+6. If you find something new that belongs on this list, add it under the right priority bucket.
+
+## Completed
+
+<!-- Steven: move items here when merged, with PR link -->
+
+
+## P0-1 — Marketplace vs. "My Creations" separation  ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/1
 
 **Problem.** The `presets` table mixes authored presets (`authorId`), forks (`parentPresetId`), and published marketplace items (`status: "published"`, `isPublic: true`). The workstation `PresetLibrary` (left panel) shows them all in one flat list, and downloaded/forked presets are indistinguishable from originals. Collections exist but are only reachable from `/dashboard/collections` — they are not wired into the library browsing flow in the workstation.
 
@@ -28,7 +44,9 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P0-2 — Remix / Clone flow
+## P0-2 — Remix / Clone flow ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/2
 
 **Problem.** `ForkButton` exists (`app/src/components/preset/ForkButton.tsx`) but it's a small outline button only visible in the workstation header *after* you've already opened a preset. In the marketplace, there's no prominent "Clone to Workspace" CTA on cards or on the preset detail page. There's no post-fork feedback — user forks, nothing obvious happens, they have to figure out where the fork went.
 
@@ -48,7 +66,9 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P0-3 — Public creator profile pages
+## P0-3 — Public creator profile pages ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/3
 
 **Problem.** `convex/users.ts` already has `getPublicProfile` (lines ~236-274) with `bio`, `website`, `socialLinks`, `isPublicProfile` fields. None of it is rendered anywhere. Author names on preset cards are plain text with no link. There's no page showing "all presets by this creator".
 
@@ -69,7 +89,9 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P0-4 — Marketplace PresetCard redesign
+## P0-4 — Marketplace PresetCard redesign ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/4
 
 **Problem.** `app/src/components/marketplace/PresetCard.tsx` (lines ~70-89) falls back to a plain centered uppercase category label ("INTRO", "TRANSITION") when there's no thumbnail. This is the dominant visual in the marketplace and it looks like a placeholder. Hover states are minimal. No visual hierarchy between free/premium, popular/new.
 
@@ -86,7 +108,10 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P1-5 — Design system pass (Landing / Marketplace / Dashboard / Workstation)
+
+## P1-5 — Design system pass (Landing / Marketplace / Dashboard / Workstation) ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/5
 
 **Problem.** Landing hero uses aggressive amber/orange gradient. Marketplace + dashboard + workstation use flat zinc tones with minimal accent color usage. Category buttons are plain pills. Stat cards on the dashboard are flat with small icons and no color coding. Workstation header is sparse.
 
@@ -105,9 +130,9 @@ Inspiration for everything below: https://neuform.ai/
 
 **Constraint.** Do not install a new design system. Use existing Shadcn/UI + Tailwind + the amber/violet/zinc palette.
 
----
-
-## P1-6 — Loading + error states
+## P1-6 — Loading + error states ✅
+ 
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/6
 
 **Problem.** Several flows silently hang. Marketplace search shows nothing while loading. Sandboxed preset player has no error boundary — a broken preset can freeze the workstation. Compile error tracking exists in schema but user feedback is generic.
 
@@ -125,7 +150,12 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P1-7 — Saved Variants drawer in workstation
+---
+
+
+## P1-7 — Saved Variants drawer in workstation ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 
 **Problem.** Saved variants (customized versions of a preset's input values, without forking the code) are only accessible via URL params `?savedPresetId=...`. No UI to browse them while working. The `savedPresets` Convex table exists and has the data.
 
@@ -141,7 +171,9 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P1-8 — Preset VersionHistory UI
+
+
+## P1-8 — Preset VersionHistory UI ✅
 
 **Problem.** `app/src/components/preset/VersionHistory.tsx` exists but is mostly placeholder. `presetVersions` table exists in schema. No rollback, no diff view.
 
@@ -157,7 +189,10 @@ Inspiration for everything below: https://neuform.ai/
 
 ---
 
-## P2-9 — Small bugs and polish items
+
+## P2-9 — Small bugs and polish items ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/9
 
 Individually too small for P0/P1 but worth burning through in one cleanup PR:
 
@@ -165,18 +200,3 @@ Individually too small for P0/P1 but worth burning through in one cleanup PR:
 - **AddToProjectDialog** — `app/src/components/workstation/dialogs/AddToProjectDialog.tsx`. Blocks user if they have no projects. Add inline "Create new project" option.
 - **Earnings page** — `app/src/app/creator/earnings/page.tsx`. Either implement a stub ("Coming in Phase 4") or hide the nav link until monetization ships.
 - **Build worker script** — `app/scripts/build-worker.sh` already has uncommitted improvements from a prior session. Review and commit if the build still works.
-
----
-
-## How to use this doc
-
-1. Pick the top unclaimed item.
-2. Read the files in "Files to touch" before writing any code.
-3. Open a draft PR with your branch + a link to the matching ClickUp task.
-4. Post before/after screenshots in the PR for any visual change.
-5. Update this doc when you finish — add a ✅ and the PR link next to the item.
-6. If you find something new that belongs on this list, add it under the right priority bucket.
-
-## Completed
-
-<!-- Steven: move items here when merged, with PR link -->

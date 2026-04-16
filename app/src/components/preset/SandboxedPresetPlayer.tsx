@@ -20,8 +20,10 @@
  * itself owns.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { Ref } from "react";
+import type { PlayerRef } from "@remotion/player";
+import { Loader2, AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
 
 interface SandboxedPresetPlayerProps {
   code: string;
@@ -33,11 +35,25 @@ interface SandboxedPresetPlayerProps {
   aspectRatio?: number;
   /** Called whenever the sandbox reports or clears a compile/runtime error. */
   onErrorChange?: (error: string | null) => void;
+  /**
+   * Parent-facing handle that behaves like a Remotion `PlayerRef`. The sandbox
+   * Player lives inside a null-origin iframe we can't reach directly, so we
+   * shim the subset of the API the workstation timeline uses (getCurrentFrame,
+   * isPlaying, play/pause/seekTo, add/removeEventListener) on top of a
+   * postMessage transport. Enough for timeline scrubbing and play-state sync;
+   * not a full PlayerRef (no volume, no fullscreen, no in-out points).
+   */
+  playerRef?: Ref<PlayerRef | null>;
 }
 
 type GuestMessage =
   | { type: "ready" }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "frameupdate"; frame: number }
+  | { type: "seeked"; frame: number }
+  | { type: "play" }
+  | { type: "pause" }
+  | { type: "ended" };
 
 export function SandboxedPresetPlayer({
   code,
@@ -47,10 +63,63 @@ export function SandboxedPresetPlayer({
   className,
   aspectRatio = 16 / 9,
   onErrorChange,
+  playerRef,
 }: SandboxedPresetPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Local shadow of the iframe player's state. Kept in refs (not state) so
+  // getCurrentFrame/isPlaying return synchronously without causing renders.
+  const currentFrameRef = useRef(0);
+  const isPlayingRef = useRef(false);
+
+  // Event listeners registered via the adapter's addEventListener. We only
+  // need the set the workstation timeline subscribes to.
+  type ListenerMap = {
+    frameupdate: Set<(e: { detail: { frame: number } }) => void>;
+    seeked: Set<(e: { detail: { frame: number } }) => void>;
+    play: Set<() => void>;
+    pause: Set<() => void>;
+    ended: Set<() => void>;
+  };
+  const listenersRef = useRef<ListenerMap>({
+    frameupdate: new Set(),
+    seeked: new Set(),
+    play: new Set(),
+    pause: new Set(),
+    ended: new Set(),
+  });
+
+  const postToIframe = (msg: unknown) => {
+    iframeRef.current?.contentWindow?.postMessage(msg, "*");
+  };
+
+  // Build the PlayerRef-shaped adapter. Cast through `unknown` because we
+  // intentionally implement only the methods the workstation uses.
+  useImperativeHandle(
+    playerRef,
+    () => {
+      const adapter = {
+        getCurrentFrame: () => currentFrameRef.current,
+        isPlaying: () => isPlayingRef.current,
+        play: () => postToIframe({ type: "play" }),
+        pause: () => postToIframe({ type: "pause" }),
+        seekTo: (frame: number) => postToIframe({ type: "seek", frame }),
+        addEventListener: (event: keyof ListenerMap, handler: unknown) => {
+          const set = listenersRef.current[event];
+          if (set) (set as Set<unknown>).add(handler);
+        },
+        removeEventListener: (event: keyof ListenerMap, handler: unknown) => {
+          const set = listenersRef.current[event];
+          if (set) (set as Set<unknown>).delete(handler);
+        },
+      };
+      return adapter as unknown as PlayerRef;
+    },
+    // Only needs to run once — the adapter's behavior is ref-driven.
+    []
+  );
 
   // Listen for messages from the sandbox.
   useEffect(() => {
@@ -69,6 +138,25 @@ export function SandboxedPresetPlayer({
       } else if (data.type === "error") {
         setError(data.error);
         onErrorChange?.(data.error);
+      } else if (data.type === "frameupdate") {
+        currentFrameRef.current = data.frame;
+        for (const l of listenersRef.current.frameupdate) {
+          l({ detail: { frame: data.frame } });
+        }
+      } else if (data.type === "seeked") {
+        currentFrameRef.current = data.frame;
+        for (const l of listenersRef.current.seeked) {
+          l({ detail: { frame: data.frame } });
+        }
+      } else if (data.type === "play") {
+        isPlayingRef.current = true;
+        for (const l of listenersRef.current.play) l();
+      } else if (data.type === "pause") {
+        isPlayingRef.current = false;
+        for (const l of listenersRef.current.pause) l();
+      } else if (data.type === "ended") {
+        isPlayingRef.current = false;
+        for (const l of listenersRef.current.ended) l();
       }
     }
 
@@ -136,9 +224,9 @@ export function SandboxedPresetPlayer({
     >
       <iframe
         ref={iframeRef}
-        // Next/Cloudflare normalizes away trailing `.html`, so we point at
-        // the extension-less path to skip a 307 redirect round-trip.
-        src="/sandbox/preset"
+        // Locally, we must include .html so the Dev Server serves the raw file
+        // instead of hitting the 404 router and injecting dev-mode scripts.
+        src="/sandbox/preset.html"
         title="Preset preview (sandboxed)"
         // allow-scripts WITHOUT allow-same-origin gives this frame a null
         // origin. It cannot read any of our app state.
@@ -182,13 +270,129 @@ export function SandboxedPresetPlayer({
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
-            color: "#f87171",
-            fontSize: 12,
-            textAlign: "center",
-            background: "rgba(9, 9, 11, 0.9)",
+            background: "rgba(9, 9, 11, 0.95)",
           }}
         >
-          {error}
+          <div style={{ textAlign: "center", maxWidth: "420px" }}>
+            {/* Error icon */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <AlertCircle
+                className="w-10 h-10 text-red-500"
+                style={{ position: "relative" }}
+              />
+            </div>
+
+            {/* Error message */}
+            <h3
+              style={{
+                color: "#fafafa",
+                fontSize: 14,
+                fontWeight: 600,
+                marginBottom: 4,
+              }}
+            >
+              Preset Error
+            </h3>
+            <p
+              style={{
+                color: "#a1a1aa",
+                fontSize: 12,
+                marginBottom: 16,
+                lineHeight: "1.5",
+                maxHeight: "120px",
+                overflowY: "auto",
+                wordBreak: "break-word",
+              }}
+            >
+              {error}
+            </p>
+
+            {/* Action buttons */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "center",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setError(null);
+                  handleLoad();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                  background: "rgba(168, 85, 247, 0.1)",
+                  color: "#d8b4fe",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "all 200ms",
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLButtonElement).style.background =
+                    "rgba(168, 85, 247, 0.2)";
+                  (e.target as HTMLButtonElement).style.borderColor =
+                    "rgba(168, 85, 247, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLButtonElement).style.background =
+                    "rgba(168, 85, 247, 0.1)";
+                  (e.target as HTMLButtonElement).style.borderColor =
+                    "rgba(168, 85, 247, 0.3)";
+                }}
+              >
+                <RotateCcw style={{ width: 12, height: 12 }} />
+                Reload
+              </button>
+              <a
+                href="https://github.com/DevFrmwrkd/motionkit/issues/new?title=Preset%20Error&labels=bug"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "#fca5a5",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "all 200ms",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLAnchorElement).style.background =
+                    "rgba(239, 68, 68, 0.2)";
+                  (e.target as HTMLAnchorElement).style.borderColor =
+                    "rgba(239, 68, 68, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLAnchorElement).style.background =
+                    "rgba(239, 68, 68, 0.1)";
+                  (e.target as HTMLAnchorElement).style.borderColor =
+                    "rgba(239, 68, 68, 0.3)";
+                }}
+              >
+                <MessageCircle style={{ width: 12, height: 12 }} />
+                Report
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
