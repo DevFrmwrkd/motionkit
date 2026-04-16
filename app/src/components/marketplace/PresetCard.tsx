@@ -307,17 +307,16 @@ export function PresetCard({
     >
       <Card
         className={[
-          "overflow-hidden transition-all duration-300 h-full flex flex-col",
-          "bg-zinc-950 border-zinc-800/60",
-          // Tactile hover: lift + glow + border shift
-          "hover:translate-y-[-3px] hover:shadow-lg hover:shadow-amber-500/5",
-          "hover:border-amber-500/30",
+          "overflow-hidden transition-all duration-200 h-full flex flex-col gap-0 py-0",
+          "bg-card border-border/80",
+          // Subtle, app-like hover: lift + border + ring
+          "hover:-translate-y-0.5 hover:border-border hover:shadow-md hover:shadow-black/30",
           // Premium cards: subtle violet ring
-          isPremium ? "ring-1 ring-violet-500/20 hover:ring-violet-500/40" : "",
+          isPremium ? "ring-1 ring-violet-500/25 hover:ring-violet-500/50" : "",
         ].join(" ")}
       >
-        {/* Thumbnail area (always showing geometric gradients as requested) */}
-        <div className="aspect-video relative overflow-hidden">
+        {/* Thumbnail area — framed inside card so animations don't bleed into page bg */}
+        <div className="aspect-video relative overflow-hidden border-b border-border/60">
           <div
             className={`absolute inset-0 bg-gradient-to-br ${gradient} transition-all duration-500 group-hover:brightness-125`}
           >
@@ -425,7 +424,7 @@ export function PresetCard({
           </div>
         </div>
 
-        <CardContent className="p-3.5 flex-1 flex flex-col gap-2.5">
+        <CardContent className="p-3 flex-1 flex flex-col gap-2.5">
           <div className="flex items-start gap-2.5">
             {/* Vote buttons */}
             <VoteButtons
@@ -438,11 +437,11 @@ export function PresetCard({
 
             {/* Title + description */}
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-zinc-100 group-hover:text-amber-400 transition-colors duration-200 truncate leading-snug">
+              <h3 className="text-sm font-semibold text-foreground transition-colors duration-200 truncate leading-snug">
                 {preset.name}
               </h3>
               {preset.description && (
-                <p className="text-xs text-zinc-500 line-clamp-2 mt-0.5 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
                   {preset.description}
                 </p>
               )}
@@ -450,33 +449,51 @@ export function PresetCard({
           </div>
 
           {/* Footer */}
-          <div className="mt-auto pt-2.5 border-t border-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-500">
+          <div className="mt-auto pt-2.5 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="truncate mr-2">
-              {preset.authorId ? (
-                <Link
-                  href={`/creators/${preset.authorId}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="font-medium text-zinc-400 hover:text-amber-400 transition-colors"
-                >
-                  {preset.author ?? "Unknown"}
-                </Link>
-              ) : (
-                <span className="font-medium text-zinc-400">
-                  {preset.author ?? "Unknown"}
-                </span>
-              )}
+              {(() => {
+                // Seeded/built-in presets (Claude, MotionKit, Gemini) have no
+                // authorId, but we still want the name to lead to a profile.
+                // Fall back to a name-slug so the creator page can synthesize
+                // an AI-tester profile for them.
+                const slug =
+                  preset.authorId ??
+                  (preset.author
+                    ? preset.author
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "")
+                    : "");
+                if (slug) {
+                  return (
+                    <Link
+                      href={`/creators/${slug}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {preset.author ?? "Unknown"}
+                    </Link>
+                  );
+                }
+                return (
+                  <span className="font-medium text-muted-foreground">
+                    {preset.author ?? "Unknown"}
+                  </span>
+                );
+              })()}
             </span>
             <div className="flex items-center gap-2.5 shrink-0 tabular-nums">
               <span className="flex items-center gap-1">
-                <Download className="size-3 text-zinc-600" />
+                <Download className="size-3 opacity-60" />
                 {(preset.downloads ?? 0).toLocaleString()}
               </span>
               <span className="flex items-center gap-1">
-                <GitFork className="size-3 text-zinc-600" />
+                <GitFork className="size-3 opacity-60" />
                 {(preset.cloneCount ?? 0).toLocaleString()}
               </span>
               <span className="flex items-center gap-1">
-                <Eye className="size-3 text-zinc-600" />
+                <Eye className="size-3 opacity-60" />
                 {(preset.viewCount ?? 0).toLocaleString()}
               </span>
             </div>

@@ -14,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Sparkles } from "lucide-react";
+import { Search, Sparkles, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { PresetCardSkeleton } from "@/components/marketplace/PresetCardSkeleton";
+import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "all", label: "All" },
@@ -98,66 +99,99 @@ export default function MarketplacePage() {
     [user, castVote]
   );
 
+  const resultCount = displayPresets?.length ?? 0;
+
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6 pt-4">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Motion Graphics <span className="text-amber-500">Marketplace</span>
-          </h1>
-          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-            Browse community-created motion graphics presets. Clone, customize,
-            and make them your own.
-          </p>
-        </div>
-
-        {/* Search + Sort */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search presets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-zinc-900/50 border-zinc-800 focus:border-amber-500/40 focus:ring-amber-500/10"
-            />
+    <div className="flex flex-1 flex-col">
+      {/* Sticky header — page title + toolbar. Minimal, app-like. */}
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="px-6 py-5 flex flex-col gap-4">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Marketplace</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Browse community-created motion graphics. Clone, customize, remix.
+              </p>
+            </div>
+            <Link href="/create">
+              <Button size="sm" className="gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Create preset
+              </Button>
+            </Link>
           </div>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-            <SelectTrigger className="w-[180px] bg-zinc-900/50 border-zinc-800">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="trending">Trending</SelectItem>
-              <SelectItem value="popular">Most Popular</SelectItem>
-              <SelectItem value="recent">Most Recent</SelectItem>
-              <SelectItem value="highest-rated">Highest Rated</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Category filters */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => {
-                setActiveCategory(cat.value);
-                setSearchQuery("");
-              }}
-              className={[
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200",
-                activeCategory === cat.value
-                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/40 shadow-sm shadow-amber-500/10"
-                  : "text-zinc-400 border border-zinc-800 hover:border-zinc-600 hover:text-zinc-200 hover:bg-zinc-800/50 hover:shadow-sm hover:shadow-zinc-900/50",
-              ].join(" ")}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+          {/* Toolbar row */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search presets, creators, categories…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-16 h-9"
+              />
+              <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </kbd>
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger size="sm" className="w-[160px] gap-1.5">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="trending">Trending</SelectItem>
+                <SelectItem value="popular">Most popular</SelectItem>
+                <SelectItem value="recent">Most recent</SelectItem>
+                <SelectItem value="highest-rated">Highest rated</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Grid */}
+          {/* Category tabs row — shadcn-style segmented pills */}
+          <div className="flex items-center gap-1 overflow-x-auto -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {CATEGORIES.map((cat) => {
+              const active = activeCategory === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveCategory(cat.value);
+                    setSearchQuery("");
+                  }}
+                  className={cn(
+                    "inline-flex items-center h-8 px-3 rounded-md text-sm font-medium whitespace-nowrap transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="px-6 py-6 flex flex-col gap-4">
+        {/* Result meta */}
+        {displayPresets !== undefined && displayPresets.length > 0 ? (
+          <div className="text-xs text-muted-foreground">
+            {resultCount} {resultCount === 1 ? "preset" : "presets"}
+            {searchQuery.trim().length >= 2 ? (
+              <> · matching <span className="text-foreground">&ldquo;{searchQuery.trim()}&rdquo;</span></>
+            ) : activeCategory !== "all" ? (
+              <> · in <span className="text-foreground">{CATEGORIES.find((c) => c.value === activeCategory)?.label}</span></>
+            ) : null}
+          </div>
+        ) : null}
+
         {displayPresets === undefined ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {Array.from({ length: 15 }).map((_, i) => (
               <PresetCardSkeleton key={i} />
             ))}
@@ -173,22 +207,19 @@ export default function MarketplacePage() {
             }
             action={
               <Link href="/create">
-                <Button className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold">
-                  <Sparkles className="w-4 h-4 mr-2" /> Create with AI
+                <Button className="gap-1.5">
+                  <Sparkles className="w-4 h-4" /> Create with AI
                 </Button>
               </Link>
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {displayPresets.map((preset) => (
               <PresetCard
                 key={preset._id}
                 preset={{
                   ...preset,
-                  // Promote the batched preview URL onto the preset
-                  // object so the card's own prop surface stays flat
-                  // and doesn't need to know about the query.
                   previewVideoUrl:
                     preset.previewVideoUrl ??
                     previewUrls?.[preset._id as string],
@@ -200,6 +231,7 @@ export default function MarketplacePage() {
             ))}
           </div>
         )}
+      </div>
     </div>
   );
 }
