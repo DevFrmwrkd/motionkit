@@ -2,6 +2,14 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuthorizedUser } from "./lib/authz";
 
+/**
+ * Minimum interval between two distinct state transitions on the same
+ * (userId, presetId). Prevents a user from flipping +1/-1/+1 at line rate
+ * and artificially churning the vote score. Honest behaviour — initial
+ * vote, change your mind once, unvote — easily fits inside this window.
+ */
+const VOTE_COOLDOWN_MS = 3000;
+
 export const castVote = mutation({
   args: {
     userId: v.id("users"),
@@ -21,6 +29,17 @@ export const castVote = mutation({
         q.eq("userId", args.userId).eq("presetId", args.presetId)
       )
       .first();
+
+    if (existing) {
+      const elapsed = Date.now() - existing.createdAt;
+      if (elapsed < VOTE_COOLDOWN_MS) {
+        throw new Error(
+          `Please wait ${Math.ceil(
+            (VOTE_COOLDOWN_MS - elapsed) / 1000
+          )}s before changing your vote`
+        );
+      }
+    }
 
     const preset = await ctx.db.get(args.presetId);
     if (!preset) throw new Error("Preset not found");

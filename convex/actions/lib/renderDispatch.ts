@@ -14,14 +14,30 @@ import {
 } from "../../lib/renderableCompositions";
 import { RENDERABLE_COMPOSITION_IDS } from "../../../shared/renderableCompositionIds";
 
+/**
+ * Discriminated auth context for render dispatch. The two call sites are
+ * meaningfully different and must be spelled out so a future refactor can't
+ * forget to pass the auth user id on the public path.
+ *
+ *   - "user": the public `dispatchRender` action authed the caller and is
+ *     launching a render on their behalf. We verify the job belongs to them.
+ *   - "internal": the publish pipeline scheduled a platform-owned test
+ *     render via an `internalAction`. There is no user to match against —
+ *     the dispatch is trusted because Convex's type system prevents
+ *     internal actions from being invoked by clients.
+ */
+type DispatchAuth =
+  | { kind: "user"; authUserId: Id<"users"> }
+  | { kind: "internal" };
+
 async function loadAndAuthorizeJob(
   ctx: ActionCtx,
   jobId: Id<"renderJobs">,
-  authUserId?: Id<"users">
+  auth: DispatchAuth
 ): Promise<Doc<"renderJobs">> {
   const job = await ctx.runQuery(internal.renderJobs.getInternal, { jobId });
   if (!job) throw new Error("Render job not found");
-  if (authUserId && job.userId !== authUserId) {
+  if (auth.kind === "user" && job.userId !== auth.authUserId) {
     throw new Error("You do not have access to this render job");
   }
   // Guard against double-dispatch. A manual retry or a scheduler replay can
@@ -115,6 +131,16 @@ function parseJobPayload(job: Doc<"renderJobs">) {
     throw new Error("inputProps is not valid JSON");
   }
 
+  // Strip prototype-pollution keys. Even though JSON.parse sets them as own
+  // properties (not on the prototype chain), downstream code that spreads
+  // these props into a framework primitive (`...inputProps`) can end up
+  // with a polluted target. Cheap, defensive.
+  for (const forbidden of ["__proto__", "constructor", "prototype"]) {
+    if (Object.prototype.hasOwnProperty.call(parsedProps, forbidden)) {
+      delete (parsedProps as Record<string, unknown>)[forbidden];
+    }
+  }
+
   return { compositionId, parsedProps };
 }
 
@@ -123,7 +149,10 @@ export async function dispatchLambdaJob(
   jobId: Id<"renderJobs">,
   authUserId?: Id<"users">
 ): Promise<void> {
-  const job = await loadAndAuthorizeJob(ctx, jobId, authUserId);
+  const auth: DispatchAuth = authUserId
+    ? { kind: "user", authUserId }
+    : { kind: "internal" };
+  const job = await loadAndAuthorizeJob(ctx, jobId, auth);
 
   const accessKeyId = process.env.REMOTION_AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
@@ -253,7 +282,10 @@ export async function dispatchWorkerJob(
   jobId: Id<"renderJobs">,
   authUserId?: Id<"users">
 ): Promise<void> {
-  const job = await loadAndAuthorizeJob(ctx, jobId, authUserId);
+  const auth: DispatchAuth = authUserId
+    ? { kind: "user", authUserId }
+    : { kind: "internal" };
+  const job = await loadAndAuthorizeJob(ctx, jobId, auth);
 
   const workerUrl = process.env.RENDER_WORKER_URL;
   const workerSecret = process.env.RENDER_WORKER_SECRET;
@@ -336,18 +368,8 @@ export async function dispatchWorkerJob(
   }
 }
 
-export async function dispatchPlatformJob(
-  ctx: ActionCtx,
-  jobId: Id<"renderJobs">
-): Promise<"worker" | "lambda"> {
-  const hasWorker =
-    Boolean(process.env.RENDER_WORKER_URL) &&
-    Boolean(process.env.RENDER_WORKER_SECRET);
-  if (hasWorker) {
-    await dispatchWorkerJob(ctx, jobId);
-    return "worker";
-  }
-
-  await dispatchLambdaJob(ctx, jobId);
-  return "lambda";
-}
+// Note: an earlier `dispatchPlatformJob(ctx, jobId)` helper used to live
+// here. It has been removed — the publish pipeline now dispatches platform
+// renders via `ctx.scheduler.runAfter(0, dispatchWorker/LambdaRenderInternal,
+// …)` inside `validateAndTestRender`, and nothing else was calling the
+// helper. Re-add if a cross-file pipeline ever wants a single call.
