@@ -9,6 +9,8 @@ import { Download, GitFork, Eye, Crown } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
 import { ForkButton } from "@/components/preset/ForkButton";
 import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
+import { PresetPlayer } from "@/components/preset/PresetPlayer";
+import { presetRegistry } from "@/lib/preset-registry";
 import type { Id } from "@convex/_generated/dataModel";
 
 // ── Category visual maps ────────────────────────────────────────────
@@ -132,6 +134,13 @@ interface PresetCardProps {
     parentPresetId?: string;
     thumbnailUrl?: string;
     /**
+     * Storage/bundle identifier. For built-in presets this is
+     * `local://presets/<CompositionId>` — used to resolve the
+     * first-party component via the presetRegistry without touching
+     * the sandbox iframe.
+     */
+    bundleUrl?: string;
+    /**
      * Public MP4 URL of a rendered preview clip. When set, the card
      * plays it continuously in place of the static gradient — the
      * Pinterest / Figma Community pattern. Populated either by the
@@ -174,21 +183,26 @@ export function PresetCard({
   const isPremium =
     preset.isPremium || (preset.priceCents !== undefined && preset.priceCents > 0);
 
-  // ── Always-on video preview (primary) ──────────────────────────────
-  // When a rendered preview MP4 exists, show it continuously: muted,
-  // looping, playing inline from CDN. Native <video> = no iframe, no
-  // Remotion runtime, no per-card CPU spike; perf scales to hundreds
-  // of cards for free.
+  // ── Preview backends, in order of preference ───────────────────────
+  //
+  // 1. CDN video  — a previously-rendered MP4. Cheapest, scales best.
+  // 2. Built-in   — a first-party preset already in the app bundle
+  //                 (local://presets/*). Rendered directly via the
+  //                 non-sandboxed PresetPlayer because the code is our
+  //                 own, so no iframe tax.
+  // 3. Sandbox    — user-generated / AI-authored presets where we need
+  //                 the Remotion runtime to compile arbitrary source
+  //                 at runtime inside a null-origin iframe.
+  // 4. Gradient   — fallback if none of the above apply.
   const hasVideoPreview = Boolean(preset.previewVideoUrl);
 
-  // ── Live sandbox preview (fallback, always playing) ────────────────
-  // Presets without a rendered MP4 play their composition continuously
-  // via the Remotion sandbox iframe. To keep memory + network sane on
-  // large grids, we only mount the sandbox once the card has actually
-  // scrolled into view (IntersectionObserver) — off-screen cards stay
-  // on the static gradient until they become visible.
+  const builtInPreset = !hasVideoPreview
+    ? presetRegistry[preset.bundleUrl ?? ""]
+    : undefined;
+
   const canSandboxPreview =
     !hasVideoPreview &&
+    !builtInPreset &&
     Boolean(
       preset.sourceCode &&
         preset.inputSchema &&
@@ -243,16 +257,16 @@ export function PresetCard({
     ]
   );
 
-  // Mount the sandbox only when the card is in (or near) the viewport.
-  // 200px rootMargin warms cards about to scroll into view so the play
-  // feels seamless; cards that never become visible never pay the
-  // iframe cost. SSR-safe: isVisible stays false until the effect runs.
+  // Mount preview players only when the card is in (or near) the
+  // viewport. 200px rootMargin warms cards about to scroll into view
+  // so the play feels seamless; cards that never become visible never
+  // pay the iframe / Remotion Player cost.
+  const needsViewportGate = canSandboxPreview || Boolean(builtInPreset);
   useEffect(() => {
-    if (!canSandboxPreview) return;
+    if (!needsViewportGate) return;
     const node = cardRef.current;
     if (!node) return;
     if (typeof IntersectionObserver === "undefined") {
-      // Legacy browser: just mount everything.
       setIsVisible(true);
       return;
     }
@@ -270,9 +284,20 @@ export function PresetCard({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [canSandboxPreview]);
+  }, [needsViewportGate]);
 
+  const isBuiltInMounted = Boolean(builtInPreset) && isVisible;
   const isSandboxMounted = canSandboxPreview && isVisible;
+
+  // Default input props for the built-in preset — from its own schema.
+  const builtInInputProps = useMemo<Record<string, unknown>>(() => {
+    if (!builtInPreset) return {};
+    const out: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(builtInPreset.schema)) {
+      out[key] = (field as { default: unknown }).default;
+    }
+    return out;
+  }, [builtInPreset]);
 
   return (
     <div
@@ -313,7 +338,7 @@ export function PresetCard({
             />
           </div>
 
-          {/* Primary preview — pre-rendered MP4, always playing. */}
+          {/* 1. Pre-rendered CDN video — cheapest and smoothest. */}
           {hasVideoPreview ? (
             <video
               key={preset.previewVideoUrl}
@@ -324,21 +349,29 @@ export function PresetCard({
               muted
               playsInline
               preload="metadata"
-              // Let clicks fall through to the card's onClick.
               className="absolute inset-0 w-full h-full object-cover z-[1] pointer-events-none"
             />
           ) : null}
 
-          {/* Fallback: live sandbox preview, mounted as soon as the card
-              is near the viewport. Plays continuously (autoPlay + loop
-              are set inside the sandbox runtime). Never runs once the
-              preset has a rendered MP4. */}
+          {/* 2. Built-in preset — rendered directly via PresetPlayer.
+              Code is first-party (bundled into the app), so no sandbox
+              iframe required. Plays via @remotion/player's autoPlay +
+              loop; zero loading flash. */}
+          {isBuiltInMounted && builtInPreset ? (
+            <div className="absolute inset-0 z-[1] pointer-events-none">
+              <PresetPlayer
+                component={builtInPreset.component}
+                inputProps={builtInInputProps}
+                meta={builtInPreset.meta}
+                className="w-full h-full [&_*]:!cursor-pointer"
+              />
+            </div>
+          ) : null}
+
+          {/* 3. User-generated preset — needs the sandbox to compile
+              arbitrary TSX at runtime. */}
           {isSandboxMounted && preset.sourceCode ? (
-            <div
-              className="absolute inset-0 z-[1] pointer-events-none animate-in fade-in duration-200"
-              // pointer-events-none on the wrapper so clicks fall through
-              // to the card's onClick → navigate to workstation.
-            >
+            <div className="absolute inset-0 z-[1] pointer-events-none">
               <SandboxedPresetPlayer
                 code={preset.sourceCode}
                 schemaJson={schemaJson}

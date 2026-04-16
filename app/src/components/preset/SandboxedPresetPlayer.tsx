@@ -23,7 +23,7 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { PlayerRef } from "@remotion/player";
-import { Loader2, AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
+import { AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
 
 interface SandboxedPresetPlayerProps {
   code: string;
@@ -245,22 +245,11 @@ export function SandboxedPresetPlayer({
           display: "block",
         }}
       />
-      {!isReady && !error && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#71717a",
-            fontSize: 13,
-            pointerEvents: "none",
-          }}
-        >
-          <Loader2 className="w-5 h-5 animate-spin" />
-        </div>
-      )}
+      {/* No loading indicator while the iframe warms up — callers that
+          want one can layer their own over the container. In the
+          marketplace card context, the static gradient background
+          behind this iframe serves as the implicit loading state, and
+          a centered spinner over every card is visual noise. */}
       {error && (
         <div
           style={{
