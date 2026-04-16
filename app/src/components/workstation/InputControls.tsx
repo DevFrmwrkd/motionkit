@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PresetSchema } from "@/lib/types";
-import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+import type { Id, Doc } from "@convex/_generated/dataModel";
 import { VariantsDropdown } from "@/components/workstation/VariantsDropdown";
 
 interface InputControlsProps {

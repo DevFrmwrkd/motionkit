@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Play, Download, GitFork, Eye, Crown } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
 import { ForkButton } from "@/components/preset/ForkButton";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "@convex/_generated/dataModel";
 
 // ── Category visual maps ────────────────────────────────────────────
 

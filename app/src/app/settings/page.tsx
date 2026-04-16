@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { normalizeOptionalString } from "../../../../shared/aiProviderConfig";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

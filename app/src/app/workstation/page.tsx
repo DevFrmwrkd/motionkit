@@ -17,7 +17,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useSavedVariants } from "@/hooks/useSavedVariants";
 import { toast } from "sonner";
 import { useAction, useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { presetRegistry } from "@/lib/preset-registry";
 import type { SchemaField } from "@/lib/types";
 // NOTE: we intentionally do NOT import codeToComponent here. All user- or
@@ -26,7 +26,7 @@ import type { SchemaField } from "@/lib/types";
 // this file used to during fallback resolution) let any visible preset
 // exfiltrate BYOK keys and session state.
 import { isRenderableBundle } from "@/lib/renderableCompositions";
-import type { Doc, Id } from "../../../../convex/_generated/dataModel";
+import type { Doc, Id } from "@convex/_generated/dataModel";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
   GitFork,
