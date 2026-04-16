@@ -1084,7 +1084,7 @@ function CreateWorkstation({
         {/* CENTER COLUMN - Live Preview                                     */}
         {/* ================================================================ */}
         <div className="flex-1 min-w-0 bg-background/50 flex flex-col relative h-full overflow-hidden">
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 overflow-auto">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-6 overflow-hidden">
             {/* IDLE state */}
             {localStatus === "idle" && !activeGeneration && (
               <EmptyState />
@@ -1111,21 +1111,37 @@ function CreateWorkstation({
               />
             )}
 
-            {/* SUCCESS - sandboxed live preview */}
+            {/* SUCCESS — sandboxed live preview. Fills the available
+                stage area while preserving the preset's native aspect
+                ratio. The aspect-ratio box shrinks to whichever bound
+                (width or height) hits 100% first, so a 16:9 chart on a
+                tall screen shows letterboxed top/bottom rather than
+                capped at a tiny fixed max-width. */}
             {hasPreview && parsedPreset && activeGeneration?.generatedCode && (
-              <div className="w-full max-w-3xl">
-                <SandboxedPresetPlayer
-                  code={activeGeneration.generatedCode}
-                  schemaJson={activeGeneration.generatedSchema!}
-                  metaJson={activeGeneration.generatedMeta!}
-                  inputProps={inputProps}
-                  aspectRatio={parsedPreset.meta.width / parsedPreset.meta.height}
-                  className="rounded-lg overflow-hidden border border-border shadow-2xl"
-                  onErrorChange={setPreviewError}
-                />
+              <div className="w-full h-full min-h-0 flex flex-col items-center justify-center gap-3">
+                <div
+                  style={{
+                    aspectRatio: String(
+                      parsedPreset.meta.width / parsedPreset.meta.height
+                    ),
+                    maxHeight: "100%",
+                    maxWidth: "100%",
+                  }}
+                  className="rounded-lg overflow-hidden border border-border shadow-2xl bg-black flex"
+                >
+                  <SandboxedPresetPlayer
+                    code={activeGeneration.generatedCode}
+                    schemaJson={activeGeneration.generatedSchema!}
+                    metaJson={activeGeneration.generatedMeta!}
+                    inputProps={inputProps}
+                    aspectRatio={parsedPreset.meta.width / parsedPreset.meta.height}
+                    className="w-full h-full"
+                    onErrorChange={setPreviewError}
+                  />
+                </div>
 
                 {/* Frame info below preview */}
-                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <div className="shrink-0 flex items-center justify-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Film className="w-3 h-3" />
                     {parsedPreset.meta.durationInFrames} frames
