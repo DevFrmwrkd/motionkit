@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npx convex codegen && pnpm --filter app build",
+  "buildCommand": "pnpm --filter app build",
   "outputDirectory": "app/.next",
   "framework": "nextjs"
 }

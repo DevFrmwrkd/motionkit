@@ -20,7 +20,12 @@ app/public/sandbox/bundle.js
 .env*.local
 
 # Convex
-convex/_generated/
+# Note: convex/_generated/ is committed so Vercel (and any build
+# environment without CONVEX_DEPLOY_KEY) can typecheck + build without
+# running `convex codegen`. The Convex CLI guards against running
+# codegen inside Vercel's build env — committing the output is the
+# standard workaround. Regenerate locally with `npx convex codegen`
+# after any schema.ts change.
 
 # Renders & media
 *.mp4
@@ -52,3 +57,4 @@ skills
 
 AGENTS.md
 CLAUDE.md
+.vercel
