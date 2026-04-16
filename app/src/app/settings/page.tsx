@@ -13,8 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Save, Key, User, CreditCard, Sparkles, ExternalLink, Info } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { Loader2, Save, Key, User, CreditCard, Sparkles, ExternalLink, Info, Globe, Eye } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useCurrentUser();
@@ -49,6 +52,9 @@ export default function SettingsPage() {
               email={user.email ?? ""}
               bio={user.bio ?? ""}
               website={user.website ?? ""}
+              avatarUrl={user.avatarUrl ?? user.image ?? ""}
+              isPublicProfile={user.isPublicProfile ?? false}
+              socialLinks={user.socialLinks ?? {}}
             />
           </TabsContent>
 
@@ -82,23 +88,44 @@ function ProfileTab({
   email,
   bio: initialBio,
   website: initialWebsite,
+  avatarUrl,
+  isPublicProfile: initialIsPublic,
+  socialLinks: initialSocialLinks,
 }: {
   userId: Id<"users">;
   name: string;
   email: string;
   bio: string;
   website: string;
+  avatarUrl: string;
+  isPublicProfile: boolean;
+  socialLinks: { twitter?: string; github?: string; youtube?: string };
 }) {
   const [name, setName] = useState(initialName);
   const [bio, setBio] = useState(initialBio);
   const [website, setWebsite] = useState(initialWebsite);
+  const [isPublicProfile, setIsPublicProfile] = useState(initialIsPublic);
+  const [twitter, setTwitter] = useState(initialSocialLinks.twitter ?? "");
+  const [github, setGithub] = useState(initialSocialLinks.github ?? "");
+  const [youtube, setYoutube] = useState(initialSocialLinks.youtube ?? "");
   const [saving, setSaving] = useState(false);
   const updateProfile = useMutation(api.users.updateProfile);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateProfile({ userId, name, bio, website });
+      await updateProfile({
+        userId,
+        name,
+        bio,
+        website,
+        isPublicProfile,
+        socialLinks: {
+          twitter: twitter || undefined,
+          github: github || undefined,
+          youtube: youtube || undefined,
+        },
+      });
       toast.success("Profile updated");
     } catch {
       toast.error("Failed to update profile");
@@ -108,52 +135,169 @@ function ProfileTab({
   };
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader>
-        <CardTitle className="text-base">Profile Information</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-sm text-muted-foreground">Display Name</Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="bg-muted border-zinc-700"
+    <div className="space-y-6">
+      {/* Profile preview card */}
+      <Card className="bg-card border-border overflow-hidden">
+        <div className="relative border-b border-zinc-800 bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-950 px-6 py-8">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.06)_0%,transparent_70%)]" />
+          <div className="relative flex items-center gap-5">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-zinc-800 bg-zinc-900">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={name || "You"}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-950 to-zinc-900">
+                  <span className="text-xl font-bold text-violet-300/60">
+                    {(name || "?")[0]?.toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-semibold text-zinc-50 truncate">
+                {name || "Your Name"}
+              </p>
+              <p className="text-sm text-zinc-400 line-clamp-2">
+                {bio || "No bio yet"}
+              </p>
+              {website && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
+                  <Globe className="h-3 w-3" />
+                  {website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              {isPublicProfile ? (
+                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                  <Eye className="h-3 w-3 mr-1" />
+                  Public
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-zinc-700 text-zinc-500">
+                  Private
+                </Badge>
+              )}
+              {isPublicProfile && (
+                <Link
+                  href={`/creators/${userId}`}
+                  className="text-[11px] text-amber-500 hover:text-amber-400 flex items-center gap-1"
+                >
+                  View public profile <ExternalLink className="h-2.5 w-2.5" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Visibility toggle */}
+      <Card className="bg-card border-border">
+        <CardContent className="flex items-center justify-between py-4 px-6">
+          <div>
+            <p className="text-sm font-medium text-foreground">Public creator profile</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Allow others to view your profile and published presets at{" "}
+              <code className="text-amber-500/80 text-[11px]">/creators/{userId}</code>
+            </p>
+          </div>
+          <Switch
+            checked={isPublicProfile}
+            onCheckedChange={setIsPublicProfile}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm text-muted-foreground">Email</Label>
-          <Input value={email} disabled className="bg-accent border-zinc-700 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">Managed by Google sign-in</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm text-muted-foreground">Bio</Label>
-          <Textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Tell others about yourself..."
-            className="bg-muted border-zinc-700 min-h-[80px]"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm text-muted-foreground">Website</Label>
-          <Input
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            placeholder="https://..."
-            className="bg-muted border-zinc-700"
-          />
-        </div>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
-        >
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Save Changes
-        </Button>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Profile form */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base">Profile Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">Display Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-muted border-zinc-700"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">Email</Label>
+            <Input value={email} disabled className="bg-accent border-zinc-700 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Managed by Google sign-in</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">Bio</Label>
+            <Textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell others about yourself..."
+              className="bg-muted border-zinc-700 min-h-[80px]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">Website</Label>
+            <Input
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://..."
+              className="bg-muted border-zinc-700"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Social links */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-base">Social Links</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">Twitter / X handle</Label>
+            <Input
+              value={twitter}
+              onChange={(e) => setTwitter(e.target.value)}
+              placeholder="username"
+              className="bg-muted border-zinc-700"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">GitHub username</Label>
+            <Input
+              value={github}
+              onChange={(e) => setGithub(e.target.value)}
+              placeholder="username"
+              className="bg-muted border-zinc-700"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">YouTube channel</Label>
+            <Input
+              value={youtube}
+              onChange={(e) => setYoutube(e.target.value)}
+              placeholder="@channel"
+              className="bg-muted border-zinc-700"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button
+        onClick={() => void handleSave()}
+        disabled={saving}
+        className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
+      >
+        {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+        Save Changes
+      </Button>
+    </div>
   );
 }
 

@@ -188,7 +188,17 @@ export default function PresetDetailsPage({
                       {preset.name}
                     </h1>
                     <p className="mt-1 text-sm text-zinc-300">
-                      By {preset.author ?? "Unknown"}
+                      By{" "}
+                      {preset.authorId ? (
+                        <Link
+                          href={`/creators/${preset.authorId}`}
+                          className="font-medium hover:text-amber-400 transition-colors"
+                        >
+                          {preset.author ?? "Unknown"}
+                        </Link>
+                      ) : (
+                        <span>{preset.author ?? "Unknown"}</span>
+                      )}
                     </p>
                   </div>
                 </div>
