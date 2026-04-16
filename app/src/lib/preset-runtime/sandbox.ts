@@ -241,7 +241,34 @@ export function executeInSandbox(compileResult: CompileResult): SandboxResult {
     };
   }
 
-  if (typeof component !== "function") {
+  // Accept plain function components, and also React-wrapper objects produced
+  // by memo / forwardRef / lazy — those are exotic element types carrying a
+  // `$$typeof` symbol and are renderable via JSX exactly like a plain function.
+  const isFunction = (v: unknown): v is PresetExport["component"] =>
+    typeof v === "function";
+  const isReactExoticType = (v: unknown): boolean =>
+    typeof v === "object" &&
+    v !== null &&
+    "$$typeof" in (v as Record<string, unknown>);
+
+  // LLMs occasionally return the whole PresetExport object literal as the
+  // default export — `export default { component: BarChart, schema, meta }`
+  // — instead of the bare component. Unwrap that shape before the type
+  // check so we don't reject a perfectly valid generation.
+  if (
+    !isFunction(component) &&
+    !isReactExoticType(component) &&
+    typeof component === "object" &&
+    component !== null &&
+    "component" in (component as Record<string, unknown>)
+  ) {
+    const inner = (component as Record<string, unknown>).component;
+    if (isFunction(inner) || isReactExoticType(inner)) {
+      component = inner;
+    }
+  }
+
+  if (!isFunction(component) && !isReactExoticType(component)) {
     return {
       ok: false,
       error: {
