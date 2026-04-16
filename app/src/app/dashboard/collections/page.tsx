@@ -113,17 +113,14 @@ export default function CollectionsPage() {
                   variant="outline"
                   disabled={isDeletingId === activeCollection._id}
                   className="border-red-500/30 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-                />
-              }
-              triggerChildren={
-                <>
+                >
                   {isDeletingId === activeCollection._id ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <Trash2 className="w-4 h-4 mr-2" />
                   )}
                   Delete
-                </>
+                </Button>
               }
               title={`Delete "${activeCollection.name}"?`}
               description="This removes the collection but preserves the presets inside it. This cannot be undone."
@@ -280,18 +277,18 @@ export default function CollectionsPage() {
                         trigger={
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             disabled={isDeletingId === col._id}
                             onClick={(event) => event.stopPropagation()}
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-300 hover:bg-red-500/10"
-                          />
-                        }
-                        triggerChildren={
-                          isDeletingId === col._id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            {isDeletingId === col._id ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4 mr-1" />
+                            )}
+                            Delete
+                          </Button>
                         }
                         title={`Delete "${col.name}"?`}
                         description="This removes the collection but preserves the presets inside it. This cannot be undone."

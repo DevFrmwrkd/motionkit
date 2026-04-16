@@ -7,14 +7,7 @@ Inspiration for everything below: https://neuform.ai/
 
 
 
-## P2-9 — Small bugs and polish items
 
-Individually too small for P0/P1 but worth burning through in one cleanup PR:
-
-- **Collections delete dialog** — `app/src/app/dashboard/collections/page.tsx` (lines ~110-117, 279-301). `ConfirmDialog` trigger prop is an empty `<Button>` with no visible label. Add `triggerChildren` or a button label.
-- **AddToProjectDialog** — `app/src/components/workstation/dialogs/AddToProjectDialog.tsx`. Blocks user if they have no projects. Add inline "Create new project" option.
-- **Earnings page** — `app/src/app/creator/earnings/page.tsx`. Either implement a stub ("Coming in Phase 4") or hide the nav link until monetization ships.
-- **Build worker script** — `app/scripts/build-worker.sh` already has uncommitted improvements from a prior session. Review and commit if the build still works.
 
 ---
 
@@ -200,3 +193,13 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 - Optional: side-by-side diff of schema values between two versions.
 
 ---
+
+
+## P2-9 — Small bugs and polish items
+
+Individually too small for P0/P1 but worth burning through in one cleanup PR:
+
+- **Collections delete dialog** — `app/src/app/dashboard/collections/page.tsx` (lines ~110-117, 279-301). `ConfirmDialog` trigger prop is an empty `<Button>` with no visible label. Add `triggerChildren` or a button label.
+- **AddToProjectDialog** — `app/src/components/workstation/dialogs/AddToProjectDialog.tsx`. Blocks user if they have no projects. Add inline "Create new project" option.
+- **Earnings page** — `app/src/app/creator/earnings/page.tsx`. Either implement a stub ("Coming in Phase 4") or hide the nav link until monetization ships.
+- **Build worker script** — `app/scripts/build-worker.sh` already has uncommitted improvements from a prior session. Review and commit if the build still works.
