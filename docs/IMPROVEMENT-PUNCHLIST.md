@@ -173,6 +173,8 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/4
 
 ## P1-5 — Design system pass (Landing / Marketplace / Dashboard / Workstation)
 
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/5
+
 **Problem.** Landing hero uses aggressive amber/orange gradient. Marketplace + dashboard + workstation use flat zinc tones with minimal accent color usage. Category buttons are plain pills. Stat cards on the dashboard are flat with small icons and no color coding. Workstation header is sparse.
 
 **Files to touch.**

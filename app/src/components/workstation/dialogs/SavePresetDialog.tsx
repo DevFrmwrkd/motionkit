@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
@@ -24,6 +24,9 @@ interface SavePresetDialogProps {
   presetName: string;
   customProps: Record<string, unknown>;
   triggerClassName?: string;
+  initialName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onSaved?: (savedPresetId: Id<"savedPresets">) => void;
 }
 
@@ -33,12 +36,34 @@ export function SavePresetDialog({
   presetName,
   customProps,
   triggerClassName,
+  initialName,
+  open: controlledOpen,
+  onOpenChange,
   onSaved,
 }: SavePresetDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(`My ${presetName}`);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (newOpen: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(newOpen);
+    } else {
+      setUncontrolledOpen(newOpen);
+    }
+  };
+
+  const [name, setName] = useState(initialName ?? `My ${presetName}`);
   const [isSaving, setIsSaving] = useState(false);
   const createSavedPreset = useMutation(api.savedPresets.create);
+
+  // Update name when initialName changes (while dialog is open)
+  const prevInitialNameRef = useRef(initialName);
+  useEffect(() => {
+    if (initialName !== prevInitialNameRef.current) {
+      setName(initialName ?? `My ${presetName}`);
+      prevInitialNameRef.current = initialName;
+    }
+  }, [initialName, presetName]);
 
   const handleSave = async () => {
     const trimmedName = name.trim();

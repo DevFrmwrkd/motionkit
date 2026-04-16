@@ -23,7 +23,7 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
 import type { PlayerRef } from "@remotion/player";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
 
 interface SandboxedPresetPlayerProps {
   code: string;
@@ -270,13 +270,129 @@ export function SandboxedPresetPlayer({
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
-            color: "#f87171",
-            fontSize: 12,
-            textAlign: "center",
-            background: "rgba(9, 9, 11, 0.9)",
+            background: "rgba(9, 9, 11, 0.95)",
           }}
         >
-          {error}
+          <div style={{ textAlign: "center", maxWidth: "420px" }}>
+            {/* Error icon */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <AlertCircle
+                className="w-10 h-10 text-red-500"
+                style={{ position: "relative" }}
+              />
+            </div>
+
+            {/* Error message */}
+            <h3
+              style={{
+                color: "#fafafa",
+                fontSize: 14,
+                fontWeight: 600,
+                marginBottom: 4,
+              }}
+            >
+              Preset Error
+            </h3>
+            <p
+              style={{
+                color: "#a1a1aa",
+                fontSize: 12,
+                marginBottom: 16,
+                lineHeight: "1.5",
+                maxHeight: "120px",
+                overflowY: "auto",
+                wordBreak: "break-word",
+              }}
+            >
+              {error}
+            </p>
+
+            {/* Action buttons */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                justifyContent: "center",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setError(null);
+                  handleLoad();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                  background: "rgba(168, 85, 247, 0.1)",
+                  color: "#d8b4fe",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "all 200ms",
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLButtonElement).style.background =
+                    "rgba(168, 85, 247, 0.2)";
+                  (e.target as HTMLButtonElement).style.borderColor =
+                    "rgba(168, 85, 247, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLButtonElement).style.background =
+                    "rgba(168, 85, 247, 0.1)";
+                  (e.target as HTMLButtonElement).style.borderColor =
+                    "rgba(168, 85, 247, 0.3)";
+                }}
+              >
+                <RotateCcw style={{ width: 12, height: 12 }} />
+                Reload
+              </button>
+              <a
+                href="https://github.com/DevFrmwrkd/motionkit/issues/new?title=Preset%20Error&labels=bug"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "#fca5a5",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  transition: "all 200ms",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLAnchorElement).style.background =
+                    "rgba(239, 68, 68, 0.2)";
+                  (e.target as HTMLAnchorElement).style.borderColor =
+                    "rgba(239, 68, 68, 0.5)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLAnchorElement).style.background =
+                    "rgba(239, 68, 68, 0.1)";
+                  (e.target as HTMLAnchorElement).style.borderColor =
+                    "rgba(239, 68, 68, 0.3)";
+                }}
+              >
+                <MessageCircle style={{ width: 12, height: 12 }} />
+                Report
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>

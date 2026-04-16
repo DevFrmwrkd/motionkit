@@ -11,6 +11,7 @@ import {
   BrandKitPicker,
   type MockBrandKit,
 } from "@/components/workstation/BrandKitPicker";
+import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
   RotateCcw,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PresetSchema } from "@/lib/types";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface InputControlsProps {
   schema: PresetSchema | null;
@@ -64,10 +66,12 @@ export function InputControls({
   sourceCode,
   canEditCode = false,
   onSaveCode,
+
 }: InputControlsProps) {
   const [editableCode, setEditableCode] = useState(sourceCode ?? "");
   const [codeChanged, setCodeChanged] = useState(false);
   const [codeMode, setCodeMode] = useState<"view" | "edit">("view");
+
   // Track the last sourceCode we've seen so we can reset editor state when
   // the parent switches presets (or otherwise swaps the source). This uses
   // the "adjust state during render" pattern from React docs — it's the
@@ -120,7 +124,7 @@ export function InputControls({
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header — the preset name is already shown in the workspace bar, so
-          this header just anchors the panel and exposes a reset shortcut. */}
+          this header just anchors the panel with variants and reset shortcut. */}
       <div className="flex items-center justify-between px-3 h-9 border-b border-border shrink-0">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
           Controls

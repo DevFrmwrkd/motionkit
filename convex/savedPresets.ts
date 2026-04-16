@@ -82,3 +82,27 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const listByPresetAndUser = query({
+  args: {
+    presetId: v.id("presets"),
+    userId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    if (!args.userId) {
+      return [];
+    }
+
+    await requireAuthorizedUser(ctx, args.userId);
+
+    const savedPresets = await ctx.db
+      .query("savedPresets")
+      .withIndex("by_preset", (q) => q.eq("presetId", args.presetId))
+      .collect();
+
+    // Filter by userId and sort by creation time (newest first)
+    return sortNewestFirst(
+      savedPresets.filter((sp) => sp.userId === args.userId)
+    );
+  },
+});
