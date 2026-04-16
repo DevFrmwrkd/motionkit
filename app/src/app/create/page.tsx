@@ -693,7 +693,12 @@ function CreateWorkstation({
   const compileError = isComplete && (parsedPreset?.error ?? previewError);
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
+    // Explicit viewport-minus-header height so the 3-column flex children
+    // resolve h-full properly. The app shell's <main> uses
+    // overflow-y-auto, which makes h-full collapse to content under the
+    // hood — exactly what burned the preview stage before. Matches
+    // workstation/page.tsx's pattern.
+    <div className="flex h-[calc(100svh-3.5rem)] min-h-0 overflow-hidden">
         {/* ================================================================ */}
         {/* LEFT COLUMN - AI Generator Panel                                 */}
         {/* ================================================================ */}
