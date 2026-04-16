@@ -4,11 +4,6 @@ This is Steven's working punch list. Each item is scoped to be ~1 PR, has concre
 
 Inspiration for everything below: https://neuform.ai/
 
-
-
-
-
-
 ---
 
 ## How to use this doc
@@ -25,7 +20,7 @@ Inspiration for everything below: https://neuform.ai/
 <!-- Steven: move items here when merged, with PR link -->
 
 
-## P0-1 — Marketplace vs. "My Creations" separation
+## P0-1 — Marketplace vs. "My Creations" separation  ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/1
 
@@ -49,7 +44,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/1
 
 ---
 
-## P0-2 — Remix / Clone flow
+## P0-2 — Remix / Clone flow ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/2
 
@@ -71,7 +66,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/2
 
 ---
 
-## P0-3 — Public creator profile pages
+## P0-3 — Public creator profile pages ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/3
 
@@ -94,7 +89,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/3
 
 ---
 
-## P0-4 — Marketplace PresetCard redesign
+## P0-4 — Marketplace PresetCard redesign ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/4
 
@@ -114,7 +109,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/4
 ---
 
 
-## P1-5 — Design system pass (Landing / Marketplace / Dashboard / Workstation)
+## P1-5 — Design system pass (Landing / Marketplace / Dashboard / Workstation) ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/5
 
@@ -135,8 +130,8 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/5
 
 **Constraint.** Do not install a new design system. Use existing Shadcn/UI + Tailwind + the amber/violet/zinc palette.
 
-## P1-6 — Loading + error states
-
+## P1-6 — Loading + error states ✅
+ 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/6
 
 **Problem.** Several flows silently hang. Marketplace search shows nothing while loading. Sandboxed preset player has no error boundary — a broken preset can freeze the workstation. Compile error tracking exists in schema but user feedback is generic.
@@ -158,7 +153,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/6
 ---
 
 
-## P1-7 — Saved Variants drawer in workstation
+## P1-7 — Saved Variants drawer in workstation ✅
 
 PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 
@@ -178,7 +173,7 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 
 
 
-## P1-8 — Preset VersionHistory UI
+## P1-8 — Preset VersionHistory UI ✅
 
 **Problem.** `app/src/components/preset/VersionHistory.tsx` exists but is mostly placeholder. `presetVersions` table exists in schema. No rollback, no diff view.
 
@@ -195,7 +190,9 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 ---
 
 
-## P2-9 — Small bugs and polish items
+## P2-9 — Small bugs and polish items ✅
+
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/9
 
 Individually too small for P0/P1 but worth burning through in one cleanup PR:
 
