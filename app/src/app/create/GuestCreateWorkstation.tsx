@@ -258,8 +258,12 @@ export function GuestCreateWorkstation() {
   const aspect = preset ? preset.meta.width / preset.meta.height : 16 / 9;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-7xl px-6 py-6">
+    // Full-bleed layout: the authenticated shell already provides the sidebar
+    // and header chrome, so we fill the remaining viewport width/height
+    // rather than centering inside a max-w container (which left ~500px of
+    // empty space on either side at >1920px).
+    <div className="bg-zinc-950 text-zinc-100 h-[calc(100svh-3.5rem)] overflow-hidden">
+      <div className="h-full w-full px-4 py-4">
         {/* Header */}
         <header className="flex items-start justify-between gap-4 mb-6">
           <div>
@@ -291,9 +295,9 @@ export function GuestCreateWorkstation() {
         </header>
 
         {/* 3-column layout matching authed workstation: prompt | preview | controls */}
-        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr_340px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr_360px] gap-4 h-[calc(100%-4rem)]">
           {/* LEFT — prompt + iteration */}
-          <aside className="space-y-4">
+          <aside className="space-y-4 overflow-y-auto pr-1">
             <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 space-y-3">
               <label className="text-xs font-medium text-zinc-300 block">
                 What do you want to create?
@@ -422,11 +426,11 @@ export function GuestCreateWorkstation() {
           </aside>
 
           {/* CENTER — preview */}
-          <section className="space-y-3">
-            <div className="rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden">
+          <section className="space-y-3 flex flex-col min-h-0">
+            <div className="rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex-1 min-h-0 flex items-center justify-center">
               <div
-                className="relative w-full"
-                style={{ aspectRatio: String(aspect) }}
+                className="relative w-full max-h-full"
+                style={{ aspectRatio: String(aspect), maxWidth: "100%" }}
               >
                 {preset ? (
                   <SandboxedPresetPlayer
@@ -505,7 +509,7 @@ export function GuestCreateWorkstation() {
           </section>
 
           {/* RIGHT — live schema form */}
-          <aside className="space-y-3">
+          <aside className="space-y-3 overflow-y-auto pr-1">
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-medium text-zinc-300">
