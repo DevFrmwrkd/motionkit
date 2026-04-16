@@ -118,7 +118,7 @@ export function InputControls({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Header — the preset name is already shown in the workspace bar, so
           this header just anchors the panel and exposes a reset shortcut. */}
       <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">

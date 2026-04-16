@@ -23,13 +23,17 @@ export default function LandingPage() {
       <main className="flex-1 flex flex-col">
         {/* Hero */}
         <section className="relative px-6 py-32 flex flex-col items-center justify-center text-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-zinc-950 to-zinc-950" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/5 via-zinc-950 to-zinc-950" />
 
           <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-zinc-100 mb-6 leading-tight">
               AI-Powered{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
-                Motion Graphics
+              <span className="bg-gradient-to-b from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                Motion
+              </span>
+              <br />
+              <span className="bg-gradient-to-b from-amber-500 to-orange-600 bg-clip-text text-transparent">
+                Graphics
               </span>
               <br />
               For Everyone.
@@ -96,7 +100,7 @@ export default function LandingPage() {
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="relative bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 hover:bg-zinc-900 transition-colors"
+                  className="relative bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 transition-all duration-300 hover:bg-zinc-900 hover:border-zinc-700 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-amber-500/5"
                 >
                   <span className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-amber-500 text-zinc-950 font-bold text-sm flex items-center justify-center">
                     {item.step}
@@ -156,7 +160,7 @@ export default function LandingPage() {
               ].map((feature, i) => (
                 <div
                   key={i}
-                  className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 hover:bg-zinc-900 transition-colors"
+                  className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-zinc-700 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-amber-500/5"
                 >
                   <div className="w-10 h-10 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-4">
                     {feature.icon}

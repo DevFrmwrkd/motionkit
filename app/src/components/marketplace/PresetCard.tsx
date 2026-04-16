@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Download, GitFork, Eye, Crown } from "lucide-react";
@@ -26,8 +26,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 /** Two-stop gradient for rich no-thumbnail backgrounds. */
 const CATEGORY_GRADIENTS: Record<string, string> = {
-  intro: "from-blue-900/80 via-indigo-950 to-zinc-950",
-  title: "from-violet-900/80 via-purple-950 to-zinc-950",
+  intro: "from-zinc-900/40 via-zinc-950 to-zinc-950",
+  title: "from-zinc-900/40 via-zinc-950 to-zinc-950",
   "lower-third": "from-teal-900/70 via-emerald-950 to-zinc-950",
   cta: "from-orange-900/70 via-amber-950 to-zinc-950",
   transition: "from-pink-900/70 via-rose-950 to-zinc-950",
@@ -41,46 +41,46 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 /** Category-specific icon SVGs for geometric overlays. */
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   intro: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <polygon points="35,20 75,50 35,80" fill="currentColor" />
       <circle cx="50" cy="50" r="35" stroke="currentColor" strokeWidth="1.5" fill="none" />
     </svg>
   ),
   title: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <text x="50" y="58" textAnchor="middle" fontSize="40" fontWeight="bold" fill="currentColor">Aa</text>
       <line x1="20" y1="75" x2="80" y2="75" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   ),
   "lower-third": (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <rect x="10" y="60" width="80" height="20" rx="4" fill="currentColor" />
       <line x1="15" y1="67" x2="55" y2="67" stroke="currentColor" strokeWidth="2" opacity="0.5" />
       <line x1="15" y1="73" x2="40" y2="73" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
     </svg>
   ),
   cta: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <rect x="20" y="35" width="60" height="30" rx="15" fill="currentColor" />
       <line x1="40" y1="50" x2="55" y2="50" stroke="currentColor" strokeWidth="2" opacity="0.4" />
       <polygon points="55,44 65,50 55,56" fill="currentColor" opacity="0.4" />
     </svg>
   ),
   transition: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <rect x="10" y="25" width="35" height="50" rx="3" fill="currentColor" opacity="0.6" />
       <rect x="55" y="25" width="35" height="50" rx="3" fill="currentColor" opacity="0.3" />
       <path d="M45,50 L55,44 L55,56 Z" fill="currentColor" />
     </svg>
   ),
   outro: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <circle cx="50" cy="50" r="25" stroke="currentColor" strokeWidth="2" fill="none" />
       <rect x="42" y="40" width="16" height="20" rx="2" fill="currentColor" />
     </svg>
   ),
   full: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <rect x="15" y="20" width="70" height="60" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
       <line x1="15" y1="35" x2="85" y2="35" stroke="currentColor" strokeWidth="1" />
       <rect x="20" y="40" width="25" height="15" rx="2" fill="currentColor" opacity="0.4" />
@@ -88,7 +88,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   chart: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <rect x="20" y="55" width="12" height="25" rx="2" fill="currentColor" />
       <rect x="37" y="35" width="12" height="45" rx="2" fill="currentColor" opacity="0.7" />
       <rect x="54" y="45" width="12" height="35" rx="2" fill="currentColor" opacity="0.5" />
@@ -96,13 +96,13 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   map: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <path d="M50,20 C50,20 75,45 75,58 C75,72 63,80 50,80 C37,80 25,72 25,58 C25,45 50,20 50,20Z" stroke="currentColor" strokeWidth="1.5" fill="none" />
       <circle cx="50" cy="55" r="8" fill="currentColor" opacity="0.4" />
     </svg>
   ),
   social: (
-    <svg viewBox="0 0 100 100" className="w-full h-full opacity-[0.15]">
+    <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md text-white">
       <circle cx="35" cy="40" r="12" fill="currentColor" opacity="0.5" />
       <circle cx="65" cy="40" r="12" fill="currentColor" opacity="0.3" />
       <circle cx="50" cy="65" r="12" fill="currentColor" opacity="0.4" />
@@ -143,6 +143,8 @@ export function PresetCard({
   currentVote,
   onVote,
 }: PresetCardProps) {
+  const router = useRouter();
+
   const categoryColor =
     CATEGORY_COLORS[preset.category] ??
     "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
@@ -154,10 +156,13 @@ export function PresetCard({
     preset.isPremium || (preset.priceCents !== undefined && preset.priceCents > 0);
 
   return (
-    <Link href={`/workstation?presetId=${preset._id}`}>
+    <div 
+      onClick={() => router.push(`/workstation?presetId=${preset._id}`)}
+      className="block h-full cursor-pointer group"
+    >
       <Card
         className={[
-          "overflow-hidden transition-all duration-300 group cursor-pointer h-full flex flex-col",
+          "overflow-hidden transition-all duration-300 h-full flex flex-col",
           "bg-zinc-950 border-zinc-800/60",
           // Tactile hover: lift + glow + border shift
           "hover:translate-y-[-3px] hover:shadow-lg hover:shadow-amber-500/5",
@@ -166,38 +171,27 @@ export function PresetCard({
           isPremium ? "ring-1 ring-violet-500/20 hover:ring-violet-500/40" : "",
         ].join(" ")}
       >
-        {/* Thumbnail area */}
+        {/* Thumbnail area (always showing geometric gradients as requested) */}
         <div className="aspect-video relative overflow-hidden">
-          {preset.thumbnailUrl ? (
-            <Image
-              src={preset.thumbnailUrl}
-              alt={preset.name}
-              fill
-              sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              unoptimized
-            />
-          ) : (
-            <div
-              className={`absolute inset-0 bg-gradient-to-br ${gradient} transition-all duration-500 group-hover:brightness-125`}
-            >
-              {/* Geometric category icon overlay */}
-              <div className="absolute inset-0 flex items-center justify-center text-white">
-                <div className="w-28 h-28 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
-                  {geoIcon}
-                </div>
+          <div
+            className={`absolute inset-0 bg-gradient-to-br ${gradient} transition-all duration-500 group-hover:brightness-125`}
+          >
+            {/* Geometric category icon overlay */}
+            <div className="absolute inset-0 flex items-center justify-center text-white">
+              <div className="w-[70%] h-[70%] max-w-[200px] max-h-[200px] transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+                {geoIcon}
               </div>
-              {/* Subtle grid pattern */}
-              <div
-                className="absolute inset-0 opacity-[0.05]"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-                  backgroundSize: "20px 20px",
-                }}
-              />
             </div>
-          )}
+            {/* Subtle grid pattern */}
+            <div
+              className="absolute inset-0 opacity-[0.05]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+                backgroundSize: "20px 20px",
+              }}
+            />
+          </div>
 
           {/* Hover overlay — play preview + remix CTA */}
           <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/50 backdrop-blur-sm">
@@ -217,7 +211,12 @@ export function PresetCard({
 
           {/* Badges — top row */}
           <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between pointer-events-none">
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
+              <Badge
+                className={`text-[10px] backdrop-blur-md border ${categoryColor} pointer-events-auto`}
+              >
+                {preset.category}
+              </Badge>
               {preset.parentPresetId && (
                 <Badge className="text-[10px] bg-zinc-950/70 text-zinc-300 border-zinc-700/50 backdrop-blur-md pointer-events-auto">
                   <GitFork className="size-2.5 mr-1" />
@@ -231,11 +230,6 @@ export function PresetCard({
                 </Badge>
               )}
             </div>
-            <Badge
-              className={`text-[10px] backdrop-blur-md border ${categoryColor} pointer-events-auto`}
-            >
-              {preset.category}
-            </Badge>
           </div>
         </div>
 
@@ -297,6 +291,6 @@ export function PresetCard({
           </div>
         </CardContent>
       </Card>
-    </Link>
+    </div>
   );
 }

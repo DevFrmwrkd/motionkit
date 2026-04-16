@@ -82,9 +82,9 @@ export function PreviewPanel({
   }, [meta]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background/40">
+    <div className="flex flex-col h-full min-h-0 min-w-0 bg-background/40">
       {/* Pinned hero — the video. Fills available space, aspect-aware. */}
-      <div className="flex-1 min-h-0 flex items-center justify-center px-6 py-6">
+      <div className="flex-1 min-h-0 min-w-0 flex items-center justify-center px-6 py-6">
         <PlayerStage
           aspectRatio={aspectRatio}
           isEmpty={!meta}

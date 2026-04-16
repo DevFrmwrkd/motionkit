@@ -36,6 +36,7 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function WorkstationPage() {
@@ -609,12 +610,17 @@ function ActivePresetWorkspace({
         {/* Workspace header — panel toggles on the edges, preset actions in
             the middle. Replaces the absolute-overlay action cluster that used
             to float over the video. */}
-        <div className="h-11 shrink-0 border-b border-border bg-background flex items-center justify-between px-3 gap-3">
-          <div className="flex items-center gap-1 min-w-0">
+        <div className="h-11 shrink-0 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-between px-3 gap-3">
+          <div className="flex items-center gap-1.5 min-w-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className={[
+                "h-8 w-8 transition-colors",
+                leftPanelOpen
+                  ? "text-zinc-400 hover:text-zinc-100"
+                  : "text-zinc-600 hover:text-zinc-400",
+              ].join(" ")}
               onClick={onToggleLeftPanel}
               aria-label={leftPanelOpen ? "Hide library" : "Show library"}
               aria-pressed={!leftPanelOpen}
@@ -626,19 +632,29 @@ function ActivePresetWorkspace({
               )}
             </Button>
             {currentMeta?.name && (
-              <span className="ml-1 text-sm font-medium text-foreground truncate">
+              <span className="ml-0.5 text-sm font-medium text-zinc-100 truncate">
                 {currentMeta.name}
               </span>
+            )}
+            {activePreset?.category && (
+              <Badge variant="outline" className="ml-1.5 text-[10px] border-zinc-700 text-zinc-500 hidden sm:inline-flex">
+                {activePreset.category}
+              </Badge>
+            )}
+            {isRendering && (
+              <Badge className="ml-1.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse">
+                Rendering
+              </Badge>
             )}
           </div>
 
           {activePreset && user && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <AddToProjectDialog
                 userId={user._id as Id<"users">}
                 presetId={activePreset._id as Id<"presets">}
                 savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
-                triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5"
+                triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
               />
               <SavePresetDialog
                 key={urlSavedPresetId ?? activePreset._id}
@@ -646,19 +662,25 @@ function ActivePresetWorkspace({
                 presetId={activePreset._id as Id<"presets">}
                 presetName={activePreset.name}
                 customProps={inputProps}
-                triggerClassName="border-border text-muted-foreground hover:bg-accent gap-1.5"
+                triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
                 onSaved={handleSavedVariant}
               />
               <ForkButton
                 presetId={activePreset._id as Id<"presets">}
                 userId={(user._id as Id<"users">) ?? null}
                 onForked={handleForked}
-                className="border-border text-muted-foreground hover:bg-accent gap-1.5"
+                className="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
               />
+              <div className="w-px h-5 bg-zinc-800 mx-0.5" />
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                className={[
+                  "h-8 w-8 transition-colors",
+                  rightPanelOpen
+                    ? "text-zinc-400 hover:text-zinc-100"
+                    : "text-zinc-600 hover:text-zinc-400",
+                ].join(" ")}
                 onClick={onToggleRightPanel}
                 aria-label={
                   rightPanelOpen ? "Hide controls" : "Show controls"
@@ -678,7 +700,12 @@ function ActivePresetWorkspace({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className={[
+                "h-8 w-8 transition-colors",
+                rightPanelOpen
+                  ? "text-zinc-400 hover:text-zinc-100"
+                  : "text-zinc-600 hover:text-zinc-400",
+              ].join(" ")}
               onClick={onToggleRightPanel}
               aria-label={
                 rightPanelOpen ? "Hide controls" : "Show controls"
@@ -714,7 +741,7 @@ function ActivePresetWorkspace({
         ) : null}
 
         {/* Pinned video stage — fills the available space aspect-aware. */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           <PreviewPanel
             trustedComponent={trustedPreset ? trustedPreset.component : null}
             sourceCode={sandboxSource}
@@ -742,7 +769,7 @@ function ActivePresetWorkspace({
       </div>
 
       {rightPanelOpen && (
-        <div className="w-[360px] shrink-0 border-l border-border bg-background flex flex-col z-10 min-h-0">
+        <div className="w-[400px] shrink-0 border-l border-border bg-background flex flex-col z-10 min-h-0">
           {activePreset ? (
             <VersionHistory presetId={activePreset._id as Id<"presets">} />
           ) : null}
