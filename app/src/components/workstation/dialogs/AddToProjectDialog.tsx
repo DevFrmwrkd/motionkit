@@ -107,7 +107,8 @@ export function AddToProjectDialog({
     }
   };
 
-  const handleProjectSelect = (value: string) => {
+  const handleProjectSelect = (value: string | null) => {
+    if (!value) return;
     if (value === "__new") {
       setShowCreateForm(true);
       setProjectId(null);
