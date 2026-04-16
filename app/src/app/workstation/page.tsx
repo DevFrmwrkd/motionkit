@@ -28,12 +28,14 @@ import { isRenderableBundle } from "@/lib/renderableCompositions";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import { EXPORT_FORMATS, type ExportFormatId } from "@/lib/export-formats";
 import {
+  GitFork,
   Loader2,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function WorkstationPage() {
@@ -219,6 +221,15 @@ function ActivePresetWorkspace({
   const createRenderJob = useMutation(api.renderJobs.create);
   const updatePreset = useMutation(api.presets.update);
   const dispatchRender = useAction(api.actions.renderWithLambda.dispatchRender);
+  const parentPresetId = activePreset?.parentPresetId ?? activePreset?.forkedFrom ?? null;
+  const parentPreset = useQuery(
+    api.presets.get,
+    parentPresetId
+      ? user
+        ? { id: parentPresetId, viewerId: user._id as Id<"users"> }
+        : { id: parentPresetId }
+      : "skip"
+  );
   const [userProps, setUserProps] = useState<Record<string, unknown>>({});
   const [editedCode, setEditedCode] = useState<string | null>(null);
   const [ignoreSavedVariantProps, setIgnoreSavedVariantProps] = useState(false);
@@ -682,6 +693,25 @@ function ActivePresetWorkspace({
             </Button>
           )}
         </div>
+
+        {parentPresetId && isOwner ? (
+          <div className="shrink-0 border-b border-violet-900/40 bg-violet-950/30 px-4 py-2 flex items-center gap-2 text-xs text-violet-200">
+            <GitFork className="w-3.5 h-3.5 shrink-0" />
+            <span className="min-w-0 truncate">
+              You&apos;re remixing{" "}
+              <span className="font-medium text-violet-100">
+                @{parentPreset?.author ?? "creator"}
+              </span>
+              ’s preset — your changes are saved to your fork.
+            </span>
+            <Link
+              href={`/p/${parentPresetId}`}
+              className="ml-auto shrink-0 text-violet-200 hover:text-violet-50 underline underline-offset-2"
+            >
+              View original
+            </Link>
+          </div>
+        ) : null}
 
         {/* Pinned video stage — fills the available space aspect-aware. */}
         <div className="flex-1 flex flex-col min-h-0">
