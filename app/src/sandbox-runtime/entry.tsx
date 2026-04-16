@@ -298,7 +298,13 @@ function ThumbnailStage({
           flexShrink: 0,
         }}
       >
+        {/* key forces Thumbnail to remount whenever inputProps change.
+            Without this, @remotion/player's Thumbnail memoizes the
+            rendered frame and ignores subsequent inputProps updates,
+            so the workstation's "Chart Title" edit never reflected in
+            the preview — the whole point of this view. */}
         <Thumbnail
+          key={JSON.stringify(inputProps)}
           component={component}
           inputProps={inputProps}
           compositionWidth={compositionWidth}
