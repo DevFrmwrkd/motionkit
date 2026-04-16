@@ -25,7 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { PresetSchema } from "@/lib/types";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { VariantsDropdown } from "@/components/workstation/VariantsDropdown";
 
 interface InputControlsProps {
   schema: PresetSchema | null;
@@ -40,16 +41,22 @@ interface InputControlsProps {
   sourceCode?: string | null;
   canEditCode?: boolean;
   onSaveCode?: (code: string) => Promise<void> | void;
+  /** Saved variants of the current preset */
+  variants?: Doc<"savedPresets">[] | undefined;
+  currentVariantId?: string;
+  onSelectVariant?: (variant: Doc<"savedPresets">) => void;
+  onSaveNewVariant?: (name: string) => Promise<void>;
 }
 
 /**
  * Right rail: schema controls, export formats, and optional code view/editor.
  *
  * Sections are presented in a clear hierarchy:
- *   1. Parameters — the primary task
- *   2. Brand Kit — optional polish layer
- *   3. Export Formats — picked before hitting render
- *   4. Code — view or edit the underlying preset source
+ *   1. Variants — switch between saved customizations (P1-7)
+ *   2. Parameters — the primary task
+ *   3. Brand Kit — optional polish layer
+ *   4. Export Formats — picked before hitting render
+ *   5. Code — view or edit the underlying preset source
  *
  * The render button is pinned to the bottom so it never scrolls away.
  */
@@ -66,6 +73,10 @@ export function InputControls({
   sourceCode,
   canEditCode = false,
   onSaveCode,
+  variants,
+  currentVariantId,
+  onSelectVariant,
+  onSaveNewVariant,
 
 }: InputControlsProps) {
   const [editableCode, setEditableCode] = useState(sourceCode ?? "");
@@ -123,12 +134,21 @@ export function InputControls({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 min-w-0">
-      {/* Header — the preset name is already shown in the workspace bar, so
-          this header just anchors the panel with variants and reset shortcut. */}
-      <div className="flex items-center justify-between px-3 h-9 border-b border-border shrink-0">
-        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
-          Controls
-        </h2>
+      {/* Header — variants dropdown on left, reset button on right */}
+      <div className="flex items-center justify-between px-3 h-9 border-b border-border shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80 shrink-0">
+            Controls
+          </h2>
+          {onSelectVariant && onSaveNewVariant && (
+            <VariantsDropdown
+              variants={variants}
+              currentVariantId={currentVariantId}
+              onSelectVariant={onSelectVariant}
+              onSaveNewVariant={onSaveNewVariant}
+            />
+          )}
+        </div>
         <button
           onClick={onReset}
           className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
