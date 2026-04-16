@@ -19,6 +19,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ForkButton } from "@/components/preset/ForkButton";
 import { normalizePresetPricing } from "../../../../../shared/presetPricing";
 
 function formatDuration(durationInFrames: number, fps: number) {
@@ -249,6 +250,17 @@ export default function PresetDetailsPage({
                     <ExternalLink className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
+
+                {!isOwner && user ? (
+                  <ForkButton
+                    presetId={preset._id as Id<"presets">}
+                    userId={user._id as Id<"users">}
+                    variant="default"
+                    size="lg"
+                    label="Remix to my library"
+                    className="w-full bg-violet-600 hover:bg-violet-500 text-white gap-2 h-10"
+                  />
+                ) : null}
 
                 {shouldPromptSignIn ? (
                   <Link href="/login" className="block">

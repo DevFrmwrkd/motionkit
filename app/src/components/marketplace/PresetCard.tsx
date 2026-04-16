@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Download, GitFork, Eye } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
+import { ForkButton } from "@/components/preset/ForkButton";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 const CATEGORY_COLORS: Record<string, string> = {
   intro: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -87,11 +89,20 @@ export function PresetCard({
               </span>
             </div>
           )}
-          {/* Play overlay */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm">
+          {/* Hover overlay — play preview + remix CTA */}
+          <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-zinc-950 shadow-lg">
               <Play className="w-5 h-5 ml-0.5" />
             </div>
+            <ForkButton
+              presetId={preset._id as Id<"presets">}
+              userId={(currentUserId as Id<"users"> | null) ?? null}
+              variant="default"
+              size="sm"
+              label="Remix"
+              stopPropagation
+              className="bg-violet-600 hover:bg-violet-500 text-white shadow-lg gap-1.5"
+            />
           </div>
           {/* Category badge */}
           <Badge
