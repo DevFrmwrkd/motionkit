@@ -1,3 +1,6 @@
 {
-  "buildCommand": "cd $(git rev-parse --show-toplevel) && npx convex deploy && pnpm --filter app build"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx convex codegen && pnpm --filter app build",
+  "outputDirectory": "app/.next",
+  "framework": "nextjs"
 }
