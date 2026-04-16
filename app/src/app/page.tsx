@@ -8,11 +8,11 @@ import {
   Sparkles,
   Wand2,
   Zap,
-  Layers,
   GitFork,
   ThumbsUp,
   Code2,
   Upload,
+  Layers,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -21,154 +21,179 @@ export default function LandingPage() {
       <SiteHeader />
 
       <main className="flex-1 flex flex-col">
-        {/* Hero */}
-        <section className="relative px-6 py-32 flex flex-col items-center justify-center text-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/5 via-zinc-950 to-zinc-950" />
+        {/* Hero — editorial: one idea, one line, one action.
+            Prior revision used a double amber→orange gradient on "Motion
+            Graphics" + a three-icon button cluster. That pattern reads as
+            AI-generated. Restraint here is deliberate. */}
+        <section className="relative px-6 pt-28 pb-24 md:pt-40 md:pb-32 overflow-hidden">
+          {/* Soft ambient wash — one tone, no rainbow */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,_var(--tw-gradient-stops))] from-amber-500/[0.06] via-zinc-950 to-zinc-950" />
+          {/* Subtle grid */}
+          <div
+            className="absolute inset-0 opacity-[0.025]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px)",
+              backgroundSize: "48px 48px",
+              maskImage:
+                "radial-gradient(ellipse 60% 50% at 50% 0%, black 30%, transparent 80%)",
+            }}
+          />
 
-          <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
-            <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-zinc-100 mb-6 leading-tight">
-              AI-Powered{" "}
-              <span className="bg-gradient-to-b from-amber-400 to-orange-500 bg-clip-text text-transparent drop-shadow-none">
-                Motion
-              </span>
+          <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-start md:items-center md:text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-xs font-medium text-zinc-400 backdrop-blur mb-8">
+              <span className="size-1.5 rounded-full bg-amber-400" />
+              MotionKit · Remotion workstation
+            </span>
+
+            <h1 className="text-5xl md:text-7xl font-semibold tracking-tight text-zinc-50 mb-6 leading-[1.05]">
+              Motion graphics,
               <br />
-              <span className="bg-gradient-to-b from-amber-500 to-orange-600 bg-clip-text text-transparent drop-shadow-none">
-                Graphics
-              </span>
-              <br />
-              For Everyone.
+              <span className="text-zinc-400">without the timeline.</span>
             </h1>
-            <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mb-10 leading-relaxed">
-              Describe what you want, and AI creates professional Remotion
-              animations with live preview. Clone, customize, and share with the
-              community. No code required.
+
+            <p className="text-base md:text-lg text-zinc-400 max-w-xl mb-10 leading-relaxed">
+              Describe a scene. Tune the inputs. Render in your browser. The
+              preset library is real code you can fork — not a catalogue you
+              beg for exports.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Link href="/create">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto h-14 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-bold px-8 text-lg"
+                  className="w-full sm:w-auto h-12 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold px-7 text-[15px]"
                 >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Create with AI
+                  Start with AI
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>
               </Link>
               <Link href="/marketplace">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full sm:w-auto h-14 border-zinc-700 text-zinc-200 hover:bg-zinc-800 font-semibold px-8 text-lg bg-zinc-900/50 backdrop-blur"
+                  className="w-full sm:w-auto h-12 border-zinc-800 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100 font-medium px-7 text-[15px] bg-transparent"
                 >
-                  <Layers className="w-5 h-5 mr-2" />
-                  Browse Marketplace
+                  Browse marketplace
                 </Button>
               </Link>
             </div>
           </div>
         </section>
 
-        {/* How it works */}
-        <section className="py-20 border-t border-zinc-900">
+        {/* How it works — editorial rail. Numbered badges replaced with
+            typographic step markers; palette stays neutral, with amber
+            reserved for the verb line, not decoration. */}
+        <section className="py-24 border-t border-zinc-900">
           <div className="max-w-5xl mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-4">
-              How it works
-            </h2>
-            <p className="text-zinc-400 text-center mb-14 max-w-xl mx-auto">
-              From idea to animated video in three steps.
-            </p>
+            <div className="mb-16 max-w-xl">
+              <span className="text-xs font-medium text-amber-400/80 uppercase tracking-wider mb-3 block">
+                How it works
+              </span>
+              <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-zinc-100">
+                From prompt to render, in one window.
+              </h2>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-900">
               {[
                 {
-                  step: "1",
+                  step: "01",
                   title: "Describe",
-                  desc: "Tell the AI what motion graphic you need. Choose a category and optionally upload a reference image.",
-                  icon: <Wand2 className="w-6 h-6 text-amber-500" />,
+                  desc: "Tell the model what you need. Category and reference image optional.",
+                  icon: <Wand2 className="w-4 h-4" />,
                 },
                 {
-                  step: "2",
-                  title: "Preview & Tweak",
-                  desc: "See a live Remotion preview instantly. Adjust colors, text, timing, and animations with generated controls.",
-                  icon: <Zap className="w-6 h-6 text-amber-500" />,
+                  step: "02",
+                  title: "Tune",
+                  desc: "Live Remotion preview. Schema-driven controls for copy, colour, timing.",
+                  icon: <Zap className="w-4 h-4" />,
                 },
                 {
-                  step: "3",
-                  title: "Share & Clone",
-                  desc: "Publish to the marketplace, let others clone and build on your work. Vote on the best designs.",
-                  icon: <GitFork className="w-6 h-6 text-amber-500" />,
+                  step: "03",
+                  title: "Ship",
+                  desc: "Render in-browser, publish to the marketplace, or fork someone else's.",
+                  icon: <GitFork className="w-4 h-4" />,
                 },
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="relative bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 transition-all duration-300 hover:bg-zinc-900 hover:border-zinc-700 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-amber-500/5"
+                  className="relative bg-zinc-950 p-8 md:p-10 transition-colors duration-200 hover:bg-zinc-900/60"
                 >
-                  <span className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-amber-500 text-zinc-950 font-bold text-sm flex items-center justify-center">
-                    {item.step}
-                  </span>
-                  <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-6">
-                    {item.icon}
+                  <div className="flex items-center justify-between mb-10">
+                    <span className="text-[11px] font-mono font-medium text-zinc-600 tracking-widest">
+                      {item.step}
+                    </span>
+                    <span className="text-zinc-700">{item.icon}</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-zinc-100 mb-3">
+                  <h3 className="text-base font-semibold text-zinc-100 mb-2">
                     {item.title}
                   </h3>
-                  <p className="text-zinc-400 leading-relaxed">{item.desc}</p>
+                  <p className="text-sm text-zinc-500 leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Features */}
-        <section className="py-20 border-t border-zinc-900">
+        {/* Features — condensed, labels not taglines. One accent per row. */}
+        <section className="py-24 border-t border-zinc-900">
           <div className="max-w-6xl mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-14">
-              Built for creators and developers
-            </h2>
+            <div className="mb-16 max-w-xl">
+              <span className="text-xs font-medium text-amber-400/80 uppercase tracking-wider mb-3 block">
+                What you get
+              </span>
+              <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-zinc-100">
+                Opinionated where it matters. Out of your way everywhere else.
+              </h2>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-900">
               {[
                 {
-                  icon: <Sparkles className="w-5 h-5 text-amber-500" />,
-                  title: "AI Generation",
-                  desc: "Gemini and Claude create Remotion code from your descriptions. Free daily quota included.",
+                  icon: <Sparkles className="w-4 h-4" />,
+                  title: "AI generation",
+                  desc: "Gemini, Claude, or any OpenRouter model. Bring your own key or use the platform quota.",
                 },
                 {
-                  icon: <GitFork className="w-5 h-5 text-amber-500" />,
-                  title: "Version Control",
-                  desc: "Clone any preset, create your own version. Track the full fork tree like Git.",
+                  icon: <GitFork className="w-4 h-4" />,
+                  title: "Every preset is a fork point",
+                  desc: "Clone the code, change a schema field, save a variant. No exports, no asset hunting.",
                 },
                 {
-                  icon: <ThumbsUp className="w-5 h-5 text-amber-500" />,
-                  title: "Community Voting",
-                  desc: "Upvote the best designs. Sort by trending, popular, or highest rated.",
+                  icon: <ThumbsUp className="w-4 h-4" />,
+                  title: "Community signal",
+                  desc: "Upvotes sort the marketplace. Forks track where the ideas actually went.",
                 },
                 {
-                  icon: <Code2 className="w-5 h-5 text-amber-500" />,
-                  title: "IDE Import",
-                  desc: "Developers can paste their own Remotion code directly. No AI needed.",
+                  icon: <Code2 className="w-4 h-4" />,
+                  title: "Paste-in import",
+                  desc: "Have your own Remotion composition? Paste the TSX, get a workstation row.",
                 },
                 {
-                  icon: <Upload className="w-5 h-5 text-amber-500" />,
-                  title: "Reference Images",
-                  desc: "Upload screenshots or mockups. The AI uses them for visual direction.",
+                  icon: <Upload className="w-4 h-4" />,
+                  title: "Reference images",
+                  desc: "Drop a screenshot or mockup. The model uses it as visual direction, not lore.",
                 },
                 {
-                  icon: <Layers className="w-5 h-5 text-amber-500" />,
-                  title: "Category Skills",
-                  desc: "Charts, maps, intros, transitions — each category loads specialized AI knowledge.",
+                  icon: <Layers className="w-4 h-4" />,
+                  title: "Per-category skills",
+                  desc: "Charts, maps, transitions, lower-thirds — each loads its own domain prompt.",
                 },
               ].map((feature, i) => (
                 <div
                   key={i}
-                  className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 transition-all duration-300 hover:bg-zinc-900 hover:border-zinc-700 hover:translate-y-[-2px] hover:shadow-lg hover:shadow-amber-500/5"
+                  className="bg-zinc-950 p-8 transition-colors duration-200 hover:bg-zinc-900/60"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-4">
+                  <span className="text-zinc-600 mb-6 block">
                     {feature.icon}
-                  </div>
-                  <h3 className="text-base font-semibold text-zinc-100 mb-2">
+                  </span>
+                  <h3 className="text-[15px] font-semibold text-zinc-100 mb-1.5">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-zinc-400 leading-relaxed">
+                  <p className="text-sm text-zinc-500 leading-relaxed">
                     {feature.desc}
                   </p>
                 </div>
@@ -177,23 +202,28 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="py-20 border-t border-zinc-900">
-          <div className="max-w-2xl mx-auto px-6 text-center">
-            <h2 className="text-3xl font-bold mb-4">
-              Ready to create?
-            </h2>
-            <p className="text-zinc-400 mb-8">
-              Start with the free AI tier. No credit card required.
-            </p>
-            <Link href="/create">
-              <Button
-                size="lg"
-                className="h-12 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-bold px-8"
-              >
-                Get Started <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
+        {/* CTA — quiet close, not a second pitch */}
+        <section className="py-24 border-t border-zinc-900">
+          <div className="max-w-3xl mx-auto px-6">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+              <div className="max-w-md">
+                <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-zinc-100 leading-[1.15]">
+                  Render one. See if it sticks.
+                </h2>
+                <p className="text-zinc-500 mt-3 text-[15px] leading-relaxed">
+                  Free daily quota. No card. Sign-in only if you want to save.
+                </p>
+              </div>
+              <Link href="/create" className="shrink-0">
+                <Button
+                  size="lg"
+                  className="h-12 bg-amber-500 text-zinc-950 hover:bg-amber-400 font-semibold px-7 text-[15px]"
+                >
+                  Open the workstation
+                  <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
       </main>
