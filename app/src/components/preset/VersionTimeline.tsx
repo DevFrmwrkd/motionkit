@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id, Doc } from "@convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

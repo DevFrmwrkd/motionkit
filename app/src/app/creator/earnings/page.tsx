@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatCurrency, getCreatorMetrics } from "@/lib/creator-metrics";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

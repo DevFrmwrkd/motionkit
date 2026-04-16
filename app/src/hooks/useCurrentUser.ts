@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { useConvexAuth, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { readDemoMode, subscribeDemoMode } from "@/lib/demo-mode";
 
 // Must match the server-side check in convex/lib/authz.ts. When this is

@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import { SchemaForm } from "@/components/preset/SchemaForm";
 import { ReferenceImageUpload } from "@/components/ai/ReferenceImageUpload";

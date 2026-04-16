@@ -13,8 +13,8 @@ import {
   Sparkles,
   ShieldAlert,
 } from "lucide-react";
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

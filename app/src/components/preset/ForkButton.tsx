@@ -3,8 +3,8 @@
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { GitFork, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";

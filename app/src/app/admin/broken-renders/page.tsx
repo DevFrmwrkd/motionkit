@@ -8,7 +8,7 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { api } from "../../../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
