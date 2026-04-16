@@ -184,23 +184,18 @@ function PlayerStage({
   }
 
   // The fitted-box trick:
-  //   width:  min(100%, 100vh * aspect)
-  //   height: min(100%, 100% / aspect)  ← handled by aspect-ratio
   // We use inline style so `aspectRatio` can be dynamic per preset.
   const stageStyle: React.CSSProperties = {
     aspectRatio: String(aspectRatio),
     maxHeight: "100%",
     maxWidth: "100%",
-    // Letting the box grow as tall as possible then width-cap via aspect ratio
-    // gives us the "fit largest rectangle" behavior in pure CSS.
-    height: "100%",
-    width: "auto",
+    margin: "auto",
   };
 
   return (
     <div
       style={stageStyle}
-      className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-border/60 bg-black"
+      className="relative rounded-xl overflow-hidden shadow-2xl ring-1 ring-border/60 bg-black w-full h-auto object-contain flex shrink"
     >
       {trustedComponent ? (
         <PresetPlayer

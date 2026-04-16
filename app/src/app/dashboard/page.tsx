@@ -100,29 +100,29 @@ export default function DashboardPage() {
     amber: {
       iconBg: "bg-amber-500/10",
       iconText: "text-amber-500",
-      border: "border-amber-500/20 hover:border-amber-500/40",
-      shadow: "hover:shadow-amber-500/5",
+      ring: "ring-amber-500/20 hover:ring-amber-500/50",
+      shadow: "shadow-amber-500/5 hover:shadow-amber-500/20",
       value: "text-amber-400",
     },
     violet: {
       iconBg: "bg-violet-500/10",
       iconText: "text-violet-400",
-      border: "border-violet-500/20 hover:border-violet-500/40",
-      shadow: "hover:shadow-violet-500/5",
+      ring: "ring-violet-500/20 hover:ring-violet-500/50",
+      shadow: "shadow-violet-500/5 hover:shadow-violet-500/20",
       value: "text-violet-400",
     },
     emerald: {
       iconBg: "bg-emerald-500/10",
       iconText: "text-emerald-400",
-      border: "border-emerald-500/20 hover:border-emerald-500/40",
-      shadow: "hover:shadow-emerald-500/5",
+      ring: "ring-emerald-500/20 hover:ring-emerald-500/50",
+      shadow: "shadow-emerald-500/5 hover:shadow-emerald-500/20",
       value: "text-emerald-400",
     },
     cyan: {
       iconBg: "bg-cyan-500/10",
       iconText: "text-cyan-400",
-      border: "border-cyan-500/20 hover:border-cyan-500/40",
-      shadow: "hover:shadow-cyan-500/5",
+      ring: "ring-cyan-500/20 hover:ring-cyan-500/50",
+      shadow: "shadow-cyan-500/5 hover:shadow-cyan-500/20",
       value: "text-cyan-400",
     },
   };
@@ -145,8 +145,8 @@ export default function DashboardPage() {
             <Card
               key={stat.label}
               className={[
-                "transition-all duration-300 hover:translate-y-[-2px] hover:shadow-lg",
-                colors.border,
+                "transition-all duration-300 hover:translate-y-[-2px] shadow-sm hover:shadow-lg bg-zinc-950/50 backdrop-blur-sm",
+                colors.ring,
                 colors.shadow,
               ].join(" ")}
             >

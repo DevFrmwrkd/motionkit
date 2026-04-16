@@ -769,7 +769,7 @@ function ActivePresetWorkspace({
       </div>
 
       {rightPanelOpen && (
-        <div className="w-[400px] shrink-0 border-l border-border bg-background flex flex-col z-10 min-h-0">
+        <div className="w-[440px] shrink-0 border-l border-border bg-background flex flex-col z-10 min-h-0">
           {activePreset ? (
             <VersionHistory presetId={activePreset._id as Id<"presets">} />
           ) : null}

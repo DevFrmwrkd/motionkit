@@ -28,11 +28,11 @@ export default function LandingPage() {
           <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-zinc-100 mb-6 leading-tight">
               AI-Powered{" "}
-              <span className="bg-gradient-to-b from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-b from-amber-400 to-orange-500 bg-clip-text text-transparent drop-shadow-none">
                 Motion
               </span>
               <br />
-              <span className="bg-gradient-to-b from-amber-500 to-orange-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-b from-amber-500 to-orange-600 bg-clip-text text-transparent drop-shadow-none">
                 Graphics
               </span>
               <br />
