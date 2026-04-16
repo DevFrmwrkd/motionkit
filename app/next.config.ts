@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
     "/*": [
       "node_modules/@swc/helpers/**/*",
       "node_modules/next/dist/**/*",
+      "../convex/**/*",
     ],
   },
   // Don't let Cloudflare's edge cache HTML pages — auth pages especially
