@@ -180,25 +180,47 @@ export function InputControls({
         defaultValue="controls"
         className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
-        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-max gap-0">
-          <TabsTrigger value="controls" className="text-[10px] py-1 px-2 gap-1 h-7">
+        {/* Up to 4 tabs (Controls / Code / AI Remix / Publish) have to
+            fit a right panel that users can squeeze down to 280px. Plain
+            flex was clipping "Publish" at narrow widths. Fixes:
+              - flex-wrap so tabs break to a second row instead of getting
+                clipped when the panel is tight
+              - whitespace-nowrap on labels so words don't break mid-
+                letter when a single tab is still wider than the row
+              - slightly tighter padding/gap to fit 4 tabs on one row at
+                the default ~320px width
+         */}
+        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-auto min-h-7 gap-0.5 p-0.5 flex-wrap">
+          <TabsTrigger
+            value="controls"
+            className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+          >
             <Sliders className="w-3 h-3" />
             Controls
           </TabsTrigger>
           {sourceCode && (
-            <TabsTrigger value="code" className="text-[10px] py-1 px-2 gap-1 h-7">
+            <TabsTrigger
+              value="code"
+              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+            >
               <Code2 className="w-3 h-3" />
               Code
             </TabsTrigger>
           )}
           {preset && (
-            <TabsTrigger value="remix" className="text-[10px] py-1 px-2 gap-1 h-7">
+            <TabsTrigger
+              value="remix"
+              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+            >
               <Sparkles className="w-3 h-3" />
               AI Remix
             </TabsTrigger>
           )}
           {preset && isOwner && (
-            <TabsTrigger value="publish" className="text-[10px] py-1 px-2 gap-1 h-7">
+            <TabsTrigger
+              value="publish"
+              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+            >
               <Upload className="w-3 h-3" />
               Publish
             </TabsTrigger>
