@@ -19,28 +19,39 @@ import type {
  * guidance was to keep them as parallel but independent scripts.
  */
 const STRAICO_MODEL = "google/gemini-3-flash-preview";
-const STRAICO_ENDPOINT = "https://api.straico.com/v0/prompt/completion";
+// OpenAI-compatible chat completions. Unlike `/v0/prompt/completion` (which
+// takes a single `message` string and strips system-role semantics), this
+// endpoint accepts a proper `messages: [{role, content}]` array so Gemini
+// sees the MotionKit system prompt as a real system instruction. Output
+// quality on the strict ---COMPONENT---/---SCHEMA---/---META--- format
+// noticeably better with the role separation preserved.
+const STRAICO_ENDPOINT = "https://api.straico.com/v0/chat/completions";
 
 const OVERLOAD_MESSAGE =
   "Straico is currently overloaded and can't process this request. " +
   "Please wait a moment and try again. You can also add your own Gemini API key " +
   "in Settings → API Keys to bypass the shared Straico quota.";
 
+// OpenAI-compatible response shape from /v0/chat/completions.
 type StraicoCompletion = {
-  data?: {
-    completion?: {
-      choices?: Array<{
-        message?: { content?: string };
-      }>;
-      usage?: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-      };
-    };
+  choices?: Array<{
+    message?: { content?: string };
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
   };
   error?: string | { message?: string };
-  success?: boolean;
+};
+
+type StraicoMessagePart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+type StraicoMessage = {
+  role: "system" | "user" | "assistant";
+  content: string | StraicoMessagePart[];
 };
 
 function isStraicoOverloaded(status: number, body: string): boolean {
@@ -97,33 +108,43 @@ function parseResponse(raw: string): {
 }
 
 /**
- * Straico's v0 endpoint takes a single `message` string (no system role), so
- * we concatenate the system prompt, previous code block, and user prompt into
- * one payload. This matches how the gemini.ts provider builds its prompt but
- * without the native systemInstruction slot.
+ * Build an OpenAI-compatible messages array with proper role separation.
+ * System prompt goes in a system message (honored as system instruction by
+ * Gemini via Straico) and user content goes in a user message. Prior code
+ * is appended to the user turn as context so the model can iterate on it.
  */
-function buildMessage(request: GenerationRequest): string {
-  const parts: string[] = [];
+function buildMessages(
+  request: GenerationRequest,
+  imageDataUrls: string[]
+): StraicoMessage[] {
+  const messages: StraicoMessage[] = [
+    { role: "system", content: request.systemPrompt },
+  ];
 
-  parts.push("=== SYSTEM INSTRUCTIONS ===");
-  parts.push(request.systemPrompt);
-  parts.push("=== END SYSTEM INSTRUCTIONS ===");
-
+  const userTextParts: string[] = [];
   if (request.previousCode) {
-    parts.push("");
-    parts.push("=== PREVIOUS CODE (iterate on this) ===");
-    parts.push(request.previousCode);
-    parts.push("=== END PREVIOUS CODE ===");
-    parts.push(
+    userTextParts.push("=== PREVIOUS CODE (iterate on this) ===");
+    userTextParts.push(request.previousCode);
+    userTextParts.push("=== END PREVIOUS CODE ===");
+    userTextParts.push(
       "Please improve or modify the above code based on my new instructions."
     );
+    userTextParts.push("");
+  }
+  userTextParts.push(request.prompt);
+  const userText = userTextParts.join("\n");
+
+  if (imageDataUrls.length === 0) {
+    messages.push({ role: "user", content: userText });
+  } else {
+    const parts: StraicoMessagePart[] = [{ type: "text", text: userText }];
+    for (const url of imageDataUrls) {
+      parts.push({ type: "image_url", image_url: { url } });
+    }
+    messages.push({ role: "user", content: parts });
   }
 
-  parts.push("");
-  parts.push("=== USER PROMPT ===");
-  parts.push(request.prompt);
-
-  return parts.join("\n");
+  return messages;
 }
 
 async function callStraico(
@@ -182,49 +203,62 @@ async function callStraico(
 }
 
 /**
+ * Fetch a reference image and return it as a base64 data URL. Straico's
+ * OpenAI-compat endpoint expects inline data URLs for vision input (same
+ * convention as OpenAI/OpenRouter).
+ */
+async function imageUrlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    const buf = await res.arrayBuffer();
+    const mime = res.headers.get("content-type") || "image/png";
+    const b64 = Buffer.from(buf).toString("base64");
+    return `data:${mime};base64,${b64}`;
+  } catch (e) {
+    console.warn("Failed to fetch reference image for Straico:", e);
+    return null;
+  }
+}
+
+/**
  * Generate a Remotion preset via Straico (Gemini 3 Flash backend).
- * Reference images are passed as `file_urls`; Straico fetches them
- * server-side rather than requiring base64 uploads.
+ * System prompt is passed as a real system message so the model honors the
+ * MotionKit output contract; reference images are inlined as data URLs.
  */
 export async function generateWithStraico(
   config: AIProviderConfig,
   request: GenerationRequest
 ): Promise<GenerationResult> {
-  const message = buildMessage(request);
-
   const referenceImageUrls = request.referenceImageUrls?.length
     ? request.referenceImageUrls
     : request.referenceImageUrl
       ? [request.referenceImageUrl]
       : [];
 
+  const dataUrls: string[] = [];
+  for (const url of referenceImageUrls.slice(0, 4)) {
+    const dataUrl = await imageUrlToDataUrl(url);
+    if (dataUrl) dataUrls.push(dataUrl);
+  }
+
   const body: Record<string, unknown> = {
     model: STRAICO_MODEL,
-    message,
+    messages: buildMessages(request, dataUrls),
+    temperature: 0.7,
+    max_tokens: 8192,
   };
-  if (referenceImageUrls.length > 0) {
-    body.file_urls = referenceImageUrls.slice(0, 4);
-  }
 
   const payload = await callStraico(config.apiKey, body);
-  const choice = payload.data?.completion?.choices?.[0];
-  const text = choice?.message?.content ?? "";
+  const text = payload.choices?.[0]?.message?.content ?? "";
+  if (!text) throw new Error("Straico returned an empty completion");
 
-  if (!text) {
-    throw new Error("Straico returned an empty completion");
-  }
-
-  const usage = payload.data?.completion?.usage;
+  const usage = payload.usage;
   const tokensUsed =
     usage?.total_tokens ??
     (usage?.prompt_tokens ?? 0) + (usage?.completion_tokens ?? 0);
 
   const parsed = parseResponse(text);
-
-  return {
-    ...parsed,
-    tokensUsed,
-  };
+  return { ...parsed, tokensUsed };
 }
 
 /**
@@ -240,18 +274,17 @@ export async function straicoRawCompletion(
 ): Promise<{ text: string; tokensUsed: number }> {
   const body: Record<string, unknown> = {
     model: STRAICO_MODEL,
-    message: `=== SYSTEM ===\n${systemPrompt}\n=== USER ===\n${userPrompt}`,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
   };
-  if (options.maxOutputTokens) {
-    body.max_tokens = options.maxOutputTokens;
-  }
-  if (options.temperature !== undefined) {
-    body.temperature = options.temperature;
-  }
+  if (options.maxOutputTokens) body.max_tokens = options.maxOutputTokens;
+  if (options.temperature !== undefined) body.temperature = options.temperature;
+
   const payload = await callStraico(apiKey, body);
-  const choice = payload.data?.completion?.choices?.[0];
-  const text = choice?.message?.content ?? "";
-  const usage = payload.data?.completion?.usage;
+  const text = payload.choices?.[0]?.message?.content ?? "";
+  const usage = payload.usage;
   const tokensUsed =
     usage?.total_tokens ??
     (usage?.prompt_tokens ?? 0) + (usage?.completion_tokens ?? 0);
