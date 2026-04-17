@@ -61,7 +61,16 @@ import {
   Film,
   Info,
   Key,
+  Type,
+  PlayCircle,
+  User,
+  BarChart3,
+  TrendingUp,
+  PieChart,
+  Map as MapIcon,
+  MousePointerClick,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -97,6 +106,99 @@ const STYLES = [
 
 type Category = (typeof CATEGORIES)[number]["value"];
 type Style = (typeof STYLES)[number]["value"];
+
+type Example = {
+  title: string;
+  prompt: string;
+  category: Category;
+  tag: string;
+  icon: LucideIcon;
+  tone: string;
+};
+
+const EXAMPLES: Example[] = [
+  {
+    title: "Elegant title card",
+    prompt:
+      "An elegant title card reading 'SERENITY' with letters revealing one at a time, deep navy background, a soft gold shimmer sweeping across on reveal. Editorial, restrained, confident typography.",
+    category: "title",
+    tag: "Title",
+    icon: Type,
+    tone: "text-amber-400 bg-amber-500/10 ring-amber-500/20",
+  },
+  {
+    title: "Channel intro burst",
+    prompt:
+      "Fast-paced YouTube channel intro with the word 'CHANNEL' exploding from the center with particle shards and a shockwave ring. High-energy motion, bold contrasting colors, snappy spring curves.",
+    category: "intro",
+    tag: "Intro",
+    icon: PlayCircle,
+    tone: "text-violet-400 bg-violet-500/10 ring-violet-500/20",
+  },
+  {
+    title: "Broadcast lower third",
+    prompt:
+      "Professional broadcast lower third with the name 'Sarah Chen' on line one and 'Head of Product Design' below, sliding in from the left with a clean accent bar and subtle drop shadow. Corporate palette.",
+    category: "lower-third",
+    tag: "Lower Third",
+    icon: User,
+    tone: "text-sky-400 bg-sky-500/10 ring-sky-500/20",
+  },
+  {
+    title: "Quarterly revenue bars",
+    prompt:
+      "Animated vertical bar chart of quarterly revenue: Q1 $1.2M, Q2 $1.8M, Q3 $2.4M, Q4 $3.1M. Bars grow from the bottom in sequence, values count up above each bar, subtle gridlines, axis labels, emerald accent.",
+    category: "chart",
+    tag: "Bar Chart",
+    icon: BarChart3,
+    tone: "text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
+  },
+  {
+    title: "Growth line chart",
+    prompt:
+      "Line chart showing daily active users growing from 12,000 to 42,000 over 30 days. The line draws in with a stroke animation, a pulsing dot traces the tip, final value labeled at the end. Dark background, neon green line.",
+    category: "chart",
+    tag: "Line Chart",
+    icon: TrendingUp,
+    tone: "text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
+  },
+  {
+    title: "Market split pie",
+    prompt:
+      "Pie chart of marketing mix: 40% Search, 30% Social, 20% Content, 10% Partnerships. Each slice sweeps in clockwise with its label and percentage fading in after. Muted corporate palette, clean sans-serif labels.",
+    category: "chart",
+    tag: "Pie Chart",
+    icon: PieChart,
+    tone: "text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
+  },
+  {
+    title: "Highlighted US states",
+    prompt:
+      "A dark US map where California, Texas, and New York highlight in amber one at a time with their state name labeled next to each. Other states render as a soft muted outline. Clean cartography, minimal.",
+    category: "map",
+    tag: "US Map",
+    icon: MapIcon,
+    tone: "text-rose-400 bg-rose-500/10 ring-rose-500/20",
+  },
+  {
+    title: "Flight route across world",
+    prompt:
+      "World map on a dark background with an animated flight route drawing from New York to Tokyo as a curved dashed line arcing over the globe. Origin and destination pulse. Countries rendered as soft outlines.",
+    category: "map",
+    tag: "World Map",
+    icon: Globe,
+    tone: "text-rose-400 bg-rose-500/10 ring-rose-500/20",
+  },
+  {
+    title: "Pulsing call to action",
+    prompt:
+      "Bold call to action: headline 'Ship your first preset today' above a large amber pill button reading 'Start free trial' that pulses gently. Dark surface, confident typography, generous whitespace.",
+    category: "cta",
+    tag: "CTA",
+    icon: MousePointerClick,
+    tone: "text-fuchsia-400 bg-fuchsia-500/10 ring-fuchsia-500/20",
+  },
+];
 type Provider = AiProvider;
 type GenerationStatus = "idle" | "generating" | "complete" | "failed";
 type GenerationDispatchResult =
@@ -227,6 +329,8 @@ function CreateWorkstation({
   );
   const getStorageUrl = useMutation(api.presets.getStorageUrl);
   const dispatchGeneration = useAction(api.aiGeneration.dispatch);
+  const optimizePromptAction = useAction(api.aiGeneration.optimizePrompt);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   // --- Parse generated schema + meta (pure JSON — no code execution) ---
   // The actual component code is executed ONLY inside the sandboxed iframe
@@ -551,6 +655,53 @@ function CreateWorkstation({
     runGenerationRequest,
   ]);
 
+  const handleOptimizePrompt = useCallback(async () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || isOptimizing || isGenerating) return;
+    if (missingProviderReason) {
+      toast.error(missingProviderReason);
+      return;
+    }
+
+    setIsOptimizing(true);
+    const loadingId = toast.loading("Optimizing prompt...");
+    try {
+      const res = await optimizePromptAction({
+        userId,
+        prompt: trimmed,
+        provider,
+        category: category === "auto" ? undefined : category,
+        openRouterModelOverride:
+          provider === "openrouter" && openRouterModelOverride.trim()
+            ? openRouterModelOverride.trim()
+            : undefined,
+      });
+      if (res.ok) {
+        setPrompt(res.optimizedPrompt);
+        toast.success("Prompt optimized", { id: loadingId });
+      } else {
+        toast.error(res.error, { id: loadingId });
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Optimization failed",
+        { id: loadingId }
+      );
+    } finally {
+      setIsOptimizing(false);
+    }
+  }, [
+    prompt,
+    isOptimizing,
+    isGenerating,
+    missingProviderReason,
+    optimizePromptAction,
+    userId,
+    provider,
+    category,
+    openRouterModelOverride,
+  ]);
+
   const handleIterate = useCallback(async () => {
     if (!iterationPrompt.trim() || !activeGenerationId) return;
 
@@ -702,8 +853,8 @@ function CreateWorkstation({
         {/* ================================================================ */}
         {/* LEFT COLUMN - AI Generator Panel                                 */}
         {/* ================================================================ */}
-        <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] h-full overflow-hidden">
-          <ScrollArea className="flex-1">
+        <div className="w-[300px] shrink-0 border-r border-border bg-background flex flex-col z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] h-full min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-4 space-y-4">
               {/* Header — provider status inline, no giant banner card */}
               <div className="flex items-center justify-between gap-2">
@@ -749,75 +900,78 @@ function CreateWorkstation({
                   placeholder="A sleek title card with the company name animating in letter by letter..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[90px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
-                  disabled={isGenerating}
+                  className="min-h-[90px] max-h-[240px] overflow-y-auto bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
+                  disabled={isGenerating || isOptimizing}
                 />
+                {prompt.trim().length > 0 && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleOptimizePrompt}
+                      disabled={isOptimizing || isGenerating}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[11px] font-medium text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isOptimizing ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      {isOptimizing ? "Optimizing..." : "Optimize prompt"}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Custom input fields — structured schema contract */}
+              {/* Type — auto-detect by default */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
-                  <span>Custom input fields</span>
-                  {customFields.filter((f) => f.name.trim()).length > 0 && (
-                    <span className="text-[10px] text-amber-400/80">
-                      {customFields.filter((f) => f.name.trim()).length} declared
-                    </span>
-                  )}
+                <label className="text-xs font-medium text-muted-foreground">
+                  Type
                 </label>
-                <CustomFieldsBuilder
-                  fields={customFields}
-                  onChange={setCustomFields}
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as Category)}
                   disabled={isGenerating}
-                />
+                >
+                  <SelectTrigger className="w-full bg-accent border-border text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    alignItemWithTrigger={false}
+                    className="min-w-[240px]"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Type + Style on one row — the dropdowns already display
-                  "Auto" as their value, so no need for duplicate "auto"
-                  chips beside the labels. */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5 min-w-0">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Type
-                  </label>
-                  <Select
-                    value={category}
-                    onValueChange={(v) => setCategory(v as Category)}
-                    disabled={isGenerating}
+              {/* Style — matches styleHelpers config */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Style
+                </label>
+                <Select
+                  value={style}
+                  onValueChange={(v) => setStyle(v as Style)}
+                  disabled={isGenerating}
+                >
+                  <SelectTrigger className="w-full bg-accent border-border text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    alignItemWithTrigger={false}
+                    className="min-w-[240px]"
                   >
-                    <SelectTrigger className="bg-accent border-border text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5 min-w-0">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Style
-                  </label>
-                  <Select
-                    value={style}
-                    onValueChange={(v) => setStyle(v as Style)}
-                    disabled={isGenerating}
-                  >
-                    <SelectTrigger className="bg-accent border-border text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STYLES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {STYLES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Advanced (collapsed by default — keeps the form clean) */}
@@ -844,10 +998,10 @@ function CreateWorkstation({
                       onValueChange={(v) => setProvider(v as Provider)}
                       disabled={isGenerating}
                     >
-                      <SelectTrigger className="bg-accent border-border text-sm">
+                      <SelectTrigger className="w-full bg-accent border-border text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent alignItemWithTrigger={false}>
                         <SelectItem value="gemini">
                           <span className="flex items-center gap-2">
                             Gemini
@@ -957,7 +1111,7 @@ function CreateWorkstation({
                       placeholder="Extra instructions for the model. E.g. 'Always use pastel colors and avoid particle effects.'"
                       value={customSystemPrompt}
                       onChange={(e) => setCustomSystemPrompt(e.target.value)}
-                      className="min-h-[80px] bg-accent border-border text-xs resize-y placeholder:text-muted-foreground"
+                      className="min-h-[80px] max-h-[200px] overflow-y-auto bg-accent border-border text-xs resize-y placeholder:text-muted-foreground"
                       disabled={isGenerating}
                       spellCheck={false}
                     />
@@ -1037,7 +1191,7 @@ function CreateWorkstation({
                       placeholder="Make the text bigger, change animation to slide in from the left..."
                       value={iterationPrompt}
                       onChange={(e) => setIterationPrompt(e.target.value)}
-                      className="min-h-[60px] bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
+                      className="min-h-[60px] max-h-[180px] overflow-y-auto bg-accent border-border text-sm resize-none placeholder:text-muted-foreground"
                       disabled={isGenerating}
                     />
                     <Button
@@ -1101,7 +1255,12 @@ function CreateWorkstation({
           <div className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-hidden">
             {/* IDLE state */}
             {localStatus === "idle" && !activeGeneration && (
-              <EmptyState />
+              <EmptyState
+                onSelect={(p, c) => {
+                  setPrompt(p);
+                  if (c) setCategory(c);
+                }}
+              />
             )}
 
             {/* GENERATING state */}
@@ -1224,9 +1383,9 @@ function RightPanel({
   onPublish: () => void;
 }) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 bg-background">
       {/* Preset title */}
-      <div className="px-4 py-3 border-b border-border">
+      <div className="shrink-0 px-4 py-3 border-b border-border bg-background">
         <h3 className="text-sm font-semibold text-foreground truncate">
           {meta.name}
         </h3>
@@ -1238,8 +1397,8 @@ function RightPanel({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="controls" className="flex-1 flex flex-col min-h-0">
-        <TabsList className="mx-4 mt-3 bg-card border border-border">
+      <Tabs defaultValue="controls" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <TabsList className="shrink-0 mx-4 mt-3 bg-card border border-border">
           <TabsTrigger value="controls" className="text-xs">
             Controls
           </TabsTrigger>
@@ -1249,8 +1408,8 @@ function RightPanel({
         </TabsList>
 
         {/* Controls Tab */}
-        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col">
-          <ScrollArea className="flex-1 px-4 py-3">
+        <TabsContent value="controls" className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0 px-4 py-3">
             {Object.keys(schema).length > 0 ? (
               <SchemaForm
                 schema={schema}
@@ -1264,7 +1423,7 @@ function RightPanel({
             )}
           </ScrollArea>
 
-          <div className="px-4 py-2 border-t border-border">
+          <div className="shrink-0 px-4 py-2 border-t border-border bg-background">
             <Button
               variant="ghost"
               size="sm"
@@ -1277,15 +1436,18 @@ function RightPanel({
         </TabsContent>
 
         {/* Code Tab */}
-        <TabsContent value="code" className="flex-1 min-h-0">
-          <ScrollArea className="flex-1 p-4">
+        <TabsContent value="code" className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0 p-4">
             <CodePreview code={code} />
           </ScrollArea>
         </TabsContent>
       </Tabs>
 
-      {/* Action buttons */}
-      <div className="p-4 border-t border-border space-y-2">
+      {/* Action buttons — pinned to the bottom of the panel. `shrink-0`
+          keeps them at natural height under flex pressure; the explicit
+          `bg-background` + `relative z-10` prevents the scrollable form
+          above from bleeding through the button pills. */}
+      <div className="shrink-0 relative z-10 p-4 border-t border-border bg-background space-y-2">
         <Button
           className="w-full bg-muted hover:bg-accent text-foreground"
           onClick={onSave}
@@ -1309,37 +1471,72 @@ function RightPanel({
 // State Components
 // ---------------------------------------------------------------------------
 
-function EmptyState() {
+function EmptyState({
+  onSelect,
+}: {
+  onSelect: (prompt: string, category?: Category) => void;
+}) {
   return (
-    <div className="text-center space-y-4 max-w-md">
-      <div className="w-16 h-16 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto">
-        <Sparkles className="w-7 h-7 text-amber-500" />
+    <div className="w-full max-w-4xl mx-auto space-y-8 py-6">
+      {/* Hero */}
+      <div className="text-center space-y-3">
+        <div className="w-14 h-14 rounded-2xl bg-card border border-border flex items-center justify-center mx-auto shadow-sm">
+          <Sparkles className="w-6 h-6 text-amber-500" />
+        </div>
+        <div>
+          <h3 className="text-xl font-semibold text-foreground">
+            Create with AI
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+            Describe what you want on the left, or start from a curated example
+            below. Click any card to load its prompt.
+          </p>
+        </div>
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-foreground">
-          Create with AI
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Describe your motion graphic on the left panel to generate a live
-          preview. No code needed.
-        </p>
+
+      {/* Gallery */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {EXAMPLES.map((ex) => {
+          const Icon = ex.icon;
+          return (
+            <button
+              key={ex.title}
+              type="button"
+              onClick={() => onSelect(ex.prompt, ex.category)}
+              className="group relative rounded-xl border border-border bg-card/40 hover:bg-card hover:border-amber-500/50 transition-all p-4 text-left space-y-2.5 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-7 h-7 rounded-md flex items-center justify-center ring-1 ${ex.tone}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  {ex.tag}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-foreground leading-snug">
+                  {ex.title}
+                </h4>
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                  {ex.prompt}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-medium text-amber-400/0 group-hover:text-amber-400 transition-colors">
+                Use this prompt
+                <ChevronRight className="w-3 h-3" />
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          );
+        })}
       </div>
-      <div className="flex flex-wrap gap-2 justify-center">
-        {[
-          "Animated title card",
-          "YouTube intro",
-          "Lower third",
-          "Social media post",
-        ].map((example) => (
-          <Badge
-            key={example}
-            variant="outline"
-            className="text-xs border-border text-muted-foreground cursor-default"
-          >
-            {example}
-          </Badge>
-        ))}
-      </div>
+
+      <p className="text-center text-[11px] text-muted-foreground">
+        Don&apos;t see what you want? Just describe it in your own words — the
+        AI picks the best skill automatically.
+      </p>
     </div>
   );
 }

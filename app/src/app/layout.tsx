@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "MotionKit — Motion Graphics Workstation",
   description:
     "Browse, customize, and render Remotion motion graphics presets without code.",
+  icons: {
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

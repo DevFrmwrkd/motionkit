@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm build:sandbox && next dev",
+    "dev": "pnpm build:sandbox && next dev --webpack",
     "build": "pnpm build:sandbox && next build --webpack",
     "build:sandbox": "node ./scripts/build-sandbox.mjs",
     "clean:worker": "find . -path './.git' -prune -o -path './node_modules' -prune -o -name '._*' -type f -delete && rm -rf .next .open-next",

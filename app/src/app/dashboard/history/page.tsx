@@ -14,8 +14,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Download, Clock } from "lucide-react";
+import { Loader2, Download, Clock, AlertCircle } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { MarketplacePreview } from "@/components/marketplace/MarketplacePreview";
+import { CategoryOverlay } from "@/components/shared/CategoryOverlay";
 
 export default function HistoryPage() {
   const { user } = useCurrentUser();
@@ -23,8 +25,8 @@ export default function HistoryPage() {
 
   const jobs = useQuery(api.renderJobs.listByUser, userId ? { userId } : "skip");
   const presets = useQuery(api.presets.list, userId ? { viewerId: userId } : "skip");
-  const presetNameById = useMemo(
-    () => new Map((presets ?? []).map((preset) => [preset._id, preset.name])),
+  const presetsById = useMemo(
+    () => new Map((presets ?? []).map((preset) => [preset._id, preset])),
     [presets]
   );
 
@@ -59,47 +61,136 @@ export default function HistoryPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground w-[140px]">
+                  Preview
+                </TableHead>
                 <TableHead className="text-muted-foreground">Preset</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Engine</TableHead>
                 <TableHead className="text-muted-foreground">Date</TableHead>
-                <TableHead className="text-muted-foreground text-right">Action</TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Action
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {jobs.map((job) => (
-                <TableRow key={job._id} className="border-border">
-                  <TableCell className="font-medium text-foreground max-w-[200px] truncate">
-                    {presetNameById.get(job.presetId) ?? job.bundleUrl}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={statusStyles[job.status] ?? ""}>
-                      {job.status === "rendering" && job.progress !== undefined
-                        ? `${job.progress}%`
-                        : job.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{job.renderEngine}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {job.startedAt ? new Date(job.startedAt).toLocaleDateString() : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {job.status === "done" && job.outputUrl && (
-                      <a
-                        href={job.outputUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-amber-500 hover:text-amber-400"
+              {jobs.map((job) => {
+                const preset = presetsById.get(job.presetId);
+                const presetName = preset?.name ?? job.bundleUrl;
+                const canPlay =
+                  job.status === "done" &&
+                  Boolean(preset?.sourceCode && preset?.inputSchema);
+
+                return (
+                  <TableRow key={job._id} className="border-border">
+                    <TableCell className="py-3">
+                      <RenderHistoryPreview
+                        canPlay={canPlay}
+                        failed={job.status === "failed"}
+                        preset={preset}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground max-w-[240px] truncate">
+                      {presetName}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={statusStyles[job.status] ?? ""}
                       >
-                        <Download className="w-3 h-3" /> Download
-                      </a>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {job.status === "rendering" && job.progress !== undefined
+                          ? `${job.progress}%`
+                          : job.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {job.renderEngine}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {job.startedAt
+                        ? new Date(job.startedAt).toLocaleDateString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {job.status === "done" && job.outputUrl && (
+                        <a
+                          href={job.outputUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-amber-500 hover:text-amber-400"
+                        >
+                          <Download className="w-3 h-3" /> Download
+                        </a>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Per-row preview. Live-plays the sandboxed preset for `done` renders
+ * (visibility-gated via MarketplacePreview's IntersectionObserver),
+ * falls back to the category overlay for failed / queued / rendering
+ * rows, and tints the failed ones with a red wash + warning glyph so
+ * the row reads at a glance.
+ */
+function RenderHistoryPreview({
+  canPlay,
+  failed,
+  preset,
+}: {
+  canPlay: boolean;
+  failed: boolean;
+  preset:
+    | {
+        category: string;
+        name: string;
+        description?: string;
+        sourceCode?: string;
+        inputSchema?: string;
+        fps?: number;
+        width?: number;
+        height?: number;
+        durationInFrames?: number;
+      }
+    | undefined;
+}) {
+  const category = preset?.category ?? "full";
+
+  return (
+    <div className="relative w-[120px] h-[68px] rounded-md overflow-hidden border border-border bg-zinc-950 shrink-0">
+      {canPlay && preset ? (
+        <MarketplacePreview
+          sourceCode={preset.sourceCode}
+          inputSchema={preset.inputSchema}
+          name={preset.name}
+          description={preset.description}
+          category={category}
+          fps={preset.fps ?? 30}
+          width={preset.width ?? 1920}
+          height={preset.height ?? 1080}
+          durationInFrames={preset.durationInFrames ?? 90}
+          overlay={<CategoryOverlay category={category} compact />}
+        />
+      ) : (
+        <>
+          <CategoryOverlay category={category} compact />
+          {failed && (
+            <>
+              <div className="absolute inset-0 bg-red-950/60" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-300/90" />
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );

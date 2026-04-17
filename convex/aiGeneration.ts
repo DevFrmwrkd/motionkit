@@ -191,7 +191,9 @@ function extractFirstJsonObject(value: string): string {
   const source = stripMarkdownFences(value);
   const startIndex = source.indexOf("{");
   if (startIndex === -1) {
-    throw new Error("No JSON object found in AI response");
+    throw new Error(
+      `No JSON object found in AI response. Raw: ${source.slice(0, 200)}`
+    );
   }
 
   let depth = 0;
@@ -225,7 +227,12 @@ function extractFirstJsonObject(value: string): string {
     }
   }
 
-  throw new Error("Unterminated JSON object in AI response");
+  // Include a tail snippet so callers can see where it actually cut off —
+  // most commonly a maxOutputTokens ceiling or a provider returning a
+  // non-JSON response wrapped in prose.
+  throw new Error(
+    `Unterminated JSON object in AI response. Length: ${source.length}, tail: ...${source.slice(-200)}`
+  );
 }
 
 function parseJsonObject<T>(value: string): T {
@@ -470,6 +477,10 @@ async function runJsonPrompt<T>(input: {
           temperature,
           max_tokens: maxOutputTokens,
           messages,
+          // OpenAI-compatible JSON mode. Most modern providers routed
+          // through OpenRouter honor it; ones that don't simply ignore
+          // the field and fall back on our system-prompt contract.
+          response_format: { type: "json_object" },
         }),
       }
     );
@@ -520,10 +531,20 @@ async function runJsonPrompt<T>(input: {
     const { result } = await callGeminiWithFallback(genAI, () => ({
       contents: [{ role: "user", parts }],
       systemInstruction: { role: "model", parts: [{ text: systemPrompt }] },
+      // `thinkingConfig` isn't in this SDK's type defs (legacy
+      // @google/generative-ai), but the Gemini REST API accepts it. On
+      // Gemini 3 Flash the model silently burns thinking tokens before
+      // emitting output, and they count against maxOutputTokens — which
+      // caused truncated JSON like `{"optimized":"...` with no close.
+      // "minimal" is the lowest level Gemini 3 Flash supports; thinking
+      // cannot be fully disabled on this model family.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       generationConfig: {
         temperature,
         maxOutputTokens,
-      },
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingLevel: "minimal" },
+      } as any,
     }));
 
     const response = result.response;
@@ -1244,5 +1265,134 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     await requireSignedInUser(ctx);
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Prompt optimization
+// ---------------------------------------------------------------------------
+
+const OPTIMIZE_PROMPT_SYSTEM = `You are an expert prompt engineer for a Remotion-based AI motion graphics generator.
+
+Rewrite the user's draft prompt so the generator produces a striking, production-quality result. The rewritten prompt MUST be:
+- Visually specific: palette (describe or hex), typography (weight, serif/sans, casing), composition, canvas ratio if implied
+- Motion-specific: entry/exit behavior, timing, easing ("spring", "ease-out", "elastic"), staggering, hold time
+- Style-specific: one of editorial, cinematic, broadcast, corporate, minimal, retro, futuristic, vibrant, warm — pick what fits
+- Concise: 2 to 3 sentences, strictly 40 to 70 words — never longer
+- Faithful: preserve the user's subject, brand, numbers, or labels exactly — do NOT invent content they did not mention
+- Self-contained: no preamble, no "Optimized prompt:", no markdown
+
+If the user mentions a data visualization (chart, map, etc.), call that out explicitly and keep their data verbatim.
+
+Return ONLY a JSON object with this exact shape:
+{"optimized": "the rewritten prompt"}`;
+
+export const optimizePrompt = action({
+  args: {
+    userId: v.id("users"),
+    prompt: v.string(),
+    provider: v.union(
+      v.literal("gemini"),
+      v.literal("claude"),
+      v.literal("openrouter")
+    ),
+    category: v.optional(v.string()),
+    openRouterModelOverride: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    { ok: true; optimizedPrompt: string } | { ok: false; error: string }
+  > => {
+    const authUserId = await requireAuthUserIdFromAction(ctx);
+    if (authUserId !== args.userId) {
+      return { ok: false, error: "Not authorized." };
+    }
+
+    const trimmed = args.prompt.trim();
+    if (trimmed.length < 4) {
+      return { ok: false, error: "Prompt is too short to optimize." };
+    }
+    if (trimmed.length > 2000) {
+      return {
+        ok: false,
+        error: "Prompt is too long to optimize (max 2000 chars).",
+      };
+    }
+
+    const userKeys = await ctx.runQuery(internal.users.getApiKeys, {
+      userId: authUserId,
+    });
+
+    let apiKey: string | null | undefined;
+    let resolvedOpenRouterModel: string | undefined;
+    if (args.provider === "gemini") {
+      apiKey = userKeys?.geminiApiKey || process.env.GOOGLE_API_KEY;
+    } else if (args.provider === "claude") {
+      apiKey = userKeys?.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+    } else {
+      apiKey =
+        userKeys?.openRouterApiKey || process.env.OPENROUTER_API_KEY || null;
+      resolvedOpenRouterModel = resolveOpenRouterModel(
+        args.openRouterModelOverride,
+        userKeys?.openRouterModel,
+        process.env.OPENROUTER_DEFAULT_MODEL
+      );
+    }
+
+    if (!apiKey) {
+      const keyName =
+        args.provider === "gemini"
+          ? "Google API key"
+          : args.provider === "claude"
+            ? "Anthropic API key"
+            : "OpenRouter API key";
+      return {
+        ok: false,
+        error: `No ${keyName} found. Add it in Settings → API Keys.`,
+      };
+    }
+
+    if (args.provider === "openrouter" && !resolvedOpenRouterModel) {
+      return {
+        ok: false,
+        error:
+          "OpenRouter requires a model id. Set one in Settings → API Keys.",
+      };
+    }
+
+    const userMessage = `Category hint: ${args.category ?? "auto"}\n\nDraft prompt:\n${trimmed}`;
+
+    try {
+      const result = await runJsonPrompt<{ optimized: string }>({
+        provider: args.provider,
+        apiKey,
+        systemPrompt: OPTIMIZE_PROMPT_SYSTEM,
+        prompt: userMessage,
+        temperature: 0.7,
+        // Gemini 3 Flash Preview burns "thinking" tokens from this same
+        // budget before emitting the JSON. The rewrite itself is short
+        // (40-70 words ≈ 120 output tokens), but thinking can consume
+        // several hundred more. 4096 is safe headroom — well under the
+        // model's 65k output cap but large enough that truncation is
+        // practically impossible for a short JSON response.
+        maxOutputTokens: 4096,
+        openRouterModel: resolvedOpenRouterModel,
+      });
+      const optimized = result.object?.optimized?.trim();
+      if (!optimized) {
+        return { ok: false, error: "Optimizer returned an empty result." };
+      }
+      return { ok: true, optimizedPrompt: optimized };
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Prompt optimization failed.",
+      };
+    }
   },
 });

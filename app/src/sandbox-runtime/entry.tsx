@@ -23,7 +23,7 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { Thumbnail, type PlayerRef } from "@remotion/player";
+import { Player, type PlayerRef } from "@remotion/player";
 import { compileAndExecute } from "../lib/preset-runtime/sandbox";
 import type { PresetExport } from "../lib/types";
 
@@ -93,6 +93,12 @@ function applySafetyPatches() {
 
 applySafetyPatches();
 
+type PlayerOptions = {
+  controls?: boolean;
+  loop?: boolean;
+  autoPlay?: boolean;
+};
+
 type HostMessage =
   | {
       type: "load";
@@ -100,6 +106,7 @@ type HostMessage =
       schemaJson: string;
       metaJson: string;
       inputProps: Record<string, unknown>;
+      options?: PlayerOptions;
     }
   | { type: "props"; inputProps: Record<string, unknown> }
   | { type: "play" }
@@ -126,6 +133,7 @@ function postToParent(msg: GuestMessage) {
 type RuntimeState = {
   preset: PresetExport | null;
   inputProps: Record<string, unknown>;
+  options: PlayerOptions;
   error: string | null;
 };
 
@@ -218,105 +226,30 @@ function RuntimeView({ state }: { state: RuntimeState }) {
     return <StatusView color="#71717a">Waiting for preset…</StatusView>;
   }
   const merged = mergeDefaults(state.preset, state.inputProps);
-  // Show a mid-animation frame so the preview reflects the "final" look
-  // the user will see in their rendered video — text animated in, bars
-  // drawn, etc. Frame 0 often shows empty pre-animation state.
-  const frameToDisplay = Math.floor(
-    state.preset.meta.durationInFrames * 0.75
-  );
+  const { controls = true, loop = true, autoPlay = true } = state.options;
   return (
-    <ThumbnailStage
-      component={state.preset.component}
-      inputProps={merged}
-      compositionWidth={state.preset.meta.width}
-      compositionHeight={state.preset.meta.height}
-      durationInFrames={state.preset.meta.durationInFrames}
-      fps={state.preset.meta.fps}
-      frameToDisplay={frameToDisplay}
-    />
-  );
-}
-
-/**
- * Renders a single Remotion frame scaled to fill the iframe while
- * preserving the composition aspect ratio. We avoid @remotion/player's
- * <Player> entirely — user explicitly does not want live playback in
- * the editor; the preview is a static "what will be rendered" snapshot
- * that re-renders whenever inputProps change. Video render happens only
- * when the preset is published to the marketplace.
- *
- * Thumbnail's own `style` prop caps at compositionWidth × compositionHeight
- * in physical pixels, so a 1920×1080 thumbnail in a 1500px viewport
- * renders tiny. We wrap it in a manually-scaled transform container to
- * force fill-to-parent with correct aspect ratio.
- */
-function ThumbnailStage({
-  component,
-  inputProps,
-  compositionWidth,
-  compositionHeight,
-  durationInFrames,
-  fps,
-  frameToDisplay,
-}: {
-  component: PresetExport["component"];
-  inputProps: Record<string, unknown>;
-  compositionWidth: number;
-  compositionHeight: number;
-  durationInFrames: number;
-  fps: number;
-  frameToDisplay: number;
-}) {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [scale, setScale] = React.useState(1);
-
-  React.useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => {
-      const parent = el.parentElement;
-      if (!parent) return;
-      const pw = parent.clientWidth;
-      const ph = parent.clientHeight;
-      if (pw === 0 || ph === 0) return;
-      const next = Math.min(pw / compositionWidth, ph / compositionHeight);
-      setScale(next);
-    });
-    if (el.parentElement) observer.observe(el.parentElement);
-    return () => observer.disconnect();
-  }, [compositionWidth, compositionHeight]);
-
-  return (
-    <div style={{ ...containerStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div
-        ref={containerRef}
-        style={{
-          width: compositionWidth,
-          height: compositionHeight,
-          transform: `scale(${scale})`,
-          transformOrigin: "center center",
-          flexShrink: 0,
-        }}
-      >
-        {/* key forces Thumbnail to remount whenever inputProps change.
-            Without this, @remotion/player's Thumbnail memoizes the
-            rendered frame and ignores subsequent inputProps updates,
-            so the workstation's "Chart Title" edit never reflected in
-            the preview — the whole point of this view. */}
-        <Thumbnail
-          key={JSON.stringify(inputProps)}
-          component={component}
-          inputProps={inputProps}
-          compositionWidth={compositionWidth}
-          compositionHeight={compositionHeight}
-          durationInFrames={durationInFrames}
-          fps={fps}
-          frameToDisplay={frameToDisplay}
-          style={{ width: "100%", height: "100%" }}
-          // @ts-expect-error Remotion accepts this prop at runtime; types lag the release.
-          acknowledgeRemotionLicense
-        />
-      </div>
+    <div
+      style={{
+        ...containerStyle,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Player
+        ref={handlePlayerRef}
+        component={state.preset.component}
+        inputProps={merged}
+        durationInFrames={state.preset.meta.durationInFrames}
+        fps={state.preset.meta.fps}
+        compositionWidth={state.preset.meta.width}
+        compositionHeight={state.preset.meta.height}
+        style={{ width: "100%", height: "100%" }}
+        controls={controls}
+        autoPlay={autoPlay}
+        loop={loop}
+        acknowledgeRemotionLicense
+      />
     </div>
   );
 }
@@ -329,7 +262,18 @@ const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Missing #root element");
 const root = createRoot(rootEl);
 
-let state: RuntimeState = { preset: null, inputProps: {}, error: null };
+const DEFAULT_OPTIONS: Required<PlayerOptions> = {
+  controls: true,
+  loop: true,
+  autoPlay: true,
+};
+
+let state: RuntimeState = {
+  preset: null,
+  inputProps: {},
+  options: { ...DEFAULT_OPTIONS },
+  error: null,
+};
 function render() {
   root.render(<RuntimeView state={state} />);
 }
@@ -343,7 +287,12 @@ window.addEventListener("message", (event) => {
     const result = compileAndExecute(data.code, data.schemaJson, data.metaJson);
     if (!result.ok) {
       const err = result.error.message;
-      state = { preset: null, inputProps: {}, error: err };
+      state = {
+        preset: null,
+        inputProps: {},
+        options: { ...DEFAULT_OPTIONS, ...(data.options ?? {}) },
+        error: err,
+      };
       render();
       postToParent({ type: "error", error: err });
       return;
@@ -351,6 +300,7 @@ window.addEventListener("message", (event) => {
     state = {
       preset: result.preset,
       inputProps: data.inputProps ?? {},
+      options: { ...DEFAULT_OPTIONS, ...(data.options ?? {}) },
       error: null,
     };
     render();

@@ -104,7 +104,7 @@ const ShimmerTitle: React.FC<{
               "'Inter', 'SF Pro Display', system-ui, sans-serif",
             letterSpacing: "-0.04em",
             lineHeight: 1,
-            background: shimmerBg,
+            backgroundImage: shimmerBg,
             WebkitBackgroundClip: "text",
             backgroundClip: "text",
             color: "transparent",

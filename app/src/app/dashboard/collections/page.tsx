@@ -9,13 +9,12 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Folder, Plus, Loader2, ArrowLeft, Trash2, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { GlassCreateForm } from "@/components/shared/GlassCreateForm";
 
 export default function CollectionsPage() {
   const router = useRouter();
@@ -193,49 +192,25 @@ export default function CollectionsPage() {
             </Button>
           </div>
 
-          {isCreating && (
-            <Card className="mb-6 bg-card border-border">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <FolderPlus className="w-4 h-4 text-violet-400" />
-                  <h2 className="text-sm font-semibold text-foreground">Create collection</h2>
-                </div>
-                <div className="grid gap-4 md:grid-cols-[1fr_1.3fr]">
-                  <Input
-                    value={collectionName}
-                    onChange={(e) => setCollectionName(e.target.value)}
-                    placeholder={`Collection ${(collections?.length ?? 0) + 1}`}
-                    className="bg-zinc-950 border-border text-foreground"
-                  />
-                  <Textarea
-                    value={collectionDescription}
-                    onChange={(e) => setCollectionDescription(e.target.value)}
-                    placeholder="Optional description for this grouping"
-                    className="min-h-[92px] bg-zinc-950 border-border text-foreground"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreating(false);
-                      setCollectionName("");
-                      setCollectionDescription("");
-                    }}
-                    className="border-border text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => void handleCreate()}
-                    className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
-                  >
-                    Create Collection
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <GlassCreateForm
+            open={isCreating}
+            icon={FolderPlus}
+            accent="violet"
+            title="Create collection"
+            nameValue={collectionName}
+            onNameChange={setCollectionName}
+            namePlaceholder={`Collection ${(collections?.length ?? 0) + 1}`}
+            descriptionValue={collectionDescription}
+            onDescriptionChange={setCollectionDescription}
+            descriptionPlaceholder="Optional description for this grouping"
+            submitLabel="Create Collection"
+            onSubmit={() => void handleCreate()}
+            onCancel={() => {
+              setIsCreating(false);
+              setCollectionName("");
+              setCollectionDescription("");
+            }}
+          />
 
           {collections === undefined ? (
             <div className="py-20 text-center">

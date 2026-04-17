@@ -9,8 +9,6 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Film,
   Plus,
@@ -25,6 +23,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BrandKitEditor } from "@/components/project/BrandKitEditor";
+import { GlassCreateForm } from "@/components/shared/GlassCreateForm";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -229,49 +228,25 @@ export default function ProjectsPage() {
             </Button>
           </div>
 
-          {isCreating && (
-            <Card className="mb-6 bg-card border-border">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <FolderPlus className="w-4 h-4 text-amber-500" />
-                  <h2 className="text-sm font-semibold text-foreground">Create project</h2>
-                </div>
-                <div className="grid gap-4 md:grid-cols-[1fr_1.3fr]">
-                  <Input
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder={`Project ${(projects?.length ?? 0) + 1}`}
-                    className="bg-zinc-950 border-border text-foreground"
-                  />
-                  <Textarea
-                    value={projectDescription}
-                    onChange={(e) => setProjectDescription(e.target.value)}
-                    placeholder="Optional description for the sequence or campaign"
-                    className="min-h-[92px] bg-zinc-950 border-border text-foreground"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreating(false);
-                      setProjectName("");
-                      setProjectDescription("");
-                    }}
-                    className="border-border text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => void handleCreate()}
-                    className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold"
-                  >
-                    Create Project
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <GlassCreateForm
+            open={isCreating}
+            icon={FolderPlus}
+            accent="amber"
+            title="Create project"
+            nameValue={projectName}
+            onNameChange={setProjectName}
+            namePlaceholder={`Project ${(projects?.length ?? 0) + 1}`}
+            descriptionValue={projectDescription}
+            onDescriptionChange={setProjectDescription}
+            descriptionPlaceholder="Optional description for the sequence or campaign"
+            submitLabel="Create Project"
+            onSubmit={() => void handleCreate()}
+            onCancel={() => {
+              setIsCreating(false);
+              setProjectName("");
+              setProjectDescription("");
+            }}
+          />
 
           {projects === undefined ? (
             <div className="py-20 text-center text-muted-foreground">

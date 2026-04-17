@@ -35,6 +35,14 @@ interface SandboxedPresetPlayerProps {
   aspectRatio?: number;
   /** Called whenever the sandbox reports or clears a compile/runtime error. */
   onErrorChange?: (error: string | null) => void;
+  /** Show Remotion's play/scrub controls bar. Defaults to true. */
+  controls?: boolean;
+  /** Loop playback when it reaches the end. Defaults to true. */
+  loop?: boolean;
+  /** Start playing on mount. Defaults to true. */
+  autoPlay?: boolean;
+  /** Fires when the inner Player emits an "ended" event (non-looping playback only). */
+  onEnded?: () => void;
   /**
    * Parent-facing handle that behaves like a Remotion `PlayerRef`. The sandbox
    * Player lives inside a null-origin iframe we can't reach directly, so we
@@ -63,6 +71,10 @@ export function SandboxedPresetPlayer({
   className,
   aspectRatio = 16 / 9,
   onErrorChange,
+  controls = true,
+  loop = true,
+  autoPlay = true,
+  onEnded,
   playerRef,
 }: SandboxedPresetPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -164,12 +176,13 @@ export function SandboxedPresetPlayer({
       } else if (data.type === "ended") {
         isPlayingRef.current = false;
         for (const l of listenersRef.current.ended) l();
+        onEnded?.();
       }
     }
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onErrorChange]);
+  }, [onErrorChange, onEnded]);
 
   // Ship the initial load once the iframe says it's ready.
   useEffect(() => {
@@ -186,13 +199,14 @@ export function SandboxedPresetPlayer({
         schemaJson,
         metaJson,
         inputProps,
+        options: { controls, loop, autoPlay },
       },
       "*"
     );
     // We intentionally do not include inputProps in deps — prop-only updates
     // go through the next effect below so we don't re-compile on every tweak.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, code, schemaJson, metaJson, onErrorChange]);
+  }, [isReady, code, schemaJson, metaJson, onErrorChange, controls, loop, autoPlay]);
 
   // Ship prop-only updates without recompiling.
   useEffect(() => {

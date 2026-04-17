@@ -266,6 +266,14 @@ export default function CreatorProfilePage({
                   cloneCount: preset.cloneCount,
                   parentPresetId: preset.parentPresetId,
                   thumbnailUrl: preset.thumbnailUrl,
+                  // Runtime fields so MarketplacePreview can play the
+                  // preset once when the card scrolls into view.
+                  sourceCode: preset.sourceCode,
+                  inputSchema: preset.inputSchema,
+                  fps: preset.fps,
+                  width: preset.width,
+                  height: preset.height,
+                  durationInFrames: preset.durationInFrames,
                 }}
                 currentUserId={user?._id ?? null}
                 currentVote={userVotesRaw ? (userVotesRaw[preset._id as string] ?? 0) : 0}

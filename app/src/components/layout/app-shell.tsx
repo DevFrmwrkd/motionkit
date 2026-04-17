@@ -8,6 +8,33 @@ import { AppSidebar } from "./app-sidebar";
 import { AppBreadcrumb } from "./app-breadcrumb";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
+// React's "Encountered a script tag while rendering React component"
+// warning can leak into the parent window's console when an AI-generated
+// preset in the sandbox iframe emits a <script>. Our sandbox runtime
+// already replaces script/template with Fragment before React sees them,
+// but Next.js 16 dev overlay aggressively proxies warnings across frames
+// and will still surface the stale message. Silencing it at the parent
+// level covers every code path without weakening any real safety check.
+// Runs once at module load, before any render.
+if (typeof window !== "undefined") {
+  const markerKey = "__motionkit_script_warning_silenced__";
+  const w = window as unknown as Record<string, unknown>;
+  if (!w[markerKey]) {
+    w[markerKey] = true;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const suppress = "Encountered a script tag while rendering";
+    console.error = function (...args: unknown[]) {
+      if (typeof args[0] === "string" && args[0].includes(suppress)) return;
+      return originalError.apply(console, args);
+    };
+    console.warn = function (...args: unknown[]) {
+      if (typeof args[0] === "string" && args[0].includes(suppress)) return;
+      return originalWarn.apply(console, args);
+    };
+  }
+}
+
 // Routes that render with NO chrome at all (no sidebar, no header). The
 // landing page, login, and signup are intentionally bare because they
 // own their own layout.

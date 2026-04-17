@@ -175,6 +175,8 @@ PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/7
 
 ## P1-8 — Preset VersionHistory UI ✅
 
+PR LINK: https://github.com/DevFrmwrkd/motionkit/pull/8     
+
 **Problem.** `app/src/components/preset/VersionHistory.tsx` exists but is mostly placeholder. `presetVersions` table exists in schema. No rollback, no diff view.
 
 **Files to touch.**

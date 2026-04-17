@@ -9,6 +9,7 @@ import {
   Store,
   Play,
   Settings,
+  Code2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -50,6 +51,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         ],
       },
       { title: "Create", url: "/create", icon: Sparkles },
+      { title: "Import", url: "/import", icon: Code2 },
       { title: "Settings", url: "/settings", icon: Settings },
     ],
   },
