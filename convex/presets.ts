@@ -1,4 +1,9 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { categoryValidator, statusValidator } from "./lib/validators";
 import type { Doc } from "./_generated/dataModel";
@@ -348,6 +353,44 @@ export const getStorageUrl = mutation({
     const url = await ctx.storage.getUrl(args.storageId);
     if (!url) throw new Error("Storage object not found");
     return url;
+  },
+});
+
+/**
+ * Admin backfill: set `sourceCode` on local/built-in presets that were
+ * seeded before we started persisting source. AI Remix gates on
+ * `sourceCode` being present, so without this every `local://presets/X`
+ * preset shows "No source to remix" even though the actual .tsx lives in
+ * the repo. Internal mutation, runnable via `npx convex run
+ * presets:backfillSourceCode '{"entries":[{"bundleUrl":"...","sourceCode":"..."}]}'`.
+ */
+export const backfillSourceCode = internalMutation({
+  args: {
+    entries: v.array(
+      v.object({
+        bundleUrl: v.string(),
+        sourceCode: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    let updated = 0;
+    let skipped = 0;
+    for (const entry of args.entries) {
+      const matches = await ctx.db
+        .query("presets")
+        .filter((q) => q.eq(q.field("bundleUrl"), entry.bundleUrl))
+        .collect();
+      if (matches.length === 0) {
+        skipped++;
+        continue;
+      }
+      for (const preset of matches) {
+        await ctx.db.patch(preset._id, { sourceCode: entry.sourceCode });
+        updated++;
+      }
+    }
+    return { updated, skipped, totalEntries: args.entries.length };
   },
 });
 
