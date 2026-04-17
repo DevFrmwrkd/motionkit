@@ -1,7 +1,6 @@
 "use client";
 
 import { use } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
@@ -20,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ForkButton } from "@/components/preset/ForkButton";
+import { InteractivePreview } from "@/components/preset/InteractivePreview";
 import { normalizePresetPricing } from "../../../../../shared/presetPricing";
 
 function formatDuration(durationInFrames: number, fps: number) {
@@ -148,76 +148,79 @@ export default function PresetDetailsPage({
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
           <Card className="overflow-hidden">
-            <div className="relative aspect-video border-b border-zinc-800 bg-zinc-950">
-              {preset.thumbnailUrl ? (
-                <Image
-                  src={preset.thumbnailUrl}
-                  alt={preset.name}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-950 to-amber-950/30" />
-              )}
-              <div className="absolute inset-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/60 via-black/10 to-transparent p-4">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
-                      {preset.category}
-                    </Badge>
-                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
-                      {preset.status}
-                    </Badge>
-                    <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
-                      {preset.isPublic ? "public" : "private"}
-                    </Badge>
-                    {reviewStatus?.reviewState ? (
-                      <Badge variant="outline" className="border-violet-700 bg-violet-950/40 text-violet-200">
-                        {reviewStatus.reviewState}
-                      </Badge>
-                    ) : null}
-                    {pricing.license ? (
-                      <Badge variant="outline" className="border-amber-700 bg-amber-950/30 text-amber-200">
-                        {pricing.license}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
-                      {preset.name}
-                    </h1>
-                    <p className="mt-1 text-sm text-zinc-300">
-                      By{" "}
-                      {(() => {
-                        // Built-in / seeded presets don't have a Convex
-                        // `authorId`, so fall back to a name-slug that the
-                        // creator page will resolve via getCreatorBySlug.
-                        const slug =
-                          preset.authorId ??
-                          (preset.author
-                            ? preset.author
-                                .trim()
-                                .toLowerCase()
-                                .replace(/[^a-z0-9]+/g, "-")
-                                .replace(/^-+|-+$/g, "")
-                            : "");
-                        if (slug) {
-                          return (
-                            <Link
-                              href={`/creators/${slug}`}
-                              className="font-medium hover:text-amber-400 transition-colors"
-                            >
-                              {preset.author ?? "Unknown"}
-                            </Link>
-                          );
-                        }
-                        return <span>{preset.author ?? "Unknown"}</span>;
-                      })()}
-                    </p>
-                  </div>
+            {/* Live interactive preview — real player (not a static
+                thumbnail) + schema-driven playground form. Lets the user
+                tweak inputs before committing to a Remix. */}
+            <InteractivePreview
+              preset={{
+                _id: preset._id,
+                name: preset.name,
+                bundleUrl: preset.bundleUrl,
+                sourceCode: preset.sourceCode,
+                inputSchema: preset.inputSchema,
+                fps: preset.fps,
+                width: preset.width,
+                height: preset.height,
+                durationInFrames: preset.durationInFrames,
+                category: preset.category,
+                thumbnailUrl: preset.thumbnailUrl ?? undefined,
+              }}
+            />
+
+            <div className="px-5 pt-5 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
+                  {preset.category}
+                </Badge>
+                <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
+                  {preset.status}
+                </Badge>
+                <Badge variant="outline" className="border-zinc-700 bg-zinc-950/70 text-zinc-100">
+                  {preset.isPublic ? "public" : "private"}
+                </Badge>
+                {reviewStatus?.reviewState ? (
+                  <Badge variant="outline" className="border-violet-700 bg-violet-950/40 text-violet-200">
+                    {reviewStatus.reviewState}
+                  </Badge>
+                ) : null}
+                {pricing.license ? (
+                  <Badge variant="outline" className="border-amber-700 bg-amber-950/30 text-amber-200">
+                    {pricing.license}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
+                    {preset.name}
+                  </h1>
+                  <p className="mt-1 text-sm text-zinc-300">
+                    By{" "}
+                    {(() => {
+                      const slug =
+                        preset.authorId ??
+                        (preset.author
+                          ? preset.author
+                              .trim()
+                              .toLowerCase()
+                              .replace(/[^a-z0-9]+/g, "-")
+                              .replace(/^-+|-+$/g, "")
+                          : "");
+                      if (slug) {
+                        return (
+                          <Link
+                            href={`/creators/${slug}`}
+                            className="font-medium hover:text-amber-400 transition-colors"
+                          >
+                            {preset.author ?? "Unknown"}
+                          </Link>
+                        );
+                      }
+                      return <span>{preset.author ?? "Unknown"}</span>;
+                    })()}
+                  </p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-zinc-200 backdrop-blur">
+                <div className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs text-zinc-300">
                   {preset.width}x{preset.height} · {preset.fps} fps
                 </div>
               </div>
