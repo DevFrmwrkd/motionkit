@@ -524,6 +524,72 @@ export default defineSchema({
     .index("by_client", ["clientId"])
     .index("by_client_date", ["clientId", "date"]),
 
+  // ─── Phase A: Site-wide feedback tracker ────────────────────
+  // Users (or anon guests) submit bug/idea/micro feedback with optional
+  // screenshot. Upvotes rank the backlog. Phase B will sync approved
+  // entries to GitHub issues; Phase C will auto-fix via Windmill → Claude
+  // Code on Hetzner. Schema intentionally narrow — extend as phases ship.
+  feedback: defineTable({
+    kind: v.union(
+      v.literal("bug"),
+      v.literal("improvement"),
+      v.literal("micro")
+    ),
+    title: v.string(),
+    body: v.string(),
+    // Convex file-storage id for a screenshot. Optional — most micro
+    // feedback won't have one. R2 wiring comes later.
+    screenshotId: v.optional(v.id("_storage")),
+    // Page path the feedback was submitted from, for routing fixes.
+    pagePath: v.optional(v.string()),
+    // Author: signed-in user id OR anon client id (localStorage UUID).
+    // At least one must be set; query layer enforces.
+    authorUserId: v.optional(v.id("users")),
+    authorClientId: v.optional(v.string()),
+    authorLabel: v.optional(v.string()), // display name / "Anonymous"
+    status: v.union(
+      v.literal("new"),
+      v.literal("triaged"),
+      v.literal("approved"),
+      v.literal("in-progress"),
+      v.literal("shipped"),
+      v.literal("wontfix")
+    ),
+    upvotes: v.number(),
+    commentCount: v.number(),
+    // Populated in Phase B when an approved entry becomes a GH issue.
+    githubIssueNumber: v.optional(v.number()),
+    githubIssueUrl: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_kind", ["kind"])
+    .index("by_upvotes", ["upvotes"])
+    .index("by_created", ["createdAt"]),
+
+  feedbackComments: defineTable({
+    feedbackId: v.id("feedback"),
+    authorUserId: v.optional(v.id("users")),
+    authorClientId: v.optional(v.string()),
+    authorLabel: v.optional(v.string()),
+    body: v.string(),
+    createdAt: v.number(),
+  }).index("by_feedback", ["feedbackId"]),
+
+  // One row per (voter, feedback) to dedupe. Voter keyed by user id OR
+  // anon client id. Compound index lets us check "has this voter voted
+  // on this feedback" in O(1).
+  feedbackVotes: defineTable({
+    feedbackId: v.id("feedback"),
+    voterUserId: v.optional(v.id("users")),
+    voterClientId: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_feedback", ["feedbackId"])
+    .index("by_user_feedback", ["voterUserId", "feedbackId"])
+    .index("by_client_feedback", ["voterClientId", "feedbackId"]),
+
   /**
    * Per-preset comment threads with category (feedback | bug | feature-
    * request). Creators can mark resolved and tie the resolution to a

@@ -24,6 +24,7 @@ import {
   LogOut,
   Settings,
   LayoutDashboard,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { writeDemoMode } from "@/lib/demo-mode";
@@ -128,6 +129,10 @@ export function SiteHeader() {
                     <LayoutDashboard className="size-4" />
                     Dashboard
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/feedback")}>
+                    <MessageSquare className="size-4" />
+                    Feedback
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push("/settings")}>
                     <Settings className="size-4" />
                     Settings
@@ -217,6 +222,14 @@ export function SiteHeader() {
                       >
                         <LayoutDashboard className="size-4" />
                         Dashboard
+                      </Link>
+                      <Link
+                        href="/feedback"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      >
+                        <MessageSquare className="size-4" />
+                        Feedback
                       </Link>
                       <Link
                         href="/settings"
