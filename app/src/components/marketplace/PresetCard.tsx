@@ -302,7 +302,14 @@ export function PresetCard({
   return (
     <div
       ref={cardRef}
-      onClick={() => router.push(`/workstation?presetId=${preset._id}`)}
+      // Browse flow: card click goes to the preset detail page so the user
+      // can inspect the full preview + metadata without forking. The Remix
+      // button overlay (bottom-right on hover) still creates a fork and
+      // drops the user straight into the workstation with their owned copy.
+      // Sending the bare click to /workstation directly was a dead-end:
+      // listWorkstation only returns presets the viewer owns, so the
+      // marketplace preset id never resolves and the page stayed blank.
+      onClick={() => router.push(`/p/${preset._id}`)}
       className="block h-full cursor-pointer group"
     >
       <Card
