@@ -24,6 +24,7 @@ import type * as auth from "../auth.js";
 import type * as billing from "../billing.js";
 import type * as collections from "../collections.js";
 import type * as crons from "../crons.js";
+import type * as feedback from "../feedback.js";
 import type * as geminiSeed from "../geminiSeed.js";
 import type * as http from "../http.js";
 import type * as lib_ai_providers_claude from "../lib/ai_providers/claude.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   billing: typeof billing;
   collections: typeof collections;
   crons: typeof crons;
+  feedback: typeof feedback;
   geminiSeed: typeof geminiSeed;
   http: typeof http;
   "lib/ai_providers/claude": typeof lib_ai_providers_claude;
