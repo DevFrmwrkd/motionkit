@@ -23,7 +23,7 @@ MotionKit/
 ├── package.json              # Root monorepo scripts
 ├── pnpm-workspace.yaml       # Workspaces — note: "shared" missing (see below)
 ├── vercel.json               # Root→app/ redirect for Vercel Pages deploy
-├── app/                      # Next.js 16 frontend (Cloudflare Pages / Vercel)
+├── app/                      # Next.js 16 frontend — Vercel primary (remotion-kit.com), Cloudflare Workers secondary (motionkit.frmwrkd-media.workers.dev)
 ├── convex/                   # Convex backend (real-time DB + serverless fns)
 ├── render-worker/            # Self-hosted Fastify + Remotion worker (Hetzner)
 ├── r2-uploader/              # Cloudflare Worker — signed PUT for rendered MP4s

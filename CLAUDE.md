@@ -10,14 +10,23 @@ MotionKit is a Remotion-powered motion graphics marketplace and workstation. Use
 - **Backend**: Convex (real-time DB + serverless functions) — in `/convex`
 - **Video**: Remotion + @remotion/player for preview, @remotion/cli for rendering
 - **Storage**: Cloudflare R2 (zero egress, CDN-cached preset bundles)
+- **Hosting (primary)**: Vercel → `remotion-kit.com`
+- **Hosting (secondary/dev)**: Cloudflare Workers (OpenNext adapter) → `motionkit.frmwrkd-media.workers.dev`
 - **Rendering**: Modal API (BYOK) or Remotion Lambda (alt)
 - **UI**: Shadcn/UI (initialized, 14 components), lucide-react icons, react-colorful, framer-motion
+
+## Deployment URLs
+
+- **Production**: https://remotion-kit.com (Vercel, project `motionkit`, team `theo-vas-projects`)
+- **Dev/Preview**: https://motionkit.frmwrkd-media.workers.dev (Cloudflare Workers, OpenNext)
+- **Convex (canonical)**: `https://superb-oriole-955.convex.cloud` — matches Vercel prod env. ALL wirings must point here.
+- **R2 uploader Worker**: separate Cloudflare Worker in `r2-uploader/` (HMAC-signed PUT for rendered MP4s) — not related to frontend host.
 
 ## Project Structure
 
 ```
 motionkit/
-├── app/                    # Next.js frontend (Cloudflare Pages)
+├── app/                    # Next.js frontend (Vercel primary, Cloudflare Workers secondary)
 │   └── src/
 │       ├── app/            # App Router pages
 │       ├── components/     # React components (workstation/, preset/, marketplace/, shared/)

@@ -2,7 +2,7 @@
 
 > Planning document. Use `README.md`, `.env.example`, and `docs/CONTENT-MAP.md` for the current safe source of truth.
 
-Cloudflare Pages + Convex + optional R2 + optional Modal is still the intended deployment direction, but this repo should never contain literal secrets.
+Vercel (primary, remotion-kit.com) + Cloudflare Workers via OpenNext (dev/preview at motionkit.frmwrkd-media.workers.dev) + Convex (`superb-oriole-955`) + R2 + optional Modal is the current deployment direction. This repo should never contain literal secrets.
 
 ---
 

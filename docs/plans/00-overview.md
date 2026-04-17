@@ -13,7 +13,8 @@
                         └────────────┬────────────────────┘
                                      │
                         ┌────────────▼────────────────────┐
-                        │   Cloudflare Pages (Next.js)    │
+                        │   Vercel (Next.js)              │
+                        │   remotion-kit.com              │
                         │   ─────────────────────────     │
                         │   - Marketplace UI              │
                         │   - Workstation (3-panel)       │
@@ -43,7 +44,8 @@
 | Preview | @remotion/player | Client-side live animation preview |
 | Backend | Convex | Real-time subscriptions, document DB, built-in auth |
 | Storage | Cloudflare R2 | Zero egress fees, CDN edge caching |
-| Hosting | Cloudflare Pages | Fast deploys, integrated with R2 |
+| Hosting (prod) | Vercel → remotion-kit.com | Next.js-native DX, preview deploys |
+| Hosting (dev) | Cloudflare Workers via OpenNext → motionkit.frmwrkd-media.workers.dev | Staging env, same-network with R2 |
 | Rendering | Modal (primary) | Simple BYOK, $30/mo free tier |
 | Rendering (alt) | Remotion Lambda | For AWS-native users |
 | AI Assist | Google Gemini (API key available) | Preset generation, prompt-to-motion |
@@ -64,7 +66,7 @@
 - Remotion Player for client-side preview
 - Render button -> Convex action -> Modal API -> R2 output -> download
 - SSE/polling progress updates
-- Deploy on Cloudflare Pages
+- Deploy on Vercel (prod) + Cloudflare Workers (dev/preview)
 - **Exit criteria**: Type text, see preview, click render, watch progress, download video
 
 ### Phase 2 -- Preset Contract + Dynamic Loader (Weeks 3-4)
