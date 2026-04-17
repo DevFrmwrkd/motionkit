@@ -298,7 +298,14 @@ export const getPublicProfile = query({
  * we just aggregate every public preset that shares the author string.
  */
 export const getCreatorBySlug = query({
-  args: { slug: v.string() },
+  args: {
+    slug: v.string(),
+    // Who is viewing? If viewerId === profile owner, we reveal the
+    // real identity regardless of isPublicProfile — you always see
+    // yourself as yourself. Only strangers see the "AI Tester"
+    // placeholder when a profile is private.
+    viewerId: v.optional(v.id("users")),
+  },
   handler: async (ctx, args) => {
     const slug = args.slug.trim();
     if (!slug) return null;
@@ -311,7 +318,15 @@ export const getCreatorBySlug = query({
     if (userId) {
       const user = await ctx.db.get(userId);
       if (user) {
-        const isPublic = user.isPublicProfile === true;
+        const isOwner = args.viewerId === user._id;
+        // Public-by-default: `undefined` and `true` both count as public.
+        // The user's name is already exposed via every preset they publish
+        // to the marketplace (as `preset.author`), so hiding their profile
+        // when they didn't explicitly opt out produces a confusing
+        // inconsistency where a card shows "Steven Madali" but the
+        // profile page says "AI Tester". Only an explicit false hides.
+        const isPublic = user.isPublicProfile !== false;
+        const revealIdentity = isOwner || isPublic;
         const presets = await ctx.db
           .query("presets")
           .withIndex("by_author", (q) => q.eq("authorId", userId))
@@ -331,11 +346,15 @@ export const getCreatorBySlug = query({
           _id: user._id as string,
           slug,
           synthetic: false as const,
-          name: isPublic ? (user.name ?? "AI Tester") : "AI Tester",
-          avatarUrl: isPublic ? (user.avatarUrl ?? user.image) : undefined,
-          bio: isPublic ? user.bio : AI_TESTER_BIO,
-          website: isPublic ? user.website : undefined,
-          socialLinks: isPublic ? user.socialLinks : undefined,
+          isOwner,
+          isPublicProfile: isPublic,
+          name: revealIdentity ? (user.name ?? "AI Tester") : "AI Tester",
+          avatarUrl: revealIdentity
+            ? (user.avatarUrl ?? user.image)
+            : undefined,
+          bio: revealIdentity ? user.bio : AI_TESTER_BIO,
+          website: revealIdentity ? user.website : undefined,
+          socialLinks: revealIdentity ? user.socialLinks : undefined,
           role: user.role,
           presetCount: publishedPresets.length,
           totalDownloads,
@@ -388,6 +407,8 @@ export const getCreatorBySlug = query({
       _id: normalizedTarget,
       slug: normalizedTarget,
       synthetic: true as const,
+      isOwner: false,
+      isPublicProfile: true,
       name: displayName,
       avatarUrl: undefined,
       bio: AI_TESTER_BIO,

@@ -271,6 +271,34 @@ export const get = query({
   },
 });
 
+/**
+ * Batch-fetch presets by id, filtered by viewer access.
+ *
+ * Exists so surfaces that display a user-curated list of preset ids
+ * (Collections, Projects, Render History) can resolve both owned AND
+ * publicly-accessible presets in a single round-trip. Without this,
+ * foreign presets added to a collection show "Preset unavailable"
+ * because `listByUser` only returns owned records.
+ */
+export const getMany = query({
+  args: {
+    ids: v.array(v.id("presets")),
+    viewerId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    if (args.viewerId) {
+      await requireAuthorizedUser(ctx, args.viewerId);
+    }
+    if (args.ids.length === 0) return [];
+
+    const presets = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+    return presets.filter(
+      (preset): preset is NonNullable<typeof preset> =>
+        preset !== null && canAccessPreset(preset, args.viewerId)
+    );
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
@@ -9,6 +9,13 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { PresetCard } from "@/components/marketplace/PresetCard";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Download,
   ExternalLink,
@@ -51,10 +58,47 @@ export default function CreatorProfilePage({
 }) {
   const { userId } = use(params);
   const { user } = useCurrentUser();
+  const viewerId = user?._id as Id<"users"> | undefined;
   // The route param is now a "slug" — it can be either a real Convex user
   // id OR an author-name slug (e.g. "claude", "motionkit") for seeded
   // built-in presets that never got a users row. The query handles both.
-  const profile = useQuery(api.users.getCreatorBySlug, { slug: userId });
+  // Passing viewerId so the owner always sees their own name/avatar even
+  // when their isPublicProfile toggle is off.
+  const profile = useQuery(api.users.getCreatorBySlug, {
+    slug: userId,
+    viewerId,
+  });
+
+  // --- Sort + filter state for the preset grid ---
+  type SortMode = "recent" | "downloads" | "votes";
+  const [sortBy, setSortBy] = useState<SortMode>("recent");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const visiblePresets = useMemo(() => {
+    const source = profile?.presets ?? [];
+    const filtered =
+      categoryFilter === "all"
+        ? source
+        : source.filter((p) => p.category === categoryFilter);
+    const sorted = filtered.slice().sort((a, b) => {
+      if (sortBy === "downloads") {
+        return (b.downloads ?? 0) - (a.downloads ?? 0);
+      }
+      if (sortBy === "votes") {
+        return (b.voteScore ?? 0) - (a.voteScore ?? 0);
+      }
+      return (b._creationTime ?? 0) - (a._creationTime ?? 0);
+    });
+    return sorted;
+  }, [profile?.presets, categoryFilter, sortBy]);
+
+  const availableCategories = useMemo(() => {
+    const categories = new Set<string>();
+    for (const preset of profile?.presets ?? []) {
+      categories.add(preset.category);
+    }
+    return ["all", ...Array.from(categories).sort()];
+  }, [profile?.presets]);
   const castVote = useMutation(api.votes.castVote);
   const presetIds = (profile?.presets ?? []).map((p) => p._id as Id<"presets">);
   const userVotesRaw = useQuery(
@@ -228,17 +272,56 @@ export default function CreatorProfilePage({
 
       {/* Preset grid */}
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-zinc-100">
-            Published presets
-          </h2>
-          <Badge
-            variant="outline"
-            className="border-zinc-800 text-zinc-400"
-          >
-            {profile.presetCount} preset
-            {profile.presetCount !== 1 ? "s" : ""}
-          </Badge>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-zinc-100">
+              Published presets
+            </h2>
+            <Badge
+              variant="outline"
+              className="border-zinc-800 text-zinc-400"
+            >
+              {profile.presetCount} preset
+              {profile.presetCount !== 1 ? "s" : ""}
+            </Badge>
+          </div>
+
+          {profile.presets.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => setCategoryFilter(v ?? "all")}
+              >
+                <SelectTrigger className="w-[160px] bg-zinc-900/50 border-zinc-800 text-sm">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {availableCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat === "all"
+                        ? "All categories"
+                        : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={sortBy}
+                onValueChange={(v) => {
+                  if (v) setSortBy(v as SortMode);
+                }}
+              >
+                <SelectTrigger className="w-[160px] bg-zinc-900/50 border-zinc-800 text-sm">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectItem value="recent">Most recent</SelectItem>
+                  <SelectItem value="downloads">Most downloads</SelectItem>
+                  <SelectItem value="votes">Most votes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {profile.presets.length === 0 ? (
@@ -248,9 +331,15 @@ export default function CreatorProfilePage({
               No published presets yet.
             </p>
           </div>
+        ) : visiblePresets.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 p-12 text-center">
+            <p className="text-sm text-zinc-500">
+              No presets match the current filter.
+            </p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-            {profile.presets.map((preset) => (
+            {visiblePresets.map((preset) => (
               <PresetCard
                 key={preset._id}
                 preset={{

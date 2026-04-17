@@ -23,7 +23,6 @@ export default function CollectionsPage() {
   const userId = user?._id as Id<"users"> | undefined;
 
   const collections = useQuery(api.collections.listByUser, userId ? { userId } : "skip");
-  const presets = useQuery(api.presets.list, userId ? { viewerId: userId } : "skip");
   const createCollection = useMutation(api.collections.create);
   const removeCollection = useMutation(api.collections.remove);
   const activeCollectionId = searchParams.get("id");
@@ -31,12 +30,31 @@ export default function CollectionsPage() {
   const [collectionName, setCollectionName] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
-  const presetsById = useMemo(
-    () => new Map((presets ?? []).map((preset) => [preset._id, preset])),
-    [presets]
-  );
   const activeCollection = collections?.find(
     (collection) => collection._id === activeCollectionId
+  );
+
+  // Batch-fetch all presets referenced by the currently-active collection
+  // (including foreign/marketplace presets the user added). Without
+  // `getMany`, `listByUser` would only return owned presets and foreign
+  // ones would show "Preset unavailable" permanently. Query stays in
+  // "skip" until the collection resolves so we don't fetch-then-refetch.
+  const activePresetIds = useMemo(
+    () =>
+      (activeCollection?.presetIds ?? []) as Id<"presets">[],
+    [activeCollection]
+  );
+  const activePresets = useQuery(
+    api.presets.getMany,
+    userId && activePresetIds.length > 0
+      ? { ids: activePresetIds, viewerId: userId }
+      : "skip"
+  );
+  const isLoadingActivePresets =
+    activePresetIds.length > 0 && activePresets === undefined;
+  const presetsById = useMemo(
+    () => new Map((activePresets ?? []).map((preset) => [preset._id, preset])),
+    [activePresets]
   );
 
   const handleCreate = async () => {
@@ -140,11 +158,40 @@ export default function CollectionsPage() {
               {activeCollection.presetIds.map((presetId) => {
                 const preset = presetsById.get(presetId);
 
+                // While the batched `getMany` query is in flight we
+                // render a skeleton card instead of "Preset unavailable"
+                // so the user doesn't briefly see a broken-looking
+                // state on every collection visit.
+                if (!preset && isLoadingActivePresets) {
+                  return (
+                    <Card
+                      key={presetId}
+                      className="bg-card border-border animate-pulse"
+                    >
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-5 h-5 rounded bg-muted" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3.5 rounded bg-muted w-3/5" />
+                            <div className="h-2.5 rounded bg-muted/70 w-1/3" />
+                          </div>
+                        </div>
+                        <div className="h-2.5 rounded bg-muted/50 w-full" />
+                        <div className="h-2.5 rounded bg-muted/50 w-4/5" />
+                        <div className="h-9 rounded bg-muted/70 w-full" />
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
                 if (!preset) {
+                  // Genuinely inaccessible (private + unowned, or deleted).
                   return (
                     <Card key={presetId} className="bg-card border-border">
                       <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Preset unavailable</p>
+                        <p className="text-sm text-muted-foreground">
+                          Preset unavailable
+                        </p>
                       </CardContent>
                     </Card>
                   );

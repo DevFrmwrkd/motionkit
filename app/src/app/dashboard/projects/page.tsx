@@ -24,6 +24,8 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { BrandKitEditor } from "@/components/project/BrandKitEditor";
 import { GlassCreateForm } from "@/components/shared/GlassCreateForm";
+import { MarketplacePreview } from "@/components/marketplace/MarketplacePreview";
+import { CategoryOverlay } from "@/components/shared/CategoryOverlay";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -171,31 +173,70 @@ export default function ProjectsPage() {
                     ? savedPresetsById.get(entry.savedPresetId)
                     : null;
 
+                  const canPlay = Boolean(
+                    preset?.sourceCode && preset?.inputSchema
+                  );
+                  const category = preset?.category ?? "full";
+
                   return (
                     <Card
                       key={`${entry.presetId}-${entry.order}`}
-                      className="bg-card border-border hover:border-border/70 transition-colors"
+                      className="bg-card border-border hover:border-border/70 transition-colors overflow-hidden"
                     >
                       <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="shrink-0 w-10 h-10 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-mono text-sm">
+                        <div className="flex items-center gap-4 min-w-0 flex-1">
+                          <div className="shrink-0 w-8 h-8 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-mono text-xs">
                             {entry.order + 1}
                           </div>
-                          <div className="min-w-0">
+
+                          {/* Animated preview — matches marketplace card
+                              behavior: loops while in viewport, overlay
+                              fallback otherwise. */}
+                          <div className="relative shrink-0 w-[132px] h-[74px] rounded-md overflow-hidden border border-border bg-zinc-950">
+                            {canPlay && preset ? (
+                              <MarketplacePreview
+                                sourceCode={preset.sourceCode}
+                                inputSchema={preset.inputSchema}
+                                name={preset.name}
+                                description={preset.description}
+                                category={category}
+                                fps={preset.fps ?? 30}
+                                width={preset.width ?? 1920}
+                                height={preset.height ?? 1080}
+                                durationInFrames={
+                                  preset.durationInFrames ?? 90
+                                }
+                                overlay={
+                                  <CategoryOverlay
+                                    category={category}
+                                    compact
+                                  />
+                                }
+                              />
+                            ) : (
+                              <CategoryOverlay category={category} compact />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-foreground truncate">
-                              {savedVariant?.name ?? preset?.name ?? "Preset unavailable"}
+                              {savedVariant?.name ??
+                                preset?.name ??
+                                "Preset unavailable"}
                             </h3>
                             <p className="text-xs text-muted-foreground truncate">
                               {savedVariant
                                 ? "Saved variant"
-                                : preset?.category ?? "Unknown category"}
+                                : (preset?.category ?? "Unknown category")}
                             </p>
                           </div>
                         </div>
                         <Link
-                          href={entry.savedPresetId
-                            ? `/workstation?savedPresetId=${entry.savedPresetId}&projectId=${activeProject._id}`
-                            : `/workstation?presetId=${entry.presetId}&projectId=${activeProject._id}`}
+                          href={
+                            entry.savedPresetId
+                              ? `/workstation?savedPresetId=${entry.savedPresetId}&projectId=${activeProject._id}`
+                              : `/workstation?presetId=${entry.presetId}&projectId=${activeProject._id}`
+                          }
                         >
                           <Button
                             variant="outline"

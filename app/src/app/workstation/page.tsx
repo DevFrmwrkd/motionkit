@@ -9,6 +9,7 @@ import { TimelinePanel } from "@/components/workstation/TimelinePanel";
 import { InputControls } from "@/components/workstation/InputControls";
 import type { MockBrandKit } from "@/components/workstation/BrandKitPicker";
 import { AddToProjectDialog } from "@/components/workstation/dialogs/AddToProjectDialog";
+import { AddToCollectionDialog } from "@/components/workstation/dialogs/AddToCollectionDialog";
 import { SavePresetDialog } from "@/components/workstation/dialogs/SavePresetDialog";
 import { ForkButton } from "@/components/preset/ForkButton";
 import { VersionHistory } from "@/components/preset/VersionHistory";
@@ -117,7 +118,31 @@ function WorkstationContent() {
 
   const effectivePresetId =
     urlPresetId || savedPreset?.presetId || fallbackPresetId;
-  const activePreset = presets?.find((preset) => preset._id === effectivePresetId) ?? null;
+
+  // Fallback fetch: if the URL points at a preset the user doesn't own
+  // (shared link, foreign marketplace preset, bookmark, etc.),
+  // `listWorkstation` won't include it and the stage stays blank. This
+  // parallel query pulls the preset directly by id — `api.presets.get`
+  // respects `canAccessPreset`, so public or owned presets come back and
+  // truly-private foreign presets remain null. Uses the same `presetId`
+  // the URL/saved-preset chain resolves to so we never fire a redundant
+  // query for presets already in the owned list.
+  const foreignPresetDoc = useQuery(
+    api.presets.get,
+    effectivePresetId
+      ? {
+          id: effectivePresetId as Id<"presets">,
+          viewerId: user?._id as Id<"users"> | undefined,
+        }
+      : "skip"
+  );
+
+  const activePreset =
+    presets?.find((preset) => preset._id === effectivePresetId) ??
+    (foreignPresetDoc &&
+    foreignPresetDoc._id === effectivePresetId
+      ? (foreignPresetDoc as Doc<"presets">)
+      : null);
   const workspaceKey = `${effectivePresetId ?? "empty"}:${urlSavedPresetId ?? "base"}`;
 
   // Panel collapse state — lets the user reclaim horizontal space on narrow
@@ -125,7 +150,11 @@ function WorkstationContent() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
-  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  // Default wide enough that all four tab labels (Controls / Code /
+  // Remix / Publish) render as text, not truncated. At ~360px the
+  // longest labels ("Controls" / "Publish") were clipping to "Cont..."
+  // once padding + icon + gap ate into the flex-1 share.
+  const [rightPanelWidth, setRightPanelWidth] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
   const isResizingRef = useState({ current: false })[0];
   // Re-sync ref to state for use in event listeners without re-attaching
@@ -833,6 +862,11 @@ function ActivePresetWorkspace({
                     userId={user._id as Id<"users">}
                     presetId={activePreset._id as Id<"presets">}
                     savedPresetId={savedPreset?._id as Id<"savedPresets"> | undefined}
+                    triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
+                  />
+                  <AddToCollectionDialog
+                    userId={user._id as Id<"users">}
+                    presetId={activePreset._id as Id<"presets">}
                     triggerClassName="border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 gap-1.5"
                   />
                   <SavePresetDialog

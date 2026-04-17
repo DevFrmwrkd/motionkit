@@ -6,7 +6,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { PresetCard } from "@/components/marketplace/PresetCard";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { Input } from "@/components/ui/input";
+import { MarketplaceSearchOverlay } from "@/components/marketplace/MarketplaceSearchOverlay";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Sparkles, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -123,17 +123,16 @@ export default function MarketplacePage() {
 
           {/* Toolbar row */}
           <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search presets, creators, categories…"
+            <div className="flex-1 max-w-xl flex">
+              <MarketplaceSearchOverlay
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-16 h-9"
+                onChange={setSearchQuery}
+                resultCount={
+                  searchQuery.trim().length >= 2
+                    ? (searchResults?.length ?? undefined)
+                    : undefined
+                }
               />
-              <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                ⌘K
-              </kbd>
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
               <SelectTrigger size="sm" className="w-[160px] gap-1.5">

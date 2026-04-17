@@ -10,6 +10,7 @@ import {
   Play,
   Settings,
   Code2,
+  MessageSquareText,
 } from "lucide-react";
 import {
   Collapsible,
@@ -38,6 +39,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "",
     items: [
+      { title: "Feedback", url: "/feedback", icon: MessageSquareText },
       { title: "Marketplace", url: "/marketplace", icon: Store },
       {
         title: "Workstation",

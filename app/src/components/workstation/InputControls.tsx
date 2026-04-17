@@ -180,49 +180,52 @@ export function InputControls({
         defaultValue="controls"
         className="flex-1 flex flex-col min-h-0 overflow-hidden"
       >
-        {/* Up to 4 tabs (Controls / Code / AI Remix / Publish) have to
-            fit a right panel that users can squeeze down to 280px. Plain
-            flex was clipping "Publish" at narrow widths. Fixes:
-              - flex-wrap so tabs break to a second row instead of getting
-                clipped when the panel is tight
-              - whitespace-nowrap on labels so words don't break mid-
-                letter when a single tab is still wider than the row
-              - slightly tighter padding/gap to fit 4 tabs on one row at
-                the default ~320px width
-         */}
-        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-auto min-h-7 gap-0.5 p-0.5 flex-wrap">
+        {/* Up to 4 tabs (Controls / Code / Remix / Publish) share the
+            right-panel header at ~280-400px wide. Marked as a CSS
+            container so labels hide/show based on the panel width, not
+            the viewport. Below ~360px wide we render icon-only with
+            `title` tooltips; above that the shortened labels appear. */}
+        {/* Four tabs share the right-panel header. Each is flex-1 so they
+            divide the row evenly; labels always render and truncate with
+            `...` if the panel is dragged very narrow. Title tooltips
+            stay as an accessibility fallback when truncation bites. */}
+        <TabsList className="mx-3 mt-2 shrink-0 bg-card border border-border h-auto min-h-9 gap-0.5 p-1 flex">
           <TabsTrigger
             value="controls"
-            className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+            title="Controls"
+            className="flex-1 min-w-0 text-xs font-medium py-1 px-1.5 gap-1 h-7 whitespace-nowrap justify-center"
           >
-            <Sliders className="w-3 h-3" />
-            Controls
+            <Sliders className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Controls</span>
           </TabsTrigger>
           {sourceCode && (
             <TabsTrigger
               value="code"
-              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+              title="Code"
+              className="flex-1 min-w-0 text-xs font-medium py-1 px-1.5 gap-1 h-7 whitespace-nowrap justify-center"
             >
-              <Code2 className="w-3 h-3" />
-              Code
+              <Code2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Code</span>
             </TabsTrigger>
           )}
           {preset && (
             <TabsTrigger
               value="remix"
-              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+              title="AI Remix"
+              className="flex-1 min-w-0 text-xs font-medium py-1 px-1.5 gap-1 h-7 whitespace-nowrap justify-center"
             >
-              <Sparkles className="w-3 h-3" />
-              AI Remix
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Remix</span>
             </TabsTrigger>
           )}
-          {preset && isOwner && (
+          {preset && (
             <TabsTrigger
               value="publish"
-              className="text-[10px] py-1 px-1.5 gap-1 h-6 whitespace-nowrap"
+              title={isOwner ? "Publish" : "Remix to publish your own version"}
+              className="flex-1 min-w-0 text-xs font-medium py-1 px-1.5 gap-1 h-7 whitespace-nowrap justify-center"
             >
-              <Upload className="w-3 h-3" />
-              Publish
+              <Upload className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Publish</span>
             </TabsTrigger>
           )}
         </TabsList>

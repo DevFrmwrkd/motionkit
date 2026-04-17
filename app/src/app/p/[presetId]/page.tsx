@@ -259,7 +259,8 @@ export default function PresetDetailsPage({
                   <CardTitle>Actions</CardTitle>
                 </div>
                 <CardDescription>
-                  Open the preset, continue to checkout, or jump into the workstation.
+                  Open in the workstation to preview, or remix for an
+                  editable copy in your library.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -272,7 +273,15 @@ export default function PresetDetailsPage({
                   </Link>
                 ) : null}
 
-                <Link href={`/workstation?presetId=${preset._id}`} className="block">
+                {/* Workstation now falls back to `api.presets.get` for any
+                    preset the viewer can access (public or owned), so this
+                    link works regardless of ownership — the stage renders
+                    the animation immediately. Remix remains available for
+                    non-owners who want an editable copy. */}
+                <Link
+                  href={`/workstation?presetId=${preset._id}`}
+                  className="block"
+                >
                   <Button className="w-full bg-amber-500 text-zinc-950 hover:bg-amber-400">
                     Open in workstation
                     <ExternalLink className="ml-2 h-4 w-4" />

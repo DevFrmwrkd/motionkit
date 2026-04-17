@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, GitFork, Eye, Crown } from "lucide-react";
 import { VoteButtons } from "./VoteButtons";
 import { ForkButton } from "@/components/preset/ForkButton";
+import { AddToCollectionDialog } from "@/components/workstation/dialogs/AddToCollectionDialog";
 import { SandboxedPresetPlayer } from "@/components/preset/SandboxedPresetPlayer";
 import { PresetPlayer } from "@/components/preset/PresetPlayer";
 import { presetRegistry } from "@/lib/preset-registry";
@@ -391,20 +392,33 @@ export function PresetCard({
             </div>
           ) : null}
 
-          {/* Hover overlay — Remix CTA only, parked bottom-right. The
-              card is (almost) always in motion now, so the Play-icon
-              prompt would be dishonest; the Remix action is the only
-              thing worth offering on top. */}
+          {/* Hover overlay — Remix + Add-to-collection CTAs, parked
+              bottom-right. The card is (almost) always in motion now,
+              so the Play-icon prompt would be dishonest; these are the
+              two actions worth offering on top without taking the user
+              off the card. */}
           <div className="absolute inset-0 z-[2] opacity-0 group-hover:opacity-100 transition-all duration-200 bg-gradient-to-t from-black/60 via-transparent to-transparent">
-            <ForkButton
-              presetId={preset._id as Id<"presets">}
-              userId={(currentUserId as Id<"users"> | null) ?? null}
-              variant="default"
-              size="sm"
-              label="Remix"
-              stopPropagation
-              className="absolute bottom-3 right-3 bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5"
-            />
+            <div
+              className="absolute bottom-3 right-3 flex items-center gap-1.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {currentUserId ? (
+                <AddToCollectionDialog
+                  userId={currentUserId as Id<"users">}
+                  presetId={preset._id as Id<"presets">}
+                  triggerClassName="h-8 px-2.5 bg-zinc-950/80 hover:bg-zinc-900 text-zinc-100 border-zinc-700 backdrop-blur-md gap-1.5 shadow-lg shadow-black/30"
+                />
+              ) : null}
+              <ForkButton
+                presetId={preset._id as Id<"presets">}
+                userId={(currentUserId as Id<"users"> | null) ?? null}
+                variant="default"
+                size="sm"
+                label="Remix"
+                stopPropagation
+                className="bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 gap-1.5"
+              />
+            </div>
           </div>
 
           {/* Badges — top row */}
