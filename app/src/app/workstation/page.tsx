@@ -159,11 +159,25 @@ function WorkstationContent() {
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("mouseleave", handleMouseUp);
+    // Safety nets: if the pointer release happens outside the window
+    // (off-screen, another app, devtools, etc.) `mouseup` never fires and
+    // the resize overlay gets stuck covering the whole page, blocking
+    // every subsequent click. Reset on any of these events.
+    window.addEventListener("pointerup", handleMouseUp);
+    window.addEventListener("pointercancel", handleMouseUp);
+    window.addEventListener("blur", handleMouseUp);
+    document.addEventListener("visibilitychange", handleMouseUp);
+    window.addEventListener("keydown", handleMouseUp);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("mouseleave", handleMouseUp);
+      window.removeEventListener("pointerup", handleMouseUp);
+      window.removeEventListener("pointercancel", handleMouseUp);
+      window.removeEventListener("blur", handleMouseUp);
+      document.removeEventListener("visibilitychange", handleMouseUp);
+      window.removeEventListener("keydown", handleMouseUp);
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
@@ -766,9 +780,10 @@ function ActivePresetWorkspace({
 
   return (
     <>
-      {isResizing && (
-        <div className="fixed inset-0 z-[100] cursor-col-resize select-none pointer-events-auto" />
-      )}
+      {/* The outer WorkstationPage already renders a z-[9999] overlay with
+          mousemove/mouseup handlers while resizing. A second overlay here
+          with NO handlers was a handler-less duplicate that could trap
+          clicks if the state ever got stuck. Removed. */}
       <div className={`flex flex-1 overflow-hidden ${isResizing ? "select-none" : ""}`}>
         <div className="flex-1 min-w-0 bg-background/40 flex flex-col">
           {/* Workspace header — panel toggles on the edges, preset actions in
