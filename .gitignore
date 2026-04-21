@@ -43,6 +43,7 @@ Thumbs.db
 
 # Temp / seed data (not part of the build)
 temp/
+tmp/
 
 # Debug
 npm-debug.log*
